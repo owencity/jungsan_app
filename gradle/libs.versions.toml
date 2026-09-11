@@ -1,0 +1,45 @@
+# 버전은 여기서만 올린다. 모듈 build.gradle.kts 에 숫자를 직접 쓰지 않는다.
+[versions]
+# Kotlin 과 Compose Multiplatform 은 짝이 맞아야 한다 — 따로 올리면 컴파일러 플러그인이 깨진다.
+kotlin = "2.1.21"
+composeMultiplatform = "1.8.0"
+agp = "8.7.3"
+
+androidCompileSdk = "36"
+# 24(Android 7.0) — 이보다 낮추면 최신 라이브러리 대부분이 안 붙고,
+# 높이면 구형 단말이 잘린다. 정산은 특별한 API 가 필요 없어서 낮게 잡는다.
+androidMinSdk = "24"
+androidTargetSdk = "36"
+
+androidxActivity = "1.9.3"
+androidxLifecycle = "2.8.4"
+ktor = "3.0.3"
+kotlinxSerialization = "1.7.3"
+kotlinxCoroutines = "1.9.0"
+kotlinxDatetime = "0.6.1"
+navigation = "2.8.0-alpha10"
+
+[libraries]
+androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidxActivity" }
+androidx-lifecycle-viewmodel = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "androidxLifecycle" }
+
+# 네트워크 — 엔진만 플랫폼별로 갈린다. 호출 코드는 commonMain 하나로 공유한다.
+ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
+ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
+ktor-serialization-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }
+ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
+ktor-client-darwin = { module = "io.ktor:ktor-client-darwin", version.ref = "ktor" }
+ktor-client-logging = { module = "io.ktor:ktor-client-logging", version.ref = "ktor" }
+
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
+kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinxDatetime" }
+
+navigation-compose = { module = "org.jetbrains.androidx.navigation:navigation-compose", version.ref = "navigation" }
+
+[plugins]
+androidApplication = { id = "com.android.application", version.ref = "agp" }
+kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+composeMultiplatform = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }
+composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+kotlinSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }

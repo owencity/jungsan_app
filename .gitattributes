@@ -1,0 +1,11 @@
+# gradlew 는 POSIX 셸 스크립트다. Windows 에서 커밋하면 core.autocrlf 설정에 따라
+# CRLF 로 바뀔 수 있는데, 그러면 macOS/Linux CI 러너에서 실행이 깨진다.
+# 항상 LF 로 고정한다 — Windows 개발자는 gradlew.bat 를 쓰므로 영향 없다.
+gradlew text eol=lf
+*.sh text eol=lf
+
+# 바이너리 — 줄바꿈 변환 대상이 아니다. 잘못 변환되면 zip 손상으로 gradle 실행이 깨진다.
+gradle/wrapper/gradle-wrapper.jar binary
+*.jar binary
+*.png binary
+*.jpg binary

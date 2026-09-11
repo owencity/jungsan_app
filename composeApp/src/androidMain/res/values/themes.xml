@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Compose 가 화면을 다 그리므로 시스템 테마는 껍데기만 있으면 된다.
+         스플래시 깜빡임을 줄이려고 배경색만 앱 색으로 맞춘다. -->
+    <style name="Theme.Jeongsan" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">#F6FAFF</item>
+    </style>
+</resources>
