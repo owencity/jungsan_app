@@ -11,8 +11,27 @@ object Routes {
     const val Home = "home"
     const val NewGroup = "group/new"
 
-    private const val GroupDetailPattern = "group/{id}"
-    const val GroupDetail = GroupDetailPattern
-
+    const val GroupDetail = "group/{id}"
     fun groupDetail(id: Id) = "group/$id"
+
+    const val NewGathering = "group/{groupId}/gathering/new"
+    fun newGathering(groupId: Id) = "group/$groupId/gathering/new"
+
+    const val Amount = "gathering/{id}/amount"
+    fun amount(id: Id) = "gathering/$id/amount"
+
+    const val Drink = "gathering/{id}/drink/{roundId}"
+    fun drink(id: Id, roundId: Id) = "gathering/$id/drink/$roundId"
+
+    const val Collect = "gathering/{id}/collect"
+    fun collect(id: Id) = "gathering/$id/collect"
+
+    const val Confirm = "gathering/{id}/confirm"
+    fun confirm(id: Id) = "gathering/$id/confirm"
+
+    const val Roster = "gathering/{id}/roster"
+    fun roster(id: Id) = "gathering/$id/roster"
+
+    const val Result = "gathering/{id}/result"
+    fun result(id: Id) = "gathering/$id/result"
 }

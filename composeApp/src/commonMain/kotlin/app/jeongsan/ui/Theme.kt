@@ -40,6 +40,9 @@ object JsColor {
     val warnBg = Color(0xFFFDECEA)
     val ok = Color(0xFF1E9E6A)
     val okBg = Color(0xFFEAF7F1)
+    /** "보냈다고 함"처럼 완료도 미완료도 아닌 애매한 상태. 경고(warn)와는 톤을 갈라야 한다. */
+    val wait = Color(0xFFB8860B)
+    val waitBg = Color(0xFFFFF7E8)
 
     val ink = Color(0xFF0F2540)
     val ink2 = Color(0xFF41597C)
