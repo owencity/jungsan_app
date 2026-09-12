@@ -21,8 +21,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -33,6 +36,15 @@ import androidx.compose.ui.unit.sp
  * 클래스 이름을 그대로 베끼는 게 아니라, **각진 모서리 + 솔리드 오프셋 그림자**라는
  * 웹의 8비트 규칙을 Compose 관용구로 다시 구현한다.
  */
+
+/**
+ * 어두운 글자(ink/ink2) 뒤에 까는 밝은 헤일로. 로그인 화면의 흰 글자에는 **어두운**
+ * text-shadow 를 썼지만, 여기는 반대다 — 강변 배경은 대부분 어두운 밤하늘/물이라
+ * 어두운 글자가 어두운 배경 위에서 묻힌다. 등산로 표지판이 사진 배경 위에서도
+ * 읽히도록 글자에 밝은 테두리를 두르는 것과 같은 원리다 — 배경이 밝든 어둡든
+ * 이 헤일로 하나로 대비가 유지된다.
+ */
+private val InkHalo = Shadow(color = Color.White.copy(alpha = 0.9f), offset = Offset.Zero, blurRadius = 5f)
 
 /** 화면 상단 바 — 뒤로가기 + 제목 + (선택) 상태 배지. 웹의 `Bar`. */
 @Composable
@@ -55,7 +67,10 @@ fun JsBar(
                 modifier = Modifier.clickable(onClick = onBack).padding(end = 8.dp),
             )
         }
-        Text(title, color = JsColor.ink, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold)
+        Text(
+            title, style = TextStyle(shadow = InkHalo),
+            color = JsColor.ink, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold,
+        )
         if (step != null) {
             Box(Modifier.weight(1f))
             Box(
@@ -71,10 +86,14 @@ fun JsBar(
 @Composable
 fun SectionLabel(text: String, count: Int? = null, modifier: Modifier = Modifier) {
     Row(modifier.padding(top = 16.dp, bottom = 7.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(text, color = JsColor.ink2, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
+        Text(
+            text, style = TextStyle(shadow = InkHalo),
+            color = JsColor.ink2, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold,
+        )
         if (count != null) {
             Text(
                 "  $count",
+                style = TextStyle(shadow = InkHalo),
                 color = JsColor.p600,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.ExtraBold,
@@ -301,11 +320,11 @@ fun SelectableCard(
  * 웹은 `narrow`(폼·근거 화면)와 넓은 목록 화면을 데스크톱에서만 폭으로 구분했다.
  * 폰 화면은 항상 한 폭이라 그 구분이 의미 없다 — 그래서 옮기지 않는다.
  *
- * **배경은 콘텐츠보다 항상 아래, 스크림보다도 아래다.** 카드(`JsCard`/`RetroSurface`)는
- * 이미 불투명해서 원래도 안전하지만, 카드 밖의 맨 텍스트(`SectionLabel`/`Hint` 등)는
- * 배경이 그대로 비치면 읽기 힘들어진다 — 그래서 배경 위에 화면 배경색을 낮은
- * 불투명도로 한 번 더 깔아 콘트라스트를 죽인다. "장식이 있다"는 인상은 남기되
- * "장식 때문에 안 읽힌다"는 안 생기게 하는 절충점이다.
+ * **배경은 콘텐츠보다 항상 아래다.** 카드(`JsCard`/`RetroSurface`)는 이미 불투명해서
+ * 원래도 안전하다. 카드 밖의 맨 텍스트(`JsBar` 제목·`SectionLabel`)는 스크림이 아니라
+ * **각자 밝은 헤일로**로 보호한다(`InkHalo`) — 처음엔 화면 배경색을 62% 로 깔아
+ * 통째로 보호했는데, 그러면 배경 전체가 하얗게 안개 낀 것처럼 죽어서 장식이
+ * 안 보이는 지경이 됐다. 텍스트만 개별로 지키고 배경은 옅게만 죽인다.
  */
 @Composable
 fun Screen(
@@ -314,7 +333,7 @@ fun Screen(
 ) {
     Box(modifier.fillMaxSize()) {
         PixelRiverBackground(Modifier.fillMaxSize())
-        Box(Modifier.fillMaxSize().background(JsColor.bg.copy(alpha = 0.62f)))
+        Box(Modifier.fillMaxSize().background(JsColor.bg.copy(alpha = 0.22f)))
         Column(
             Modifier
                 .fillMaxSize()
