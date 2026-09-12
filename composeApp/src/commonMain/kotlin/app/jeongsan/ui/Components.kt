@@ -296,24 +296,33 @@ fun SelectableCard(
 }
 
 /**
- * 화면 껍데기 — 세로 스크롤 + 공통 좌우 여백. 웹의 `Shell`.
+ * 화면 껍데기 — 세로 스크롤 + 공통 좌우 여백 + 강변 배경. 웹의 `Shell`.
  *
  * 웹은 `narrow`(폼·근거 화면)와 넓은 목록 화면을 데스크톱에서만 폭으로 구분했다.
  * 폰 화면은 항상 한 폭이라 그 구분이 의미 없다 — 그래서 옮기지 않는다.
+ *
+ * **배경은 콘텐츠보다 항상 아래, 스크림보다도 아래다.** 카드(`JsCard`/`RetroSurface`)는
+ * 이미 불투명해서 원래도 안전하지만, 카드 밖의 맨 텍스트(`SectionLabel`/`Hint` 등)는
+ * 배경이 그대로 비치면 읽기 힘들어진다 — 그래서 배경 위에 화면 배경색을 낮은
+ * 불투명도로 한 번 더 깔아 콘트라스트를 죽인다. "장식이 있다"는 인상은 남기되
+ * "장식 때문에 안 읽힌다"는 안 생기게 하는 절충점이다.
  */
 @Composable
 fun Screen(
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Column(
-        modifier
-            .fillMaxSize()
-            .background(JsColor.bg)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 18.dp, vertical = 14.dp),
-        content = content,
-    )
+    Box(modifier.fillMaxSize()) {
+        PixelRiverBackground(Modifier.fillMaxSize())
+        Box(Modifier.fillMaxSize().background(JsColor.bg.copy(alpha = 0.62f)))
+        Column(
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 18.dp, vertical = 14.dp),
+            content = content,
+        )
+    }
 }
 
 /** 옅은 테두리 카드 — 차수·기타항목처럼 "정보 묶음 하나"를 담는다. 웹의 `Card`. */
