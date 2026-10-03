@@ -76,8 +76,8 @@ fun V3Screen(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Box(Modifier.fillMaxSize().background(JsColor.bg)) {
+        // 스크림 없이 선명하게 — 배경 조정 결정(DEVLOG 2026-09-13)과 같다. 본문은 불투명한 흰 바탕이라 글자는 안전하다
         PixelRiverBackground(Modifier.fillMaxSize())
-        Box(Modifier.fillMaxSize().background(JsColor.bg.copy(alpha = 0.22f)))
         Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).imePadding()) {
             devBar()
             Column(Modifier.fillMaxWidth().weight(1f).background(JsColor.surface)) {
