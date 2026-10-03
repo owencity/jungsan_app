@@ -6,207 +6,229 @@ import kotlin.math.round
 import kotlin.math.sin
 
 /**
- * 로그인이 아닌 화면들의 배경 — 웹 `pixelStreet.ts` 의 **강변(오른쪽 거터) 장면**만
- * 옮긴 것. 웹은 왼쪽에 밤골목을 같이 그리지만, 앱은 화면 전체가 하나뿐이라
- * 강변 한 장면만 쓴다 — 넓고 차분한 쪽이 콘텐츠를 덮어도 덜 시끄럽다.
+ * 로그인이 아닌 화면들의 배경 — 야시장 골목 밤장면(불꽃/장식나무 + 포장마차 벽 +
+ * 편의점). 원래는 웹 `pixelStreet.ts`의 강변(다리) 쪽 절반만 옮겼었는데, 실제
+ * 웹 메인화면(로그인 후 목록 화면)에서 좌우로 보이는 배경을 비교해보니 사용자가
+ * 원한 건 반대쪽 절반인 이 골목 장면이었다. 웹 원본 소스는 이 저장소에 없어서
+ * 스크린샷을 기준으로 새로 설계했다 — 강변 장면처럼 픽셀 단위로 1:1 포팅한 게
+ * 아니라는 뜻.
  *
- * ⚠ 이 배경은 **콘텐츠 뒤에 옅게** 깔린다(`ui/PixelBackground.kt` 의 스크림 참고) —
- * 카드 위 글자를 가리면 안 된다는 원칙은 웹과 같다.
+ * 이 배경은 로그인 화면과 같은 기준으로 화면 전체에서 선명하게 보인다
+ * (`ui/PixelBackground.kt` 참고) — 카드 위 글자를 가리면 안 된다는 원칙은 웹과
+ * 같지만, 카드의 불투명한 배경과 텍스트 헤일로로 지키지 스크림으로 죽이지 않는다.
  */
 object RiverConfig {
     const val SEED = 20260827 + 7717
     const val FPS = 12
 }
 
-private val SKY_R = listOf(
-    rgb(18, 26, 44), rgb(22, 32, 52), rgb(26, 38, 60), rgb(30, 45, 69),
-    rgb(35, 53, 78), rgb(41, 62, 88), rgb(48, 72, 98), rgb(56, 83, 108),
+private val SKY_A = listOf(
+    rgb(18, 15, 30), rgb(22, 18, 36), rgb(27, 22, 43), rgb(33, 27, 51),
+    rgb(40, 33, 60), rgb(48, 40, 70), rgb(58, 49, 81), rgb(70, 59, 93),
 )
 
-private object CR {
-    val moon = rgb(232, 240, 255)
-    val star = rgb(188, 206, 236)
-    val farCity = rgb(34, 46, 70)
-    val farCityLit = rgb(255, 206, 128)
-    val nearCity = rgb(24, 33, 52)
-    val bridge = rgb(40, 52, 76)
-    val bridgeDark = rgb(26, 35, 54)
-    val cable = rgb(62, 80, 110)
-    val bridgeLit = rgb(255, 214, 150)
-    val towerLit = rgb(255, 120, 96)
-    val water = rgb(20, 30, 50)
-    val waterDeep = rgb(14, 22, 38)
-    val ripple = rgb(44, 62, 92)
-    val bank = rgb(22, 28, 40)
-    val railing = rgb(52, 64, 86)
+private object CA {
+    val star = rgb(190, 200, 236)
+    val lamp = rgb(255, 250, 235)
+    val treeDark = rgb(24, 20, 36)
+    val sparkBright = rgb(220, 228, 255)
+    val sparkDim = rgb(150, 166, 214)
+    val farCity = rgb(38, 32, 54)
+    val farCityLit = rgb(255, 198, 112)
+    val nearCity = rgb(26, 21, 38)
+    val water = rgb(22, 18, 36)
+    val waterDeep = rgb(15, 12, 25)
+    val ripple = rgb(50, 42, 70)
+    val wall = rgb(198, 150, 84)
+    val wallShade = rgb(164, 120, 64)
+    val wallKnot = rgb(122, 86, 48)
+    val merlonRed = rgb(196, 64, 58)
+    val merlonRedD = rgb(150, 46, 44)
+    val merlonBlue = rgb(120, 190, 210)
     val cvs = rgb(46, 58, 74)
     val cvsLit = rgb(186, 232, 236)
-    val parasol = rgb(188, 74, 70)
-    val parasolD = rgb(132, 48, 50)
-    val table = rgb(70, 78, 92)
-    val canLit = rgb(255, 196, 120)
 }
 
-internal class CityWin(val x: Int, val y: Int, val phase: Float, val rate: Float)
-internal class CityBuilding(val x: Int, val w: Int, val top: Int, val wins: List<CityWin>)
-internal class DeckLamp(val x: Int, val phase: Float)
-internal class Cvs(val x: Int, val w: Int, val h: Int)
-internal class Parasol(val x: Int, val y: Int)
-internal class RiverStar(val x: Int, val y: Int, val phase: Float, val rate: Float)
-internal class Moon(val x: Int, val y: Int, val r: Int)
+internal class Spark(val x: Int, val y: Int, val phase: Float, val rate: Float)
+internal class ArcPoint(val x: Int, val y: Int)
+internal class FireworkArc(val trunk: List<ArcPoint>, val sparks: List<Spark>)
+internal class AlleyBuilding(val x: Int, val w: Int, val top: Int, val wins: List<Spark>)
+internal class Wall(val x: Int, val w: Int, val h: Int, val accentIndex: Int)
+internal class CvsBox(val x: Int, val w: Int, val h: Int)
+internal class Lamp(val x: Int, val y: Int)
 
 internal class RiverScene(
     val w: Int, val h: Int,
-    val waterY: Int, val bankY: Int, val bridgeY: Int, val towerH: Int,
-    val stars: List<RiverStar>, val moon: Moon,
-    val city: List<CityBuilding>, val towers: List<Int>, val deckLamps: List<DeckLamp>,
-    val cvs: Cvs, val parasol: Parasol,
+    val waterY: Int,
+    val stars: List<Spark>, val lamp: Lamp,
+    val arcs: List<FireworkArc>,
+    val city: List<AlleyBuilding>,
+    val wall: Wall, val cvs: CvsBox,
 )
 
 internal fun buildRiverScene(w: Int, h: Int, seed: Int = RiverConfig.SEED): RiverScene {
     val rnd = Mulberry32(seed)
     fun r() = rnd.next()
 
-    val waterY = round(h * 0.52f).toInt()
-    val bankY = round(h * 0.86f).toInt()
-    // 상판은 수면 바로 위다 — 강을 건너는 다리라면 물에 닿을 듯 낮게 지나가고
-    // 주탑만 스카이라인을 뚫고 올라간다.
-    val bridgeY = waterY - round(h * 0.035f).toInt()
-    val towerH = round(h * 0.19f).toInt()
+    val waterY = round(h * 0.62f).toInt()
 
-    val stars = (0 until 26).map {
-        RiverStar((r() * w).toInt(), (r() * (bridgeY - towerH) * 0.95f).toInt(), r() * 100, 0.6f + r() * 1.8f)
+    val stars = (0 until 22).map {
+        Spark((r() * w).toInt(), (r() * waterY * 0.55f).toInt(), r() * 100, 0.6f + r() * 1.8f)
     }
-    val moon = Moon(round(w * 0.74f).toInt(), round(h * 0.10f).toInt(), 7)
+    val lamp = Lamp(round(w * 0.88f).toInt(), round(h * 0.09f).toInt())
 
-    val city = mutableListOf<CityBuilding>()
+    // 불꽃/장식나무 — 밑동 하나에서 여러 갈래로 휘어 올라가는 아치. 웹의 골목 쪽
+    // 하이라이트라 판단해 별도 요소로 새로 설계했다.
+    val baseX = round(w * 0.30f).toInt()
+    val baseY = round(h * 0.5f).toInt()
+    val arcs = (0 until 6).map { i ->
+        val lean = -1f + 2f * i / 5f
+        val height = h * (0.30f + r() * 0.16f)
+        val spread = w * (0.05f + kotlin.math.abs(lean) * 0.10f) * (0.7f + r() * 0.5f)
+        val steps = 24
+        val trunk = mutableListOf<ArcPoint>()
+        val sparks = mutableListOf<Spark>()
+        for (s in 0..steps) {
+            val f = s / steps.toFloat()
+            val bend = f * f
+            val x = baseX + round(lean * spread * bend).toInt()
+            val y = baseY - round(height * f).toInt()
+            trunk.add(ArcPoint(x, y))
+            if (f > 0.35f && r() > 0.45f) {
+                sparks.add(Spark(x + round(r() * 6 - 3).toInt(), y + round(r() * 6 - 3).toInt(), r() * 100, 0.5f + r() * 1.5f))
+            }
+        }
+        FireworkArc(trunk, sparks)
+    }
+
+    val city = mutableListOf<AlleyBuilding>()
     run {
         var x = -4
         while (x < w + 6) {
             val bw = 7 + (r() * 13).toInt()
-            val bh = 12 + (r() * 40).toInt()
+            val bh = 8 + (r() * 22).toInt()
             val top = waterY - bh
-            val wins = mutableListOf<CityWin>()
+            val wins = mutableListOf<Spark>()
             var wy = top + 3
             while (wy < waterY - 3) {
                 var wx = x + 2
                 while (wx < x + bw - 2) {
-                    if (r() >= 0.62f) wins.add(CityWin(wx, wy, r() * 100, 0.04f + r() * 0.09f))
+                    if (r() >= 0.66f) wins.add(Spark(wx, wy, r() * 100, 0.04f + r() * 0.09f))
                     wx += 4
                 }
                 wy += 5
             }
-            city.add(CityBuilding(x, bw, top, wins))
+            city.add(AlleyBuilding(x, bw, top, wins))
             x += bw + 1 + (r() * 3).toInt()
         }
     }
 
-    val towers = listOf(round(w * 0.26f).toInt(), round(w * 0.78f).toInt())
-    val deckLamps = mutableListOf<DeckLamp>()
-    run {
-        var x = 4
-        while (x < w) { deckLamps.add(DeckLamp(x, r() * 100)); x += 11 }
-    }
+    val wallW = round(w * 0.58f).toInt()
+    val wallH = round(h * 0.20f).toInt()
+    val wall = Wall(round(w * 0.02f).toInt(), wallW, wallH, accentIndex = (wallW / 5) / 2)
+    val cvs = CvsBox(wall.x + wall.w + round(w * 0.04f).toInt(), round(w * 0.16f).toInt(), wallH)
 
-    val cvs = Cvs(round(w * 0.06f).toInt(), round(w * 0.30f).toInt(), round(h * 0.085f).toInt())
-    val parasol = Parasol(round(w * 0.62f).toInt(), bankY + round(h * 0.03f).toInt())
-
-    return RiverScene(w, h, waterY, bankY, bridgeY, towerH, stars, moon, city, towers, deckLamps, cvs, parasol)
+    return RiverScene(w, h, waterY, stars, lamp, arcs, city, wall, cvs)
 }
 
-private fun paintRiverSky(buf: PixelBuffer, s: RiverScene, t: Float) {
-    val last = SKY_R.size - 1
+private fun paintSky(buf: PixelBuffer, s: RiverScene, t: Float) {
+    val last = SKY_A.size - 1
     for (y in 0 until s.waterY) {
         val f = clampF(y.toFloat() / s.waterY, 0f, 1f) * last
         val i0 = floor(f).toInt(); val fr = f - i0
         for (x in 0 until buf.width) {
             val idx = if (fr > bayer(x, y)) min(i0 + 1, last) else i0
-            buf.px(x, y, SKY_R[idx])
+            buf.px(x, y, SKY_A[idx])
         }
     }
     for (st in s.stars) {
         if (sin(t * st.rate + st.phase) < -0.4f) continue
-        buf.px(st.x, st.y, CR.star)
+        buf.px(st.x, st.y, CA.star)
     }
-    val m = s.moon
-    for (dy in -m.r..m.r) {
-        for (dx in -m.r..m.r) {
-            val d = kotlin.math.sqrt((dx * dx + dy * dy).toFloat())
-            if (d > m.r) continue
-            if (d > m.r - 1.2f && bayer(m.x + dx, m.y + dy) > 0.45f) continue
-            buf.px(m.x + dx, m.y + dy, CR.moon)
+    buf.px(s.lamp.x, s.lamp.y, CA.lamp)
+    buf.lightBlob(s.lamp.x, s.lamp.y, 11, 0.55f, CA.lamp)
+}
+
+private fun paintFireworks(buf: PixelBuffer, s: RiverScene, t: Float) {
+    val sway = sin(t * 0.25f) * 1.2f
+    for (arc in s.arcs) {
+        for (p in arc.trunk) {
+            val x = p.x + round(sway * (p.y.toFloat() / s.h)).toInt()
+            buf.px(x, p.y, CA.treeDark)
+        }
+        for (sp in arc.sparks) {
+            val v = sin(t * sp.rate + sp.phase)
+            if (v < -0.2f) continue
+            buf.px(sp.x, sp.y, if (v > 0.5f) CA.sparkBright else CA.sparkDim)
         }
     }
-    buf.lightBlob(m.x, m.y, m.r + 9, 0.42f, CR.moon)
 }
 
 private fun paintCity(buf: PixelBuffer, s: RiverScene, t: Float) {
     for (b in s.city) {
-        buf.rect(b.x, b.top, b.w, s.waterY - b.top, CR.farCity)
-        buf.hline(b.x, b.top, b.w, CR.nearCity)
+        buf.rect(b.x, b.top, b.w, s.waterY - b.top, CA.farCity)
+        buf.hline(b.x, b.top, b.w, CA.nearCity)
         for (wn in b.wins) {
             if (sin(t * wn.rate + wn.phase) < -0.88f) continue
-            buf.rect(wn.x, wn.y, 2, 1, CR.farCityLit)
+            buf.rect(wn.x, wn.y, 2, 1, CA.farCityLit)
         }
     }
 }
 
-private fun paintBridge(buf: PixelBuffer, s: RiverScene, t: Float) {
-    val y = s.bridgeY
-    val towerTop = y - s.towerH
+private fun paintWallAndCvs(buf: PixelBuffer, s: RiverScene) {
+    val w = s.wall
+    val wallTop = s.waterY - w.h
+    buf.rect(w.x, wallTop, w.w, w.h, CA.wall)
 
-    for (tx in s.towers) {
-        for (side in intArrayOf(-1, 1)) {
-            for (i in 2 until 30) {
-                val x = round(tx + side * i * 1.4f).toInt()
-                if (x < 0 || x >= buf.width) continue
-                val drop = (i / 30f) * (i / 30f) * s.towerH
-                val yy = round(towerTop + drop).toInt()
-                if (yy >= y) continue
-                buf.px(x, yy, CR.cable)
-            }
+    // 대나무발/왕겨 벽면 같은 짜임 텍스처 — 격자무늬 + 옹이 점.
+    for (yy in wallTop until s.waterY) {
+        for (xx in w.x until w.x + w.w) {
+            if ((xx + yy) and 3 == 0) buf.px(xx, yy, CA.wallShade)
         }
     }
-
-    buf.rect(0, y, buf.width, 3, CR.bridge)
-    buf.hline(0, y + 3, buf.width, CR.bridgeDark)
-
-    run {
-        var px0 = round(buf.width * 0.08f).toInt()
-        while (px0 < buf.width) {
-            buf.rect(px0 - 1, y + 3, 3, s.waterY - y + 4, CR.bridgeDark)
-            px0 += round(buf.width * 0.28f).toInt()
+    var kx = w.x + 1
+    while (kx < w.x + w.w) {
+        var ky = wallTop + 2
+        while (ky < s.waterY) {
+            if (bayer(kx, ky) > 0.82f) buf.px(kx, ky, CA.wallKnot)
+            ky += 3
         }
+        kx += 5
     }
 
-    for (tx in s.towers) {
-        buf.rect(tx - 1, towerTop, 3, y - towerTop, CR.bridge)
-        buf.hline(tx - 2, towerTop + 4, 5, CR.bridge)
-        buf.hline(tx - 2, towerTop + round(s.towerH * 0.45f).toInt(), 5, CR.bridge)
-        if (sin(t * 1.5f + tx) > 0) {
-            buf.px(tx, towerTop - 1, CR.towerLit)
-            buf.lightBlob(tx, towerTop - 1, 4, 0.7f, CR.towerLit)
+    // 지붕 위 붉은 장식 블록 — 가운데 하나만 파랑으로 포인트.
+    var mx = w.x
+    var idx = 0
+    while (mx < w.x + w.w) {
+        val color = when {
+            idx == w.accentIndex -> CA.merlonBlue
+            idx % 2 == 0 -> CA.merlonRed
+            else -> CA.merlonRedD
         }
+        buf.rect(mx, wallTop - 3, 3, 3, color)
+        mx += 5
+        idx++
     }
 
-    for (l in s.deckLamps) {
-        buf.px(l.x, y - 1, CR.bridgeLit)
-        buf.lightBlob(l.x, y - 1, 5, 0.72f + sin(t * 2.2f + l.phase) * 0.05f, CR.bridgeLit)
-    }
+    val c = s.cvs
+    val cTop = s.waterY - c.h
+    buf.rect(c.x, cTop, c.w, c.h, CA.cvs)
+    buf.rect(c.x + 2, cTop + 3, c.w - 4, c.h - 6, CA.cvsLit)
+    buf.lightBlob(c.x + c.w / 2, cTop + 4, round(c.w * 1.1f).toInt(), 0.5f, CA.cvsLit)
 }
 
 private fun paintWater(buf: PixelBuffer, s: RiverScene, t: Float) {
-    val depth = s.bankY - s.waterY
-    for (y in s.waterY until s.bankY) {
+    val depth = s.h - s.waterY
+    for (y in s.waterY until s.h) {
         val k = (y - s.waterY).toFloat() / depth
-        buf.rect(0, y, buf.width, 1, if (k < 0.5f) CR.water else CR.waterDeep)
+        buf.rect(0, y, buf.width, 1, if (k < 0.5f) CA.water else CA.waterDeep)
     }
-    buf.hline(0, s.waterY, buf.width, CR.ripple)
+    buf.hline(0, s.waterY, buf.width, CA.ripple)
 
     fun streak(srcX: Int, tint: Rgb, strength: Float, len: Int) {
         for (i in 0 until len) {
             val y = s.waterY + i
-            if (y >= s.bankY) break
+            if (y >= s.h) break
             val wob = round(sin(i * 0.4f + t * 1.3f + srcX * 0.7f) * (1 + i * 0.1f)).toInt()
             val x = srcX + wob
             if (x < 0 || x >= buf.width) continue
@@ -219,48 +241,19 @@ private fun paintWater(buf: PixelBuffer, s: RiverScene, t: Float) {
         }
     }
 
-    streak(s.moon.x, CR.moon, 0.55f, round(depth * 0.9f).toInt())
-    for (l in s.deckLamps) streak(l.x, CR.bridgeLit, 0.5f, round(depth * 0.55f).toInt())
+    streak(s.lamp.x, CA.lamp, 0.45f, round(depth * 0.6f).toInt())
+    streak(s.wall.x + s.wall.w / 2, CA.wall, 0.4f, round(depth * 0.7f).toInt())
+    streak(s.cvs.x + s.cvs.w / 2, CA.cvsLit, 0.45f, round(depth * 0.6f).toInt())
     for (b in s.city) {
         if (b.wins.isEmpty()) continue
-        streak(b.x + (b.w shr 1), CR.farCityLit, 0.3f, round(depth * 0.35f).toInt())
-    }
-}
-
-private fun paintBank(buf: PixelBuffer, s: RiverScene, t: Float) {
-    buf.rect(0, s.bankY, buf.width, buf.height - s.bankY, CR.bank)
-    buf.hline(0, s.bankY, buf.width, CR.railing)
-
-    run {
-        var x = 2
-        while (x < buf.width) { buf.vline(x, s.bankY - 4, 4, CR.railing); x += 6 }
-    }
-    buf.hline(0, s.bankY - 4, buf.width, CR.railing)
-
-    val c = s.cvs
-    val top = buf.height - c.h - 2
-    buf.rect(c.x, top, c.w, c.h, CR.cvs)
-    buf.rect(c.x + 2, top + 3, c.w - 4, c.h - 6, CR.cvsLit)
-    buf.hline(c.x, top, c.w, CR.railing)
-    buf.lightBlob(c.x + c.w / 2, top + 4, round(c.w * 1.2f).toInt(), 0.5f, CR.cvsLit)
-
-    val pz = s.parasol
-    for (i in -7..7) {
-        val dy = if (kotlin.math.abs(i) > 4) 1 else 0
-        buf.px(pz.x + i, pz.y + dy, if (i % 3 == 0) CR.parasolD else CR.parasol)
-    }
-    buf.vline(pz.x, pz.y + 1, 9, CR.table)
-    buf.hline(pz.x - 5, pz.y + 10, 11, CR.table)
-    if (sin(t * 1.1f) > -0.5f) {
-        buf.px(pz.x - 2, pz.y + 9, CR.canLit)
-        buf.px(pz.x + 2, pz.y + 9, CR.canLit)
+        streak(b.x + (b.w shr 1), CA.farCityLit, 0.28f, round(depth * 0.35f).toInt())
     }
 }
 
 internal fun paintRiverFrame(buf: PixelBuffer, scene: RiverScene, t: Float) {
-    paintRiverSky(buf, scene, t)
+    paintSky(buf, scene, t)
+    paintFireworks(buf, scene, t)
     paintCity(buf, scene, t)
-    paintBridge(buf, scene, t)
+    paintWallAndCvs(buf, scene)
     paintWater(buf, scene, t)
-    paintBank(buf, scene, t)
 }

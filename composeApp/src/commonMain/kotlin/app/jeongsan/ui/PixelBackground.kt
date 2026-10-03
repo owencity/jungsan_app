@@ -26,8 +26,8 @@ import kotlin.math.ceil
 /**
  * 절차적 픽셀아트 배경을 화면에 올리는 Compose 래퍼.
  *
- * 로그인 화면 전용(석양 도시뷰, 화면 전체·선명하게)과 그 외 화면들(강변, 옅은
- * 스크림 아래로·기능을 가리지 않게) 둘로 나뉜다 — 웹의 두 배경 체계와 같다.
+ * 로그인 화면 전용(석양 도시뷰)과 그 외 화면들(야시장 골목) 둘로 나뉘지만, 둘 다
+ * 화면 전체를 채우고 선명하게 보인다 — 웹의 두 배경 체계와 같다. 장면만 다르다.
  */
 
 /**
@@ -101,11 +101,10 @@ fun PixelSunsetBackground(modifier: Modifier = Modifier) {
 }
 
 /**
- * 로그인이 아닌 화면들의 배경 — 강변 야경을 **옅게** 깐다.
- *
- * 카드가 이미 불투명한 흰 배경 위에 뜨므로 카드 안 글자는 원래도 안전하다.
- * 이 배경이 실제로 보이는 곳은 카드 사이 여백뿐이라, 스크림이 없어도 텍스트를
- * 가리진 않는다 — 다만 은은하게 남겨서 "장식이 튄다"는 인상을 주지 않게 한다.
+ * 로그인이 아닌 화면들의 배경 — 야시장 골목 밤장면. 로그인 화면과 같은 기준으로
+ * 화면 전체를 채우고 선명하게 보인다(웹 참고). 카드(`JsCard`/`RetroSurface`)는
+ * 이미 불투명해서 카드 안 글자는 원래도 안전하고, 카드 밖 텍스트는 `InkHalo`로
+ * 보호한다.
  */
 @Composable
 fun PixelRiverBackground(modifier: Modifier = Modifier) {
@@ -115,9 +114,11 @@ fun PixelRiverBackground(modifier: Modifier = Modifier) {
         val heightPx = with(density) { maxHeight.toPx() }
         if (widthPx <= 0f || heightPx <= 0f) return@BoxWithConstraints
 
-        // 로그인보다 굵은 블록을 쓴다 — 배경이라는 티가 나야 "장식"으로 읽히고,
-        // 너무 또렷하면 콘텐츠와 시선을 다툰다.
-        val block = remember(widthPx) { pickPixelBlockSize(widthPx, 220, 3, 16) }
+        // 로그인 배경(SunsetConfig)과 같은 굵기 기준을 쓴다 — 화면마다 도트 굵기가
+        // 달라 보이지 않게.
+        val block = remember(widthPx) {
+            pickPixelBlockSize(widthPx, SunsetConfig.TARGET_ART_WIDTH, SunsetConfig.MIN_PIXEL, SunsetConfig.MAX_PIXEL)
+        }
         val logicalW = remember(widthPx, block) { ceil(widthPx / block).toInt().coerceAtLeast(1) }
         val logicalH = remember(heightPx, block) { ceil(heightPx / block).toInt().coerceAtLeast(1) }
 
