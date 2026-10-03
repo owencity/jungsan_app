@@ -322,9 +322,9 @@ fun SelectableCard(
  *
  * **배경은 콘텐츠보다 항상 아래다.** 카드(`JsCard`/`RetroSurface`)는 이미 불투명해서
  * 원래도 안전하다. 카드 밖의 맨 텍스트(`JsBar` 제목·`SectionLabel`)는 스크림이 아니라
- * **각자 밝은 헤일로**로 보호한다(`InkHalo`) — 처음엔 화면 배경색을 62% 로 깔아
- * 통째로 보호했는데, 그러면 배경 전체가 하얗게 안개 낀 것처럼 죽어서 장식이
- * 안 보이는 지경이 됐다. 텍스트만 개별로 지키고 배경은 옅게만 죽인다.
+ * **각자 밝은 헤일로**로 보호한다(`InkHalo`). 스크림은 두지 않는다 — 로그인 화면과
+ * 같은 기준으로 배경이 화면 전체에서 선명하게 보여야 한다(웹 참고). 62%/22% 스크림을
+ * 차례로 시도했지만 둘 다 배경을 안개 낀 것처럼 죽였다.
  */
 @Composable
 fun Screen(
@@ -333,7 +333,6 @@ fun Screen(
 ) {
     Box(modifier.fillMaxSize()) {
         PixelRiverBackground(Modifier.fillMaxSize())
-        Box(Modifier.fillMaxSize().background(JsColor.bg.copy(alpha = 0.22f)))
         Column(
             Modifier
                 .fillMaxSize()
