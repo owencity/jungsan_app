@@ -281,13 +281,29 @@ fun ResponseRow(value: ResponseType?, compact: Boolean = false, onChange: (Respo
  * 백엔드가 붙으면 지운다.
  */
 @Composable
-fun DevBar(users: List<Pair<Long, String>>, current: Long, roleOf: (Long) -> String, onPick: (Long) -> Unit) {
+fun DevBar(
+    users: List<Pair<Long, String>>,
+    current: Long,
+    roleOf: (Long) -> String,
+    onPick: (Long) -> Unit,
+    /** 지금 보는 사람이 없는 술자리 — 누르면 링크로 들어온 것처럼 참여 입구(P1)가 열린다 */
+    links: List<Pair<String, String>> = emptyList(),
+    onLink: (String) -> Unit = {},
+) {
     Row(
         Modifier.fillMaxWidth().background(JsColor.ink).horizontalScroll(rememberScrollState())
             .padding(horizontal = 10.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
+        for ((title, token) in links) {
+            Text(
+                "🔗 $title",
+                modifier = Modifier.background(Color.White.copy(alpha = 0.12f), RectangleShape).clickable { onLink(token) }
+                    .padding(horizontal = 10.dp, vertical = 5.dp),
+                color = Color.White, fontSize = 11.5.sp, fontWeight = FontWeight.Bold,
+            )
+        }
         Text("보는 사람", color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp)
         for ((id, name) in users) {
             val on = id == current

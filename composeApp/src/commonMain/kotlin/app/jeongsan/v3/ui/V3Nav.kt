@@ -45,6 +45,10 @@ object V3Routes {
     const val Respond = "v3/r/{id}/respond"
     const val Pay = "v3/r/{id}/pay"
     const val Notifications = "v3/notifications"
+    /** 참여 입구(P1) — 공유 링크의 토큰으로 연다. 딥링크가 붙으면 이 경로로 들어온다 */
+    const val Join = "v3/j/{token}"
+
+    fun join(token: String) = "v3/j/$token"
 
     fun room(id: Id) = "v3/r/$id"
     /** rid가 null이면 새 차수 */
@@ -96,6 +100,8 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, onLeave: () 
                     // 그 사람이 없는 술자리를 보고 있었다면 그 사람의 첫 화면으로
                     if (room != null && room.participantOfUser(uid) == null) nav.toHome()
                 },
+                links = s.rooms.values.filter { it.participantOfUser(s.me.id) == null }.map { it.title to it.shareToken },
+                onLink = { token -> nav.navigate(V3Routes.join(token)) },
             )
         }
     }
@@ -117,6 +123,20 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, onLeave: () 
                 nav.toSub(id, V3Routes.round(id, null))
             },
             onOpenAlerts = { nav.navigate(V3Routes.Notifications) },
+        )
+    }
+
+    composable(V3Routes.Join) { entry ->
+        val token = entry.arguments?.getString("token").orEmpty()
+        val s = store.state
+        val g = s.rooms.values.find { it.shareToken == token }
+        EntryScreen(
+            devBar = devBar(null),
+            g = g,
+            meUserId = s.me.id,
+            onJoin = { answers -> store.joinGathering(token, answers)?.let { nav.toRoom(it) } },
+            onOpenRoom = { g?.let { nav.toRoom(it.id) } },
+            onHome = { nav.toHome() },
         )
     }
 

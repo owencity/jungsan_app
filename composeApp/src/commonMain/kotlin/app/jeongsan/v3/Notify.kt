@@ -17,6 +17,15 @@ fun notificationsFor(prev: Gathering, next: Gathering): List<NewNotification> {
     val host = next.host()
     fun userOf(participantId: Id) = next.participants.first { it.id == participantId }.userId
 
+    // ── 링크로 새 사람이 참여함: 총무에게 (REQUIREMENTS §10 "참여자가 응답을 남김") ──
+    for (p in next.participants) {
+        if (prev.participants.any { it.id == p.id }) continue
+        val answered = next.responses.any { it.participantId == p.id }
+        out += NewNotification(
+            host.userId, next.id, "${p.displayName}님이 ${if (answered) "참여하고 응답했어요" else "참여했어요"}", next.title, Target.Room(next.id),
+        )
+    }
+
     // ── 정산됨: 참여자 모두에게 "입금액을 확인해주세요" ──
     if (prev.status == GatheringStatus.OPEN && next.status != GatheringStatus.OPEN) {
         val autoIds = next.responses.filter { it.source == ResponseSource.AUTO }.map { it.participantId }.toSet()

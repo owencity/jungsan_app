@@ -237,6 +237,34 @@ class V3Store(
         return SettleResult.OK
     }
 
+    /**
+     * 링크로 들어와 참여하고 응답까지 한 번에(P1). 링크를 연 것만으로는 참여되지 않는다 — 이 동작을
+     * 해야 명단에 들어간다. 참여된 술자리 id, 참여할 수 없으면(없는 링크·정산 뒤) null.
+     * 이미 참여 중이면 아무것도 바꾸지 않고 id만 돌려준다.
+     */
+    fun joinGathering(shareToken: String, answers: Map<Id, ResponseType>): Id? {
+        val s = state
+        val g = s.rooms.values.find { it.shareToken == shareToken } ?: return null
+        if (g.participantOfUser(s.me.id) != null) return g.id
+        if (g.status != GatheringStatus.OPEN) return null
+
+        val pid = (s.rooms.values.flatMap { r -> r.participants.map { it.id } }.maxOrNull() ?: 0) + 1
+        var next = g.copy(participants = g.participants + Participant(pid, s.me.id, s.me.displayName, s.me.spoonCount, s.me.payout))
+            .push(TimelineType.SYSTEM, "${s.me.displayName}님이 들어왔어요")
+        var responses = next.responses
+        for ((roundId, type) in answers) {
+            // 새로 온 사람은 면제를 고를 수 없다 — 면제는 총무만 정한다
+            if (type == ResponseType.EXEMPT || g.rounds.none { it.id == roundId }) continue
+            responses = responses.setResponse(RoundResponse(pid, roundId, type, ResponseSource.SELF))
+        }
+        if (responses != next.responses) {
+            next = next.copy(responses = responses).push(TimelineType.SYSTEM, "${s.me.displayName}님이 응답했어요")
+        }
+        // 명단이 바뀌면 미리보기 결과도 바뀐다 — 총무가 보던 미리보기로는 정산할 수 없게
+        commit(g, next.copy(inputRevision = next.inputRevision + 1))
+        return g.id
+    }
+
     // ── 알림 · 뱃지 · 개발용 ──
 
     fun markRead(notificationId: Id) {
