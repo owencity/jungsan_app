@@ -128,7 +128,10 @@ fun RoomScreen(
         // 총무는 사람을 눌러 면제·내보내기(R4). 총무 자신은 관리 대상이 아니다
         People(g, onPick = if (isHost) ({ pid -> if (pid != host.id) managing = pid }) else null)
         if (isHost && g.rounds.isNotEmpty() && g.status == GatheringStatus.OPEN && g.participants.size > 1) {
-            Text("사람을 누르면 차수별 면제·내보내기를 할 수 있어요", color = JsColor.ink3, fontSize = 12.sp)
+            Text(
+                if (app.jeongsan.v3.Features.SHOW_EXEMPT) "사람을 누르면 차수별 면제·내보내기를 할 수 있어요" else "사람을 누르면 응답을 보거나 내보낼 수 있어요",
+                color = JsColor.ink3, fontSize = 12.sp,
+            )
         }
         managing?.let { pid ->
             ParticipantSheet(

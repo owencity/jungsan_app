@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.jeongsan.domain.Id
 import app.jeongsan.ui.JsColor
+import app.jeongsan.v3.Features
 import app.jeongsan.v3.Gathering
 import app.jeongsan.v3.GatheringStatus
 import app.jeongsan.v3.ResponseType
@@ -77,7 +78,12 @@ fun ParticipantSheet(
                 if (paid.isNotEmpty()) Chip("${paid.joinToString("·") { it.label }} 낸 사람")
                 Text("닫기", Modifier.clickable(onClick = onClose).padding(4.dp), color = JsColor.ink3, fontSize = 13.sp)
             }
-            if (!open) Text("정산한 뒤에는 면제·내보내기를 바꿀 수 없어요.", color = JsColor.ink3, fontSize = 12.5.sp)
+            if (!open) {
+                Text(
+                    if (Features.SHOW_EXEMPT) "정산한 뒤에는 면제·내보내기를 바꿀 수 없어요." else "정산한 뒤에는 내보낼 수 없어요.",
+                    color = JsColor.ink3, fontSize = 12.5.sp,
+                )
+            }
 
             Column(Modifier.fillMaxWidth().border(2.dp, JsColor.line)) {
                 g.rounds.forEachIndexed { i, r ->
@@ -87,7 +93,7 @@ fun ParticipantSheet(
                     Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(r.label, Modifier.width(40.dp), color = JsColor.p700, fontWeight = FontWeight.ExtraBold)
                         Text(cur?.type?.label ?: "아직 응답 안 함", Modifier.weight(1f), color = if (cur == null) JsColor.ink3 else JsColor.ink, fontSize = 13.5.sp)
-                        Text(
+                        if (Features.SHOW_EXEMPT) Text(
                             if (exempt) "면제 🎁" else "면제",
                             Modifier
                                 .background(if (exempt) JsColor.accentBg else Color.White)
@@ -104,7 +110,7 @@ fun ParticipantSheet(
                     }
                 }
             }
-            if (open) Text("면제를 풀면 그 차수는 다시 응답을 받아요.", color = JsColor.ink3, fontSize = 12.sp)
+            if (open && Features.SHOW_EXEMPT) Text("면제를 풀면 그 차수는 다시 응답을 받아요.", color = JsColor.ink3, fontSize = 12.sp)
 
             if (open) {
                 if (blocked != null) {
