@@ -17,6 +17,9 @@ fun cleanAccountNo(text: String): String = text.filter { it.isDigit() || it == '
  */
 fun copyableAccountNo(accountNo: String): String = accountNo.filter { it.isDigit() }
 
+/** [금액 복사]로 클립보드에 넣을 값 — 숫자만("41,000원" 아니고 "41000"). 이체 화면 금액 칸에 그대로 붙게 */
+fun copyableAmount(amount: Long): String = amount.toString()
+
 /** 저장 전에 막아야 하는 것. 빈 리스트면 저장해도 된다 */
 fun validatePayout(p: Payout): List<String> {
     val errors = mutableListOf<String>()

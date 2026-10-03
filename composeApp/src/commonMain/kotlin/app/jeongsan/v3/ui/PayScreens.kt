@@ -78,22 +78,30 @@ private fun PayCard(g: Gathering, t: Transfer, onSent: (Id) -> Unit) {
     val to = g.participants.find { it.id == t.toParticipantId }
     val payout = to?.payout
     var open by remember { mutableStateOf(false) }
-    var copied by remember { mutableStateOf(false) }
+    /** 방금 복사한 것("acct"·"amt") — 버튼 문구를 잠깐 바꾼다 */
+    var copied by remember { mutableStateOf<String?>(null) }
     @Suppress("DEPRECATION")
     val clipboard = LocalClipboardManager.current
     LaunchedEffect(copied) {
-        if (copied) {
+        if (copied != null) {
             delay(1600)
-            copied = false
+            copied = null
         }
     }
     val confirmed = t.status == TransferStatus.CONFIRMED
 
     RetroSurface(Modifier.fillMaxWidth().alpha(if (confirmed) 0.8f else 1f), shadowOffset = if (confirmed) 0.dp else JsShape.shadowOffsetSmall) {
         Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("${to?.displayName}님께", Modifier.weight(1f), color = JsColor.ink, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
                 Text(won(t.amount), color = JsColor.p700, fontSize = 22.sp, fontWeight = FontWeight.Black)
+                // 이체 화면 금액 칸에 그대로 붙도록 숫자만(PayoutRules.copyableAmount)
+                if (!confirmed) {
+                    MiniButton(if (copied == "amt") "금액 복사했어요" else "금액 복사") {
+                        clipboard.setText(AnnotatedString(app.jeongsan.v3.copyableAmount(t.amount)))
+                        copied = "amt"
+                    }
+                }
             }
 
             if (t.basis.isNotEmpty()) {
@@ -123,10 +131,10 @@ private fun PayCard(g: Gathering, t: Transfer, onSent: (Id) -> Unit) {
                         Text("${payout.bank} · ${payout.holder}", color = JsColor.ink3, fontSize = 11.5.sp)
                         Text(payout.accountNo, color = JsColor.ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                     }
-                    MiniButton(if (copied) "번호만 복사했어요" else "계좌 복사") {
+                    MiniButton(if (copied == "acct") "번호만 복사했어요" else "계좌 복사") {
                         // 숫자만 복사 — 이체 화면 계좌번호 칸에 하이픈·은행 이름이 섞이면 잘린다(PayoutRules.copyableAccountNo)
                         clipboard.setText(AnnotatedString(app.jeongsan.v3.copyableAccountNo(payout.accountNo)))
-                        copied = true
+                        copied = "acct"
                     }
                 }
             } else {

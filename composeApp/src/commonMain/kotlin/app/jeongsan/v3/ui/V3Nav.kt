@@ -28,6 +28,10 @@ import app.jeongsan.v3.entryTarget
 import app.jeongsan.v3.mockPreview
 import app.jeongsan.v3.participantOfUser
 import app.jeongsan.v3.roundsPaidBy
+import app.jeongsan.v3.SHARE_BASE
+import app.jeongsan.v3.rememberShareSheet
+import app.jeongsan.v3.shareMessage
+import app.jeongsan.v3.shareUrl
 
 /**
  * v3 화면 경로와 이동 — 웹 `AppV3.tsx`의 라우터를 옮긴 것.
@@ -46,6 +50,8 @@ object V3Routes {
     const val Pay = "v3/r/{id}/pay"
     /** A1 — 계좌는 사람 단위지만, 저장 뒤 왔던 정산방으로 돌아가도록 정산방 아래에 둔다 */
     const val Account = "v3/r/{id}/account"
+    /** 내 술자리에서 여는 계좌 화면 — 저장하면 내 술자리로 */
+    const val MyAccount = "v3/me/account"
     const val Notifications = "v3/notifications"
     /** 참여 입구(P1) — 공유 링크의 토큰으로 연다. 딥링크가 붙으면 이 경로로 들어온다 */
     const val Join = "v3/j/{token}"
@@ -128,6 +134,7 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, onLeave: () 
                 nav.toSub(id, V3Routes.round(id, null))
             },
             onOpenAlerts = { nav.navigate(V3Routes.Notifications) },
+            onEditAccount = { nav.navigate(V3Routes.MyAccount) },
         )
     }
 
@@ -161,6 +168,7 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, onLeave: () 
     composable(V3Routes.Room) { entry ->
         val id = entry.idArg()
         val s = store.state
+        val share = rememberShareSheet()
         val g = id?.let { s.rooms[it] }
         if (g == null) return@composable Soon(devBar(null), "없는 술자리예요") { nav.toHome() }
         RoomScreen(
@@ -177,8 +185,9 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, onLeave: () 
                     ActionKind.VIEW_PAY, ActionKind.RESEND -> nav.navigate(V3Routes.pay(g.id))
                     // 받을 돈 목록이 화면 안에 있다. 링크 공유·계좌 등록은 아직 화면이 없다(SCREENS.md §9 순서)
                     ActionKind.REGISTER_ACCOUNT -> nav.navigate(V3Routes.account(g.id))
-                    // 받을 돈 목록이 화면 안에 있다. 링크 공유는 아직 화면이 없다(SCREENS.md §9 순서)
-                    ActionKind.CONFIRM_INCOMING, ActionKind.SHARE -> Unit
+                    ActionKind.SHARE -> share(shareMessage(g, shareUrl(SHARE_BASE, g.shareToken)))
+                    // 받을 돈 목록이 화면 안에 있다
+                    ActionKind.CONFIRM_INCOMING -> Unit
                 }
             },
             onEditRound = { rid -> nav.navigate(V3Routes.round(g.id, rid)) },
@@ -188,6 +197,7 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, onLeave: () 
             onNotReceived = { store.notReceived(g.id, it) },
             onExempt = { pid, rid, ex -> store.setExempt(g.id, pid, rid, ex) },
             onRemove = { pid -> store.removeParticipant(g.id, pid) },
+            onShare = { share(shareMessage(g, shareUrl(SHARE_BASE, g.shareToken))) },
         )
     }
 
@@ -256,6 +266,18 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, onLeave: () 
                 onSubmit = { answers -> store.respond(g.id, answers); nav.toRoom(g.id) },
             )
         }
+    }
+
+    composable(V3Routes.MyAccount) {
+        AccountScreen(
+            devBar = devBar(null),
+            me = store.state.me,
+            onBack = { nav.popBackStack() },
+            onSave = { p ->
+                store.registerPayout(p)
+                nav.popBackStack()
+            },
+        )
     }
 
     composable(V3Routes.Account) { entry ->

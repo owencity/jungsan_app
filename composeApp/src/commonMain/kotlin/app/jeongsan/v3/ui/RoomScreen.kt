@@ -86,6 +86,8 @@ fun RoomScreen(
     onExempt: (Id, Id, Boolean) -> Unit,
     /** R4 — 총무가 정산 전 한 사람을 내보낸다 */
     onRemove: (Id) -> Unit,
+    /** 링크 공유(OS 공유 시트) — 총무는 위 바에서 언제든 */
+    onShare: () -> Unit,
 ) {
     var managing by remember { mutableStateOf<Id?>(null) }
     val host = g.host()
@@ -102,6 +104,8 @@ fun RoomScreen(
             BackButton(onBack)
             TopTitle(g.title)
             if (g.status == GatheringStatus.COMPLETED) Chip("완료", ChipTone.DONE)
+            // 총무는 하단 버튼이 다른 일이어도 언제든 링크를 다시 보낼 수 있게(웹의 ⋯ 자리)
+            if (isHost && g.status != GatheringStatus.COMPLETED) MiniButton("링크 공유", onClick = onShare)
         },
         bottom = {
             if (me != null) ChatInput(onSend)

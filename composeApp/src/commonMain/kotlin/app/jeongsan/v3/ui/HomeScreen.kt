@@ -73,6 +73,7 @@ fun HomeScreen(
     onOpen: (Id) -> Unit,
     onCreate: () -> Unit,
     onOpenAlerts: () -> Unit,
+    onEditAccount: () -> Unit,
 ) {
     val tabs = myRoomTabs(rooms, me.id)
     // 보는 사람이 바뀌면 처음 열 탭도 그 사람 기준으로 다시 고른다
@@ -98,6 +99,14 @@ fun HomeScreen(
                     Text(me.displayName, color = JsColor.ink, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold)
                     SpoonChip(me.spoonCount)
                     if (neverHosted) Text("첫 정산을 만들어보세요. 총무를 할수록 캐릭터가 자라요", color = JsColor.ink2, fontSize = 12.sp)
+                    // 받을 계좌 — 결제자가 됐을 때 매번 묻지 않게 여기서 미리 넣고 바꾼다
+                    val payout = me.payout
+                    Text(
+                        if (payout != null) "받을 계좌 ${payout.bank} ${payout.accountNo} · 바꾸기" else "받을 계좌 등록하기 ›",
+                        Modifier.clickable(onClick = onEditAccount).semantics { role = Role.Button }.padding(vertical = 2.dp),
+                        color = JsColor.p600, fontSize = 12.5.sp, fontWeight = FontWeight.Bold,
+                        textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline,
+                    )
                 }
             }
         }
