@@ -43,6 +43,18 @@ fun notificationsFor(prev: Gathering, next: Gathering): List<NewNotification> {
         out += NewNotification(p.userId, next.id, "${host.displayName} 총무가 ${label}를 면제해줬어요 🎁", next.title, Target.Room(next.id))
     }
 
+    // ── 결제자가 계좌를 처음 등록함: 그 사람에게 보낼 돈이 있는 사람에게 (계좌가 없어 [보냈어요]가 꺼져 있었다) ──
+    for (p in next.participants) {
+        val before = prev.participants.find { it.id == p.id } ?: continue
+        if (before.payout != null || p.payout == null) continue
+        for (t in next.transfers.filter { it.toParticipantId == p.id && it.status != TransferStatus.CONFIRMED }) {
+            out += NewNotification(
+                userOf(t.fromParticipantId), next.id, "${p.displayName}님이 계좌를 등록했어요. 이제 보낼 수 있어요",
+                "${next.title} · ${won(t.amount)}", Target.Pay(next.id),
+            )
+        }
+    }
+
     // ── 정산됨: 참여자 모두에게 "입금액을 확인해주세요" ──
     if (prev.status == GatheringStatus.OPEN && next.status != GatheringStatus.OPEN) {
         val autoIds = next.responses.filter { it.source == ResponseSource.AUTO }.map { it.participantId }.toSet()

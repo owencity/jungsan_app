@@ -56,6 +56,8 @@ fun initialTab(tabs: Map<HomeTab, List<Gathering>>, userId: Id): HomeTab {
 fun entryTarget(g: Gathering, userId: Id, paySeen: Boolean): Target {
     val me = g.participantOfUser(userId)
     if (me == null || g.hostUserId == userId) return Target.Room(g.id)
+    // 결제자인데 계좌가 없으면 무엇보다 먼저 — 그 계좌가 있어야 남이 돈을 보낼 수 있다(배너 규칙과 같음)
+    if (needsAccount(g, me.id)) return Target.Account(g.id)
     if (g.status == GatheringStatus.OPEN && g.rounds.isNotEmpty() && !g.hasResponded(me.id)) return Target.Respond(g.id)
     if (g.status == GatheringStatus.SETTLING && !paySeen &&
         g.transfers.any { it.fromParticipantId == me.id && it.status != TransferStatus.CONFIRMED }
@@ -65,10 +67,16 @@ fun entryTarget(g: Gathering, userId: Id, paySeen: Boolean): Target {
     return Target.Room(g.id)
 }
 
-/** 목록 줄에 붙일 뱃지 — 내가 아직 확인 안 한 일. 없으면 null */
+/** 이 술자리에서 내가 결제자인데 받을 계좌가 없는가(완료된 방 제외) — nextAction의 첫 조건과 같다 */
+fun needsAccount(g: Gathering, participantId: Id): Boolean =
+    g.status != GatheringStatus.COMPLETED && g.roundsPaidBy(participantId).isNotEmpty() &&
+        g.participants.find { it.id == participantId }?.payout == null
+
+/** 목록 줄에 붙일 뱃지 — 내가 아직 확인 안 한 일. 없으면 null. 순서는 배너와 같다(계좌 등록 → 입금 확인 → …) */
 fun rowBadge(g: Gathering, userId: Id, paySeen: Boolean): String? {
     val me = g.participantOfUser(userId) ?: return null
     val isHost = g.hostUserId == userId
+    if (needsAccount(g, me.id)) return "계좌 등록"
     if (g.status == GatheringStatus.OPEN) {
         return if (!isHost && g.rounds.isNotEmpty() && !g.hasResponded(me.id)) "응답하기" else null
     }

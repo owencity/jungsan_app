@@ -24,6 +24,8 @@ data class V3State(
     val notifications: List<AppNotification>,
     /** 정산금액(P3)을 열어본 `방:사람` — [정산금액 확인] 뱃지를 떼는 기준 */
     val paySeen: Set<String>,
+    /** 목데이터의 사람들 — 보는 사람 전환 때 여기서 꺼낸다(등록한 계좌가 전환 뒤에도 남게) */
+    val users: List<User> = MockV3.USERS,
 ) {
     fun isPaySeen(roomId: Id) = seenKey(roomId, me.id) in paySeen
     fun myNotifications() = notifications.filter { it.userId == me.id }
@@ -319,7 +321,25 @@ class V3Store(
 
     /** 개발용 — 다른 사람 시점으로 보기 */
     fun actAs(userId: Id) {
-        MockV3.USERS.find { it.id == userId }?.let { state = state.copy(me = it) }
+        state.users.find { it.id == userId }?.let { state = state.copy(me = it) }
+    }
+
+    /**
+     * 내 받을 계좌 등록·변경(A1). 사람 단위라 내가 들어간 **진행 중인** 술자리 모두에 반영한다
+     * (완료된 술자리는 바꾸지 않는다 — 이미 끝난 송금의 기록이다).
+     */
+    fun registerPayout(payout: Payout) {
+        val p = Payout(payout.bank, payout.accountNo.trim(), payout.holder.trim())
+        val me = state.me.copy(payout = p)
+        state = state.copy(me = me, users = state.users.map { if (it.id == me.id) me else it })
+        for (g in state.rooms.values.toList()) {
+            val mine = g.participantOfUser(me.id) ?: continue
+            if (g.status == GatheringStatus.COMPLETED) continue
+            val first = mine.payout == null
+            val next = g.copy(participants = g.participants.map { if (it.id == mine.id) it.copy(payout = p) else it })
+                .push(TimelineType.SYSTEM, "${me.displayName}님이 받을 계좌를 ${if (first) "등록했어요" else "바꿨어요"}")
+            commit(g, next)
+        }
     }
 }
 

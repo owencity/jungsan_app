@@ -24,6 +24,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -264,7 +265,11 @@ fun fmtTime(t: Instant, now: Instant = Clock.System.now()): String {
 @Composable
 private fun Timeline(g: Gathering, meId: Id?) {
     val scroll = rememberScrollState()
-    LaunchedEffect(g.timeline.size) { scroll.scrollTo(scroll.maxValue) }
+    // 새 줄이 그려진 다음 프레임에 내린다 — 바로 내리면 아직 옛 높이(maxValue)라 마지막 한 줄이 가려졌다
+    LaunchedEffect(g.timeline.size) {
+        withFrameNanos { }
+        scroll.scrollTo(scroll.maxValue)
+    }
     Column(
         Modifier.fillMaxWidth().heightIn(min = 160.dp, max = 360.dp).background(JsColor.p50).border(2.dp, JsColor.line)
             .verticalScroll(scroll).padding(12.dp),

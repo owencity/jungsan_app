@@ -115,6 +115,7 @@ sealed interface Target {
     data class Room(val roomId: Id) : Target
     data class Respond(val roomId: Id) : Target
     data class Pay(val roomId: Id) : Target
+    data class Account(val roomId: Id) : Target
 }
 
 // ── 조회 도우미 ─────────────────────────────────
