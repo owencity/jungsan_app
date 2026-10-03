@@ -35,6 +35,12 @@ class AccountTest {
         assertEquals(emptyList(), validatePayout(kb.copy(accountNo = "1234-5678")))
     }
 
+    @Test fun 계좌_복사는_숫자만_복사한다() {
+        // 이체 화면에 하이픈·은행 이름이 섞이면 잘린다
+        assertEquals("100012345678", copyableAccountNo("1000-1234-5678"))
+        assertEquals("3333012345678", copyableAccountNo("3333-01-2345678"))
+    }
+
     @Test fun 계좌번호_칸은_숫자와_하이픈만_받는다() {
         assertEquals("123-45678901", cleanAccountNo("국민 123-45 678901 "))
     }

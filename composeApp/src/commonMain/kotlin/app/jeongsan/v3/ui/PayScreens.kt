@@ -123,8 +123,9 @@ private fun PayCard(g: Gathering, t: Transfer, onSent: (Id) -> Unit) {
                         Text("${payout.bank} · ${payout.holder}", color = JsColor.ink3, fontSize = 11.5.sp)
                         Text(payout.accountNo, color = JsColor.ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                     }
-                    MiniButton(if (copied) "복사했어요" else "계좌 복사") {
-                        clipboard.setText(AnnotatedString("${payout.bank} ${payout.accountNo}"))
+                    MiniButton(if (copied) "번호만 복사했어요" else "계좌 복사") {
+                        // 숫자만 복사 — 이체 화면 계좌번호 칸에 하이픈·은행 이름이 섞이면 잘린다(PayoutRules.copyableAccountNo)
+                        clipboard.setText(AnnotatedString(app.jeongsan.v3.copyableAccountNo(payout.accountNo)))
                         copied = true
                     }
                 }

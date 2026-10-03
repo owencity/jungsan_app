@@ -11,6 +11,12 @@ val BANKS = listOf(
 /** 계좌번호 입력 정리 — 숫자와 하이픈만 남긴다. 은행 앱에서 복사해 온 "3333-01-…"를 그대로 받으려고 하이픈은 둔다 */
 fun cleanAccountNo(text: String): String = text.filter { it.isDigit() || it == '-' }.take(24)
 
+/**
+ * [계좌 복사]로 클립보드에 넣을 값 — **숫자만.** 화면엔 하이픈을 넣어 읽기 쉽게 보여주지만, 이체 화면의
+ * 계좌번호 칸은 하이픈·은행 이름이 섞이면 잘리거나 막힌다(CTO 실사용 피드백 2026-10-03). 은행 이름은 화면에 따로 보인다.
+ */
+fun copyableAccountNo(accountNo: String): String = accountNo.filter { it.isDigit() }
+
 /** 저장 전에 막아야 하는 것. 빈 리스트면 저장해도 된다 */
 fun validatePayout(p: Payout): List<String> {
     val errors = mutableListOf<String>()
