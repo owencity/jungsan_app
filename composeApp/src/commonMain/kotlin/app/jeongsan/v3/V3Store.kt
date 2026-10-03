@@ -325,6 +325,21 @@ class V3Store(
     }
 
     /**
+     * 표시 이름 확인·변경(L2). 사람 단위라 내가 들어간 **진행 중인** 술자리의 내 이름도 같이 바꾼다
+     * (완료된 술자리는 그대로 — 끝난 기록이다). 확인하면 `needsName`이 풀린다.
+     */
+    fun confirmName(name: String) {
+        val displayName = name.trim()
+        if (validateName(displayName).isNotEmpty()) return
+        val me = state.me.copy(displayName = displayName, needsName = false)
+        // 서버는 참여자 이름을 따로 저장하지 않고 users.display_name을 읽는다 — 완료된 방까지 모두 바뀐다
+        val rooms = state.rooms.mapValues { (_, g) ->
+            g.copy(participants = g.participants.map { if (it.userId == me.id) it.copy(displayName = displayName) else it })
+        }
+        state = state.copy(me = me, users = state.users.map { if (it.id == me.id) me else it }, rooms = rooms)
+    }
+
+    /**
      * 내 받을 계좌 등록·변경(A1). 사람 단위라 내가 들어간 **진행 중인** 술자리 모두에 반영한다
      * (완료된 술자리는 바꾸지 않는다 — 이미 끝난 송금의 기록이다).
      */

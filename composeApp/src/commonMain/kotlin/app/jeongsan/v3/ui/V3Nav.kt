@@ -119,6 +119,11 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, onLeave: () 
 
     composable(V3Routes.Home) {
         val s = store.state
+        // L2 이름 확인 — 첫 로그인이면 내 술자리 대신 한 번
+        if (s.me.needsName) {
+            NameScreen(devBar = devBar(null), me = s.me, onBack = onLeave, onConfirm = { store.confirmName(it) })
+            return@composable
+        }
         HomeScreen(
             devBar = devBar(null),
             me = s.me,
@@ -146,7 +151,12 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, onLeave: () 
             devBar = devBar(null),
             g = g,
             meUserId = s.me.id,
-            onJoin = { answers -> store.joinGathering(token, answers)?.let { nav.toRoom(it) } },
+            // 첫 로그인이면 P1에서 이름 확인(L2)을 같이 받는다 — 확인한 이름으로 참여한다
+            askName = if (s.me.needsName) s.me.displayName else null,
+            onJoin = { answers, name ->
+                if (name != null) store.confirmName(name)
+                store.joinGathering(token, answers)?.let { nav.toRoom(it) }
+            },
             onOpenRoom = { g?.let { nav.toRoom(it.id) } },
             onHome = { nav.toHome() },
         )

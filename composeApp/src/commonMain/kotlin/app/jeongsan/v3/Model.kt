@@ -25,7 +25,14 @@ enum class TransferStatus { WAITING, SENT, CONFIRMED }
 
 data class Payout(val bank: String, val accountNo: String, val holder: String)
 
-data class User(val id: Id, val displayName: String, val spoonCount: Int, val payout: Payout? = null)
+data class User(
+    val id: Id,
+    val displayName: String,
+    val spoonCount: Int,
+    val payout: Payout? = null,
+    /** 첫 로그인이라 표시 이름을 아직 확인하지 않았다(L2). 그동안 displayName은 카카오 닉네임 그대로다 */
+    val needsName: Boolean = false,
+)
 
 data class Participant(
     val id: Id,

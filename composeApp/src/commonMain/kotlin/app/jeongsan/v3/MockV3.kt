@@ -29,8 +29,11 @@ object MockV3 {
     private val myPayout = Payout("카카오뱅크", "3333-01-2345678", "김동규")
     private val minjiPayout = Payout("토스뱅크", "1000-1234-5678", "이민지")
 
-    /** 로그인한 나 — 프로 총무(1,280스푼) */
-    val ME = User(1, "동규", 1_280, myPayout)
+    /**
+     * 로그인한 나 — 프로 총무(1,280스푼). 목데이터에선 **첫 로그인처럼** 이름 확인(L2)이 한 번 뜨게 둔다(`needsName`) —
+     * 이름을 확인하면 그 뒤로는 안 뜬다. 웹 mock.ts와 같다.
+     */
+    val ME = User(1, "동규", 1_280, myPayout, needsName = true)
 
     /** 개발용 "보는 사람" 전환에 쓰는 사람들 */
     val USERS = listOf(

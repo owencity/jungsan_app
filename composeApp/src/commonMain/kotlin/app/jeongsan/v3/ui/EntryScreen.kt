@@ -11,8 +11,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -31,6 +34,7 @@ import app.jeongsan.v3.SELF_CHOICES
 import app.jeongsan.v3.host
 import app.jeongsan.v3.label
 import app.jeongsan.v3.participantOfUser
+import app.jeongsan.v3.validateName
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 
@@ -48,11 +52,15 @@ fun EntryScreen(
     devBar: @Composable () -> Unit,
     g: Gathering?,
     meUserId: Id,
-    onJoin: (Map<Id, ResponseType>) -> Unit,
+    /** 첫 로그인이라 이름을 아직 확인 안 했으면 카카오 닉네임 — P1 안에서 L2(이름 확인)를 같이 받는다 */
+    askName: String? = null,
+    /** 두 번째 값: askName이 있었을 때 확인받은 이름 */
+    onJoin: (Map<Id, ResponseType>, String?) -> Unit,
     onOpenRoom: () -> Unit,
     onHome: () -> Unit,
 ) {
     val draft = remember(g?.id, meUserId) { mutableStateMapOf<Id, ResponseType>() }
+    var name by remember(g?.id, meUserId) { mutableStateOf(askName.orEmpty()) }
 
     @Composable
     fun Notice(title: String, body: String, action: String, onAction: () -> Unit) {
@@ -76,16 +84,18 @@ fun EntryScreen(
     }
     g!!
     val host = g.host()
-    val filled = g.rounds.all { draft[it.id] != null }
+    val answered = g.rounds.all { draft[it.id] != null }
+    val nameErrors = if (askName != null) validateName(name) else emptyList()
+    val filled = answered && nameErrors.isEmpty()
     val date = g.date.toLocalDateTime(TimeZone.currentSystemDefault())
 
     V3Screen(
         devBar = devBar,
         top = { BackButton(onHome) },
         bottom = {
-            if (!filled) Text("모든 차수를 골라야 참여할 수 있어요", Modifier.fillMaxWidth(), color = JsColor.ink3, fontSize = 12.sp, textAlign = TextAlign.Center)
+            if (!answered) Text("모든 차수를 골라야 참여할 수 있어요", Modifier.fillMaxWidth(), color = JsColor.ink3, fontSize = 12.sp, textAlign = TextAlign.Center)
             CtaButton(if (g.rounds.isEmpty()) "참여하기" else "참여하고 응답 완료", enabled = filled) {
-                onJoin(g.rounds.associate { it.id to draft.getValue(it.id) })
+                onJoin(g.rounds.associate { it.id to draft.getValue(it.id) }, if (askName != null) name.trim() else null)
             }
         },
     ) {
@@ -131,6 +141,16 @@ fun EntryScreen(
                     }
                 }
             }
+        }
+
+        // 첫 로그인이면 L2(이름 확인)를 여기서 같이 — 화면을 하나 더 거치지 않게
+        if (askName != null) {
+            Row(verticalAlignment = Alignment.Bottom) {
+                Label("정산방에서 쓸 이름")
+                Text("  카카오 닉네임을 가져왔어요", color = JsColor.ink3, fontSize = 11.5.sp)
+            }
+            NameField(name, { name = it }, 15.sp)
+            nameErrors.firstOrNull()?.let { Text(it, color = JsColor.warn, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
         }
     }
 }
