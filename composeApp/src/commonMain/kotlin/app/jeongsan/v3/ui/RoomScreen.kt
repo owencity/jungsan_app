@@ -56,6 +56,7 @@ import app.jeongsan.v3.Participant
 import app.jeongsan.v3.TimelineType
 import app.jeongsan.v3.TransferStatus
 import app.jeongsan.v3.hasResponded
+import app.jeongsan.v3.initialOf
 import app.jeongsan.v3.host
 import app.jeongsan.v3.nameOf
 import app.jeongsan.v3.nextAction
@@ -240,7 +241,7 @@ private fun People(g: Gathering, onPick: ((Id) -> Unit)? = null) {
             ) {
                 Box {
                     Box(Modifier.size(32.dp).background(JsColor.p100).border(2.dp, JsColor.ink), contentAlignment = Alignment.Center) {
-                        Text(p.displayName.take(1), color = JsColor.p600, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
+                        Text(initialOf(p.displayName), color = JsColor.p600, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
                     }
                     Box(
                         Modifier.align(Alignment.TopEnd).offset(6.dp, (-4).dp).size(17.dp).background(Color.White).border(2.dp, color),
@@ -251,6 +252,10 @@ private fun People(g: Gathering, onPick: ((Id) -> Unit)? = null) {
                     p.displayName, Modifier.padding(top = 3.dp).widthIn(max = 52.dp), color = JsColor.ink2, fontSize = 11.5.sp,
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
+                val nick = p.nickname
+                if (nick != null && nick != p.displayName) {
+                    Text(nick, Modifier.widthIn(max = 56.dp), color = JsColor.ink3, fontSize = 10.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
             }
         }
     }

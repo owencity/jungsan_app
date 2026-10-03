@@ -7,7 +7,7 @@ import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
 /** A1 계좌 등록 — 웹 `account.test.ts`와 같은 케이스. */
-private const val SETTLING = 102L // 재훈(3, 참여자 23)은 2차 결제자인데 계좌가 없다
+private const val SETTLING = 102L // 박재훈(3, 참여자 23)은 2차 결제자인데 계좌가 없다
 
 class AccountTest {
     private lateinit var s: V3Store
@@ -80,8 +80,8 @@ class AccountTest {
     @Test fun 처음_등록하면_보낼_사람에게_알림이_가고_누르면_보낼_돈으로_간다() {
         s.registerPayout(kb)
         val n = s.state.notifications.first { it.userId == 1L && it.roomId == SETTLING }
-        assertEquals("재훈님이 계좌를 등록했어요. 이제 보낼 수 있어요", n.title)
+        assertEquals("박재훈님이 계좌를 등록했어요. 이제 보낼 수 있어요", n.title)
         assertEquals(Target.Pay(SETTLING), n.target)
-        assertEquals("재훈님이 받을 계좌를 등록했어요", room().timeline.last().body)
+        assertEquals("박재훈님이 받을 계좌를 등록했어요", room().timeline.last().body)
     }
 }

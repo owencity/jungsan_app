@@ -63,12 +63,12 @@ class V3StoreTest {
     }
 
     @Test fun 남의_송금에는_보냈어요를_누를_수_없다() {
-        s.markSent(SETTLING, 5) // 민지 → 재훈
+        s.markSent(SETTLING, 5) // 이민지 → 박재훈
         assertEquals(TransferStatus.WAITING, tr(SETTLING, 5).status)
     }
 
     @Test fun 아직_안_들어왔어요는_대기로_되돌리되_보낸_시각은_지우지_않는다() {
-        s.actAs(2) // 민지 — 재훈이 보낸 29,000원의 수취인
+        s.actAs(2) // 이민지 — 박재훈이 보낸 29,000원의 수취인
         s.notReceived(SETTLING, 3)
         assertEquals(TransferStatus.WAITING, tr(SETTLING, 3).status)
         assertNotNull(tr(SETTLING, 3).notReceivedAt)
@@ -83,7 +83,7 @@ class V3StoreTest {
     @Test fun 마지막_송금이_확인되면_완료로_바뀌고_참여자_2명_이상이면_총무가_기본_스푼_1개를_받는다() {
         val hostBefore = g(SETTLING).host().spoonCount
         s.actAs(2); s.confirmIncoming(SETTLING, 3); s.confirmIncoming(SETTLING, 1)
-        assertEquals(GatheringStatus.SETTLING, g(SETTLING).status) // 재훈이 받을 돈이 남았다
+        assertEquals(GatheringStatus.SETTLING, g(SETTLING).status) // 박재훈이 받을 돈이 남았다
         s.actAs(3); s.confirmIncoming(SETTLING, 5); s.confirmIncoming(SETTLING, 2)
         assertEquals(GatheringStatus.COMPLETED, g(SETTLING).status)
         assertNotNull(g(SETTLING).completedAt)
@@ -127,7 +127,7 @@ class V3StoreTest {
     }
 
     @Test fun 정산한_뒤에는_차수를_넣거나_지울_수_없다() {
-        s.actAs(2) // 102의 총무 민지
+        s.actAs(2) // 102의 총무 이민지
         val before = g(SETTLING)
         s.saveRound(SETTLING, draft.copy(payerParticipantId = 21))
         s.deleteRound(SETTLING, 11)
@@ -175,7 +175,7 @@ class V3StoreTest {
         for (pid in listOf(14L, 15L)) {
             assertTrue(g(OPEN).responses.filter { it.participantId == pid }.all { it.type == ResponseType.DRANK && it.source == ResponseSource.AUTO })
         }
-        assertContains(g(OPEN).timeline.last().body, "지영·민수님은 응답이 없어")
+        assertContains(g(OPEN).timeline.last().body, "최지영·정민수님은 응답이 없어")
     }
 
     @Test fun 미리보기_뒤_입력이_바뀌었으면_거절된다() {
@@ -210,7 +210,7 @@ class V3StoreTest {
         s.respond(OPEN, mapOf(1L to ResponseType.DRANK, 2L to ResponseType.SOBER))
         assertEquals(ResponseSource.SELF, g(OPEN).responseOf(15, 2)?.source)
         assertEquals(ActionKind.EDIT_RESPONSE, nextAction(g(OPEN), 5).action?.kind)
-        assertEquals("민수님이 응답했어요", g(OPEN).timeline.last().body)
+        assertEquals("정민수님이 응답했어요", g(OPEN).timeline.last().body)
     }
 
     @Test fun 총무가_면제로_정한_칸과_스스로_면제는_참여자가_바꿀_수_없다() {
@@ -243,13 +243,13 @@ class V3StoreTest {
 
     @Test fun 보냈어요를_누르면_받는_사람에게_알림이_간다() {
         s.markSent(SETTLING, 1)
-        assertEquals("동규님이 보냈대요. 입금을 확인해주세요", inbox(2).first().title)
+        assertEquals("김동규님이 보냈대요. 입금을 확인해주세요", inbox(2).first().title)
     }
 
     @Test fun 아직_안_들어왔어요를_누르면_보낸_사람에게_알림이_가고_누르면_내_금액으로_간다() {
         s.actAs(2)
         s.notReceived(SETTLING, 3)
-        assertEquals("민지님이 아직 입금을 확인 못 했대요", inbox(3).first().title)
+        assertEquals("이민지님이 아직 입금을 확인 못 했대요", inbox(3).first().title)
         assertEquals(Target.Pay(SETTLING), inbox(3).first().target)
     }
 
@@ -278,8 +278,8 @@ class V3StoreTest {
     }
 
     @Test fun 처음_열리는_탭은_할_일이_있는_탭이다() {
-        assertEquals(HomeTab.JOINED, initialTab(myRoomTabs(s.state.rooms.values, 1), 1)) // 동규: 보낼 돈
-        assertEquals(HomeTab.HOSTING, initialTab(myRoomTabs(s.state.rooms.values, 2), 2)) // 민지: 입금 확인
+        assertEquals(HomeTab.JOINED, initialTab(myRoomTabs(s.state.rooms.values, 1), 1)) // 김동규: 보낼 돈
+        assertEquals(HomeTab.HOSTING, initialTab(myRoomTabs(s.state.rooms.values, 2), 2)) // 이민지: 입금 확인
         assertEquals(HomeTab.HOSTING, initialTab(myRoomTabs(emptyList(), 1), 1))
     }
 
@@ -302,7 +302,7 @@ class V3StoreTest {
     }
 
     @Test fun 목록_뱃지는_입금_확인_정산금액_확인_응답하기_순이다() {
-        assertEquals("입금 확인", rowBadge(g(SETTLING), 2, false)) // 민지: 보낼 돈도 있지만 확인이 먼저
+        assertEquals("입금 확인", rowBadge(g(SETTLING), 2, false)) // 이민지: 보낼 돈도 있지만 확인이 먼저
         assertEquals("정산금액 확인", rowBadge(g(SETTLING), 1, false))
         s.markPaySeen(SETTLING)
         assertTrue(s.state.isPaySeen(SETTLING))

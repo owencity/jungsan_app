@@ -14,7 +14,7 @@ class ShareTest {
     }
 
     @Test fun 응답_받는_중이면_차수마다_마셨는지만_눌러달라고_한다() {
-        assertEquals("[정산어택] 동규님의 9/28 술자리\n차수마다 마셨는지만 눌러주세요 👉 $url", shareMessage(room(101), url))
+        assertEquals("[정산어택] 김동규님의 9/28 술자리\n차수마다 마셨는지만 눌러주세요 👉 $url", shareMessage(room(101), url))
     }
 
     @Test fun 차수가_없으면_먼저_들어오라고_하고_정산_뒤면_금액_확인을_권한다() {

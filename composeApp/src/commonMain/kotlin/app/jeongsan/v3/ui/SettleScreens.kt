@@ -42,6 +42,7 @@ import app.jeongsan.v3.SettleResult
 import app.jeongsan.v3.host
 import app.jeongsan.v3.isLockedByHost
 import app.jeongsan.v3.label
+import app.jeongsan.v3.nameWithNick
 import app.jeongsan.v3.nameOf
 import app.jeongsan.v3.responseOf
 import app.jeongsan.v3.unrespondedParticipants
@@ -140,7 +141,7 @@ fun SettleScreen(
                 val paid = g.rounds.any { it.payerParticipantId == p.id }
                 Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(p.displayName, color = JsColor.ink, fontSize = 14.5.sp, fontWeight = FontWeight.Bold)
+                        Text(p.nameWithNick(), color = JsColor.ink, fontSize = 14.5.sp, fontWeight = FontWeight.Bold)
                         if (p.id == host.id) Chip("총무", ChipTone.HOST)
                         if (paid) Chip("낸 사람")
                         if (l.auto) Chip("자동", ChipTone.AUTO)

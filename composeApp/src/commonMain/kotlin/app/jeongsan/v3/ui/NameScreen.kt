@@ -34,20 +34,23 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.jeongsan.ui.JsColor
 import app.jeongsan.v3.MAX_NAME
+import app.jeongsan.v3.NAME_GUIDE
 import app.jeongsan.v3.User
 import app.jeongsan.v3.nameLength
+import app.jeongsan.v3.nameWithNick
 import app.jeongsan.v3.validateName
 
 /**
- * L2 이름 확인 — 웹 `NamePage.tsx`. 첫 로그인 때 한 번. 카카오 닉네임을 기본값으로 채워 두고, 친구들이 정산방에서
- * 알아볼 이름인지 확인만 받는다. 대부분은 그대로 [이 이름으로 시작]을 누른다. 키보드의 [완료]로도 시작한다.
+ * L2 이름 확인 — 웹 `NamePage.tsx`. 첫 로그인 때 한 번 **실명을 성까지** 받는다 — 총무가 은행 앱의 입금자명과
+ * 참여자를 맞춰 보기 때문이다. 칸은 비워 둔다(카카오 닉네임을 채워 두면 그대로 넘어가 실명이 안 모인다).
+ * 한 번 정하면 바뀌지 않는다. 카카오 닉네임은 목록에서 `이름(닉네임)`으로 옆에 붙는다. 키보드의 [완료]로도 시작한다.
  */
 @Composable
 fun NameScreen(devBar: @Composable () -> Unit, me: User, onBack: () -> Unit, onConfirm: (String) -> Unit) {
-    var name by remember(me.id) { mutableStateOf(me.displayName) }
+    var name by remember(me.id) { mutableStateOf("") }
     var tried by remember(me.id) { mutableStateOf(false) }
     val errors = validateName(name)
-    val preview = name.trim().ifEmpty { "이름" }
+    val preview = name.trim().ifEmpty { "김동규" }
     val submit = {
         tried = true
         if (errors.isEmpty()) onConfirm(name.trim())
@@ -70,27 +73,38 @@ fun NameScreen(devBar: @Composable () -> Unit, me: User, onBack: () -> Unit, onC
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text("처음 오셨네요", color = JsColor.accentStrong, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
             Text("정산방에서 쓸 이름", color = JsColor.ink, fontSize = 24.sp, fontWeight = FontWeight.Black)
-            Text("카카오 닉네임을 가져왔어요. 친구들이 알아볼 이름으로 바꿔도 돼요.", color = JsColor.ink2, fontSize = 13.sp, lineHeight = 19.sp)
+            Text("한 번 정하면 바꿀 수 없어요.", color = JsColor.ink2, fontSize = 13.sp, lineHeight = 19.sp)
         }
 
         Row(verticalAlignment = Alignment.Bottom) {
-            Label("이름")
+            Label("실명")
             Text("  ${nameLength(name.trim())}/$MAX_NAME", color = JsColor.ink3, fontSize = 12.sp)
         }
+        NameGuide()
         NameField(name, { name = it }, 20.sp, onDone = submit)
 
+        // 실제로 어떻게 보이는지 — 목록엔 이름(닉네임), 알림·타임라인 문장엔 이름만
         Column(
             Modifier.fillMaxWidth().background(JsColor.p50).border(2.dp, JsColor.line).padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Label("친구들에겐 이렇게 보여요")
-            Text("⚙ ${preview}님이 들어왔어요", color = JsColor.ink2, fontSize = 12.5.sp)
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text("👤 ${nameWithNick(preview, me.nickname)}", color = JsColor.ink, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
+                Text("  참여자 목록", color = JsColor.ink3, fontSize = 11.5.sp)
+            }
             Text("⚙ ${preview}님이 보냈대요. 입금을 확인해주세요", color = JsColor.ink2, fontSize = 12.5.sp)
         }
     }
 }
 
-/** 이름 입력칸 — L2와 P1(첫 로그인)이 같이 쓴다 */
+/** 실명 안내 — 왜 실명인지까지 한 줄로. L2와 P1(첫 로그인)이 같이 쓴다 */
+@Composable
+fun NameGuide() {
+    Text(NAME_GUIDE, color = JsColor.accentStrong, fontSize = 13.sp, fontWeight = FontWeight.Bold, lineHeight = 19.sp)
+}
+
+/** 이름 입력칸 — L2와 P1(첫 로그인)이 같이 쓴다. 비어 있으면 "예: 김동규" */
 @Composable
 fun NameField(value: String, onChange: (String) -> Unit, size: TextUnit, onDone: () -> Unit = {}) {
     BasicTextField(
@@ -104,6 +118,11 @@ fun NameField(value: String, onChange: (String) -> Unit, size: TextUnit, onDone:
         cursorBrush = SolidColor(JsColor.p600),
         modifier = Modifier.fillMaxWidth().background(Color(0xFFFBFDFF), RectangleShape).border(2.dp, JsColor.line, RectangleShape)
             .padding(horizontal = 13.dp, vertical = 12.dp).semantics { contentDescription = "정산방에서 쓸 이름" },
-        decorationBox = { inner -> Box { inner() } },
+        decorationBox = { inner ->
+            Box {
+                if (value.isEmpty()) Text("예: 김동규", color = JsColor.ink3, fontSize = size)
+                inner()
+            }
+        },
     )
 }

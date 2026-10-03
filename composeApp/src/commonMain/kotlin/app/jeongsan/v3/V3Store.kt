@@ -172,7 +172,7 @@ class V3Store(
             // 목데이터용 링크 토큰. 실제로는 서버가 발급한다
             shareToken = List(5) { "abcdefghijkmnpqrstuvwxyz23456789".random(Random) }.joinToString(""),
             inputRevision = 0,
-            participants = listOf(Participant(pid, s.me.id, s.me.displayName, s.me.spoonCount, s.me.payout)),
+            participants = listOf(Participant(pid, s.me.id, s.me.displayName, s.me.spoonCount, s.me.payout, s.me.nickname)),
             rounds = emptyList(), responses = emptyList(), transfers = emptyList(),
             timeline = listOf(TimelineEntry(1, TimelineType.SYSTEM, "${s.me.displayName}님이 술자리를 만들었어요", now)),
             spoonGivers = emptyList(),
@@ -251,7 +251,7 @@ class V3Store(
         if (g.status != GatheringStatus.OPEN) return null
 
         val pid = (s.rooms.values.flatMap { r -> r.participants.map { it.id } }.maxOrNull() ?: 0) + 1
-        var next = g.copy(participants = g.participants + Participant(pid, s.me.id, s.me.displayName, s.me.spoonCount, s.me.payout))
+        var next = g.copy(participants = g.participants + Participant(pid, s.me.id, s.me.displayName, s.me.spoonCount, s.me.payout, s.me.nickname))
             .push(TimelineType.SYSTEM, "${s.me.displayName}님이 들어왔어요")
         var responses = next.responses
         for ((roundId, type) in answers) {

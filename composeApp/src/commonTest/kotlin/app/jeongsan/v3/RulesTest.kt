@@ -46,7 +46,7 @@ class RulesTest {
 
     @Test fun 모든_차수에_응답이_있어야_응답한_것이다() {
         val g = room(101)
-        assertTrue(g.hasResponded(13)) // 재훈: 1차·2차 모두
+        assertTrue(g.hasResponded(13)) // 박재훈: 1차·2차 모두
         assertFalse(g.copy(responses = g.responses.filterNot { it.participantId == 13L && it.roundId == 2L }).hasResponded(13))
     }
 

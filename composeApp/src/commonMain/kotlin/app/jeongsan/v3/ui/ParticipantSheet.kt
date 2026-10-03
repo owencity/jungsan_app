@@ -41,6 +41,7 @@ import app.jeongsan.v3.Gathering
 import app.jeongsan.v3.GatheringStatus
 import app.jeongsan.v3.ResponseType
 import app.jeongsan.v3.label
+import app.jeongsan.v3.nameWithNick
 import app.jeongsan.v3.removeBlockedReason
 import app.jeongsan.v3.responseOf
 
@@ -74,7 +75,7 @@ fun ParticipantSheet(
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(p.displayName, Modifier.weight(1f), color = JsColor.ink, fontSize = 17.sp, fontWeight = FontWeight.Black)
+                Text(p.nameWithNick(), Modifier.weight(1f), color = JsColor.ink, fontSize = 17.sp, fontWeight = FontWeight.Black)
                 if (paid.isNotEmpty()) Chip("${paid.joinToString("·") { it.label }} 낸 사람")
                 Text("닫기", Modifier.clickable(onClick = onClose).padding(4.dp), color = JsColor.ink3, fontSize = 13.sp)
             }

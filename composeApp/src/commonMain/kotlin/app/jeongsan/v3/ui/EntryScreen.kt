@@ -52,15 +52,15 @@ fun EntryScreen(
     devBar: @Composable () -> Unit,
     g: Gathering?,
     meUserId: Id,
-    /** 첫 로그인이라 이름을 아직 확인 안 했으면 카카오 닉네임 — P1 안에서 L2(이름 확인)를 같이 받는다 */
-    askName: String? = null,
-    /** 두 번째 값: askName이 있었을 때 확인받은 이름 */
+    /** 첫 로그인이라 실명을 아직 안 받았으면 true — P1 안에서 L2(이름 확인)를 같이 받는다 */
+    askName: Boolean = false,
+    /** 두 번째 값: askName이었을 때 받은 실명 */
     onJoin: (Map<Id, ResponseType>, String?) -> Unit,
     onOpenRoom: () -> Unit,
     onHome: () -> Unit,
 ) {
     val draft = remember(g?.id, meUserId) { mutableStateMapOf<Id, ResponseType>() }
-    var name by remember(g?.id, meUserId) { mutableStateOf(askName.orEmpty()) }
+    var name by remember(g?.id, meUserId) { mutableStateOf("") }
 
     @Composable
     fun Notice(title: String, body: String, action: String, onAction: () -> Unit) {
@@ -85,7 +85,7 @@ fun EntryScreen(
     g!!
     val host = g.host()
     val answered = g.rounds.all { draft[it.id] != null }
-    val nameErrors = if (askName != null) validateName(name) else emptyList()
+    val nameErrors = if (askName) validateName(name) else emptyList()
     val filled = answered && nameErrors.isEmpty()
     val date = g.date.toLocalDateTime(TimeZone.currentSystemDefault())
 
@@ -95,7 +95,7 @@ fun EntryScreen(
         bottom = {
             if (!answered) Text("모든 차수를 골라야 참여할 수 있어요", Modifier.fillMaxWidth(), color = JsColor.ink3, fontSize = 12.sp, textAlign = TextAlign.Center)
             CtaButton(if (g.rounds.isEmpty()) "참여하기" else "참여하고 응답 완료", enabled = filled) {
-                onJoin(g.rounds.associate { it.id to draft.getValue(it.id) }, if (askName != null) name.trim() else null)
+                onJoin(g.rounds.associate { it.id to draft.getValue(it.id) }, if (askName) name.trim() else null)
             }
         },
     ) {
@@ -144,13 +144,12 @@ fun EntryScreen(
         }
 
         // 첫 로그인이면 L2(이름 확인)를 여기서 같이 — 화면을 하나 더 거치지 않게
-        if (askName != null) {
-            Row(verticalAlignment = Alignment.Bottom) {
-                Label("정산방에서 쓸 이름")
-                Text("  카카오 닉네임을 가져왔어요", color = JsColor.ink3, fontSize = 11.5.sp)
-            }
+        if (askName) {
+            Label("정산방에서 쓸 이름")
+            NameGuide()
             NameField(name, { name = it }, 15.sp)
-            nameErrors.firstOrNull()?.let { Text(it, color = JsColor.warn, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+            // 아직 아무것도 안 적었을 땐 안내 문구만 — 빈칸 오류를 처음부터 띄우지 않는다
+            if (name.isNotBlank()) nameErrors.firstOrNull()?.let { Text(it, color = JsColor.warn, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
         }
     }
 }

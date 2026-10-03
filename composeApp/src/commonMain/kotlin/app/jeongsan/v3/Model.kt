@@ -30,8 +30,10 @@ data class User(
     val displayName: String,
     val spoonCount: Int,
     val payout: Payout? = null,
-    /** 첫 로그인이라 표시 이름을 아직 확인하지 않았다(L2). 그동안 displayName은 카카오 닉네임 그대로다 */
+    /** 첫 로그인이라 실명을 아직 받지 않았다(L2). 한 번 받으면 바뀌지 않는다 */
     val needsName: Boolean = false,
+    /** 카카오 닉네임. 목록에서 `이름(닉네임)`으로 같이 보여 누군지 알아보게 한다. 사용자가 입력하지 않는다 */
+    val nickname: String? = null,
 )
 
 data class Participant(
@@ -41,6 +43,7 @@ data class Participant(
     val spoonCount: Int,
     /** 결제자일 때 받을 계좌. 없으면 "계좌 등록을 기다리는 중" */
     val payout: Payout? = null,
+    val nickname: String? = null,
 )
 
 data class DrinkItem(val name: String, val unitPrice: Money, val quantity: Int)

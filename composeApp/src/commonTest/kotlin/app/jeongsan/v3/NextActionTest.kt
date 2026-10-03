@@ -11,9 +11,9 @@ import kotlin.time.Duration.Companion.days
  * "지금 할 일" 판정 — 웹 `v3/__tests__/nextAction.test.ts`를 **같은 케이스·같은 기대값**으로 옮겼다.
  * 두 플랫폼이 같은 입력에 같은 배너를 내는지가 곧 일치 검증이다.
  */
-private const val OPEN = 101L // 동규(1)가 총무, 지영(4)·민수(5) 미응답
-private const val SETTLING = 102L // 민지(2)가 총무, 동규(1)는 민지·재훈에게 보낼 돈
-private const val COMPLETED = 103L // 재훈(3)이 총무, 민지는 스푼 줬고 동규는 아직
+private const val OPEN = 101L // 김동규(1)가 총무, 최지영(4)·정민수(5) 미응답
+private const val SETTLING = 102L // 이민지(2)가 총무, 김동규(1)는 이민지·박재훈에게 보낼 돈
+private const val COMPLETED = 103L // 박재훈(3)이 총무, 이민지는 스푼 줬고 김동규는 아직
 
 internal fun room(id: Long): Gathering = MockV3.rooms().first { it.id == id }
 
@@ -70,7 +70,7 @@ class NextActionTest {
 
     @Test fun 보낼_돈이_있으면_받는_사람과_금액을_알려준다() {
         val a = nextAction(room(SETTLING), 1)
-        assertEquals("민지님께 41,000원을 보내주세요", a.banner)
+        assertEquals("이민지님께 41,000원을 보내주세요", a.banner)
         assertEquals(ActionKind.VIEW_PAY, a.action?.kind)
     }
 
@@ -81,33 +81,33 @@ class NextActionTest {
     @Test fun 아직_안_들어왔어요를_받으면_보낼_돈_안내보다_먼저_뜬다() {
         val now = Clock.System.now()
         val g = room(SETTLING).withTransfer(1) { it.copy(sentAt = now, notReceivedAt = now) }
-        assertEquals("민지님이 아직 입금을 확인 못 했어요", nextAction(g, 1).banner)
+        assertEquals("이민지님이 아직 입금을 확인 못 했어요", nextAction(g, 1).banner)
     }
 
     @Test fun 계좌_없는_결제자에게는_계좌_등록이_무엇보다_먼저_뜬다() {
-        // 재훈은 2차 결제자인데 계좌가 없다
+        // 박재훈은 2차 결제자인데 계좌가 없다
         assertEquals(ActionKind.REGISTER_ACCOUNT, nextAction(room(SETTLING), 3).action?.kind)
     }
 
     @Test fun 남을_막고_있는_일이_먼저다_총무에게_보낼_돈이_남아_있어도_보냈어요_받은_확인이_먼저_뜬다() {
-        // 민지(총무)는 재훈에게 보낼 24,000원이 있지만, 재훈이 보낸 29,000원이 확인을 기다린다
+        // 이민지(총무)는 박재훈에게 보낼 24,000원이 있지만, 박재훈이 보낸 29,000원이 확인을 기다린다
         val a = nextAction(room(SETTLING), 2)
-        assertEquals("재훈님이 보냈대요. 확인해주세요", a.banner)
+        assertEquals("박재훈님이 보냈대요. 확인해주세요", a.banner)
         assertEquals(ActionKind.CONFIRM_INCOMING, a.action?.kind)
     }
 
     @Test fun 확인할_게_없으면_총무도_다른_결제자에게_보낼_돈을_안내받는다() {
-        val g = room(SETTLING).withTransfer(3) { it.copy(status = TransferStatus.CONFIRMED) } // 재훈 → 민지 확인 끝
-        assertEquals("재훈님께 24,000원을 보내주세요", nextAction(g, 2).banner)
+        val g = room(SETTLING).withTransfer(3) { it.copy(status = TransferStatus.CONFIRMED) } // 박재훈 → 이민지 확인 끝
+        assertEquals("박재훈님께 24,000원을 보내주세요", nextAction(g, 2).banner)
     }
 
     @Test fun 결제자에게도_같은_원칙_보냈어요_받은_확인이_내_송금의_아직_안_들어왔어요보다_먼저다() {
         val now = Clock.System.now()
         val g = room(SETTLING)
-            .let { it.copy(participants = it.participants.map { p -> if (p.id == 23L) p.copy(payout = Payout("국민", "1", "재훈")) else p }) }
-            .withTransfer(2) { it.copy(status = TransferStatus.SENT, sentAt = now) } // 동규 → 재훈 보냄
-            .withTransfer(3) { it.copy(status = TransferStatus.WAITING, notReceivedAt = now) } // 재훈 → 민지: 안 들어왔대요
-        assertEquals("동규님이 보냈대요. 확인해주세요", nextAction(g, 3).banner)
+            .let { it.copy(participants = it.participants.map { p -> if (p.id == 23L) p.copy(payout = Payout("국민", "1", "박재훈")) else p }) }
+            .withTransfer(2) { it.copy(status = TransferStatus.SENT, sentAt = now) } // 김동규 → 박재훈 보냄
+            .withTransfer(3) { it.copy(status = TransferStatus.WAITING, notReceivedAt = now) } // 박재훈 → 이민지: 안 들어왔대요
+        assertEquals("김동규님이 보냈대요. 확인해주세요", nextAction(g, 3).banner)
     }
 
     @Test fun 내_송금이_모두_확인되면_총무에게_한_스푼을_권하고_이미_줬으면_권하지_않는다() {
@@ -127,8 +127,8 @@ class NextActionTest {
     }
 
     @Test fun 스푼을_아직_안_준_참여자에게만_한_스푼_버튼을_준다() {
-        assertEquals(ActionKind.GIVE_SPOON, nextAction(room(COMPLETED), 1).action?.kind) // 동규: 아직
-        assertNull(nextAction(room(COMPLETED), 2).action) // 민지: 이미 줌
+        assertEquals(ActionKind.GIVE_SPOON, nextAction(room(COMPLETED), 1).action?.kind) // 김동규: 아직
+        assertNull(nextAction(room(COMPLETED), 2).action) // 이민지: 이미 줌
     }
 
     @Test fun 총무_자신에게는_스푼_버튼이_없다() {
