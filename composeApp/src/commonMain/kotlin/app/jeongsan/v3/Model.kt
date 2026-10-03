@@ -110,6 +110,8 @@ data class AppNotification(
 
 /** 알림·목록에서 "어느 화면으로 갈지". 웹은 경로 문자열(`/jungsan/r/101/pay`)이고 앱은 이 값으로 고른다 */
 sealed interface Target {
+    /** 내 술자리 — 명단에서 빠진 사람처럼 술자리에 더는 못 들어갈 때 */
+    data object Home : Target
     data class Room(val roomId: Id) : Target
     data class Respond(val roomId: Id) : Target
     data class Pay(val roomId: Id) : Target

@@ -26,6 +26,23 @@ fun notificationsFor(prev: Gathering, next: Gathering): List<NewNotification> {
         )
     }
 
+    // ── 총무가 내보냄: 빠진 사람에게 (술자리에 더는 못 들어가니 내 술자리로) ──
+    for (p in prev.participants) {
+        if (next.participants.any { it.id == p.id }) continue
+        out += NewNotification(p.userId, next.id, "${next.title}에서 빠졌어요", "${host.displayName} 총무가 명단에서 뺐어요", Target.Home)
+    }
+
+    // ── 총무가 면제함: 그 사람에게 ──
+    for (r in next.responses) {
+        if (r.type != ResponseType.EXEMPT || r.source != ResponseSource.HOST) continue
+        val before = prev.responses.find { it.participantId == r.participantId && it.roundId == r.roundId }
+        if (before?.type == ResponseType.EXEMPT) continue
+        val p = next.participants.find { it.id == r.participantId } ?: continue
+        if (p.id == host.id) continue
+        val label = next.rounds.find { it.id == r.roundId }?.label.orEmpty()
+        out += NewNotification(p.userId, next.id, "${host.displayName} 총무가 ${label}를 면제해줬어요 🎁", next.title, Target.Room(next.id))
+    }
+
     // ── 정산됨: 참여자 모두에게 "입금액을 확인해주세요" ──
     if (prev.status == GatheringStatus.OPEN && next.status != GatheringStatus.OPEN) {
         val autoIds = next.responses.filter { it.source == ResponseSource.AUTO }.map { it.participantId }.toSet()

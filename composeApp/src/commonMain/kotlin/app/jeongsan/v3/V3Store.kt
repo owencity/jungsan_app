@@ -265,6 +265,42 @@ class V3Store(
         return g.id
     }
 
+    /**
+     * 총무가 한 사람의 한 차수를 면제하거나 해제한다(R4). 면제는 `EXEMPT`·`HOST`로 잠기고, 해제하면 그 칸은
+     * **빈칸(응답 전)**으로 돌아간다 — 참여자가 다시 고르고, 안 고르면 정산 때 자동응답(flow-changes FC-010).
+     */
+    fun setExempt(roomId: Id, participantId: Id, roundId: Id, exempt: Boolean) = update(roomId) { g, _ ->
+        if (g.hostUserId != me.id || g.status != GatheringStatus.OPEN) return@update g
+        val round = g.rounds.find { it.id == roundId } ?: return@update g
+        if (g.participants.none { it.id == participantId }) return@update g
+        if (exempt == (g.responseOf(participantId, roundId)?.type == ResponseType.EXEMPT)) return@update g
+        val responses = if (exempt) {
+            g.responses.setResponse(RoundResponse(participantId, roundId, ResponseType.EXEMPT, ResponseSource.HOST))
+        } else {
+            g.responses.filterNot { it.participantId == participantId && it.roundId == roundId }
+        }
+        val who = g.nameOf(participantId)
+        g.copy(responses = responses, inputRevision = g.inputRevision + 1)
+            .push(TimelineType.SYSTEM, if (exempt) "${who}님 ${round.label}를 면제했어요 🎁" else "${who}님 ${round.label} 면제를 풀었어요")
+    }
+
+    /**
+     * 총무가 정산 전 한 사람을 내보낸다(R4). 결제자는 내보낼 수 없다 — 그 차수의 돈을 받을 사람이
+     * 사라지기 때문이다. 거부되면 이유 문구, 성공하면 null.
+     */
+    fun removeParticipant(roomId: Id, participantId: Id): String? {
+        val g = state.rooms[roomId]
+        if (g == null || g.hostUserId != me.id) return "총무만 내보낼 수 있어요"
+        removeBlockedReason(g, participantId)?.let { return it }
+        val next = g.copy(
+            participants = g.participants.filterNot { it.id == participantId },
+            responses = g.responses.filterNot { it.participantId == participantId },
+            inputRevision = g.inputRevision + 1,
+        ).push(TimelineType.SYSTEM, "${g.nameOf(participantId)}님이 빠졌어요")
+        commit(g, next)
+        return null
+    }
+
     // ── 알림 · 뱃지 · 개발용 ──
 
     fun markRead(notificationId: Id) {
@@ -285,6 +321,15 @@ class V3Store(
     fun actAs(userId: Id) {
         MockV3.USERS.find { it.id == userId }?.let { state = state.copy(me = it) }
     }
+}
+
+/** R4 내보내기를 막는 이유. 없으면 null — 화면이 버튼을 끄고 이유를 보여주는 데도 쓴다 */
+fun removeBlockedReason(g: Gathering, participantId: Id): String? {
+    if (g.status != GatheringStatus.OPEN) return "정산한 뒤에는 내보낼 수 없어요"
+    val p = g.participants.find { it.id == participantId } ?: return "이미 없는 사람이에요"
+    if (p.userId == g.hostUserId) return "총무는 내보낼 수 없어요"
+    if (g.rounds.any { it.payerParticipantId == participantId }) return "결제자는 내보낼 수 없어요. 차수의 낸 사람을 먼저 바꿔주세요"
+    return null
 }
 
 /** 한 칸(참여자 × 차수)의 응답을 바꾸거나 새로 넣는다 */

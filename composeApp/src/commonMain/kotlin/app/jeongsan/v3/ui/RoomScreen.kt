@@ -33,7 +33,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -79,7 +81,12 @@ fun RoomScreen(
     onSend: (String) -> Unit,
     onConfirm: (Id) -> Unit,
     onNotReceived: (Id) -> Unit,
+    /** R4 — 총무가 한 사람의 차수 면제를 켜고 끈다 (참여자 id, 차수 id, 면제) */
+    onExempt: (Id, Id, Boolean) -> Unit,
+    /** R4 — 총무가 정산 전 한 사람을 내보낸다 */
+    onRemove: (Id) -> Unit,
 ) {
+    var managing by remember { mutableStateOf<Id?>(null) }
     val host = g.host()
     val me = g.participantOfUser(meUserId)
     val isHost = g.hostUserId == meUserId
@@ -118,7 +125,23 @@ fun RoomScreen(
 
         Banner(act.banner, act.tone, act.note)
 
-        People(g)
+        // 총무는 사람을 눌러 면제·내보내기(R4). 총무 자신은 관리 대상이 아니다
+        People(g, onPick = if (isHost) ({ pid -> if (pid != host.id) managing = pid }) else null)
+        if (isHost && g.rounds.isNotEmpty() && g.status == GatheringStatus.OPEN && g.participants.size > 1) {
+            Text("사람을 누르면 차수별 면제·내보내기를 할 수 있어요", color = JsColor.ink3, fontSize = 12.sp)
+        }
+        managing?.let { pid ->
+            ParticipantSheet(
+                g = g,
+                participantId = pid,
+                onClose = { managing = null },
+                onExempt = { rid, ex -> onExempt(pid, rid, ex) },
+                onRemove = {
+                    onRemove(pid)
+                    managing = null
+                },
+            )
+        }
 
         if (g.rounds.isNotEmpty()) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -180,7 +203,7 @@ private fun RoundChip(label: String, total: Long, onClick: (() -> Unit)?) {
 
 /** 참여자 줄 — 정산 전엔 응답 여부, 정산 후엔 송금 상태를 점으로 */
 @Composable
-private fun People(g: Gathering) {
+private fun People(g: Gathering, onPick: ((Id) -> Unit)? = null) {
     fun stateOf(p: Participant): Triple<String, Color, String> {
         if (g.status == GatheringStatus.OPEN) {
             return if (g.hasResponded(p.id)) Triple("●", JsColor.ok, "응답함") else Triple("○", JsColor.ink3, "아직")
@@ -195,8 +218,16 @@ private fun People(g: Gathering) {
     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         for (p in g.participants) {
             val (mark, color, label) = stateOf(p)
+            // 총무만 누를 수 있다(본인 칸 제외)
+            val pickable = onPick != null && p.userId != g.hostUserId
             Column(
-                Modifier.widthIn(min = 46.dp).padding(top = 4.dp).semantics { contentDescription = "${p.displayName} · $label" },
+                Modifier.widthIn(min = 46.dp)
+                    .then(if (pickable) Modifier.clickable { onPick?.invoke(p.id) } else Modifier)
+                    .padding(top = 4.dp)
+                    .semantics {
+                        contentDescription = if (pickable) "${p.displayName} 관리 · $label" else "${p.displayName} · $label"
+                        if (pickable) role = Role.Button
+                    },
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Box {

@@ -70,6 +70,7 @@ private fun NavHostController.toSub(id: Id, route: String) {
 }
 
 private fun NavHostController.toTarget(t: Target) = when (t) {
+    Target.Home -> toHome()
     is Target.Room -> toRoom(t.roomId)
     is Target.Respond -> toSub(t.roomId, V3Routes.respond(t.roomId))
     is Target.Pay -> toSub(t.roomId, V3Routes.pay(t.roomId))
@@ -179,6 +180,8 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, onLeave: () 
             onSend = { store.sendMessage(g.id, it) },
             onConfirm = { store.confirmIncoming(g.id, it) },
             onNotReceived = { store.notReceived(g.id, it) },
+            onExempt = { pid, rid, ex -> store.setExempt(g.id, pid, rid, ex) },
+            onRemove = { pid -> store.removeParticipant(g.id, pid) },
         )
     }
 
