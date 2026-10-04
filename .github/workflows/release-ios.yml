@@ -1,0 +1,117 @@
+name: Release iOS (TestFlight)
+
+# 손으로만 실행한다(Actions 탭 → Run workflow). 매 push 마다 올리지 않는다.
+#
+# 맥이 없어도 되게 Xcode 의 기본 기능만 쓴다(fastlane 없음):
+#  - 서명: App Store Connect API 키로 "클라우드 서명" — 인증서·프로비저닝 프로파일을 Xcode 가 자동으로 만든다.
+#  - 업로드: exportArchive 의 destination=upload 가 App Store Connect 로 바로 올린다.
+#
+# 필요한 저장소 Secrets (2026-10-06 Apple 개발자 계정 결제 후 등록):
+#  - APPLE_TEAM_ID        : 팀 ID (developer.apple.com → Membership)
+#  - ASC_KEY_ID           : App Store Connect → 사용자 및 액세스 → 통합 → 키 의 Key ID
+#  - ASC_ISSUER_ID        : 같은 화면의 Issuer ID
+#  - ASC_KEY_P8_BASE64    : 내려받은 AuthKey_XXXX.p8 파일을 base64 로 인코딩한 값
+#    ⚠ 클라우드 서명으로 배포 인증서를 만들려면 키 역할이 "관리자(Admin)" 여야 한다.
+# 그리고 App Store Connect 에 번들 ID app.jeongsan 으로 앱을 먼저 만들어 둬야 업로드가 받아진다.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: release-ios
+  cancel-in-progress: false
+
+jobs:
+  testflight:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: check secrets
+        env:
+          TEAM: ${{ secrets.APPLE_TEAM_ID }}
+          KID: ${{ secrets.ASC_KEY_ID }}
+          ISS: ${{ secrets.ASC_ISSUER_ID }}
+          P8: ${{ secrets.ASC_KEY_P8_BASE64 }}
+        run: |
+          missing=""
+          [ -z "$TEAM" ] && missing="$missing APPLE_TEAM_ID"
+          [ -z "$KID" ] && missing="$missing ASC_KEY_ID"
+          [ -z "$ISS" ] && missing="$missing ASC_ISSUER_ID"
+          [ -z "$P8" ] && missing="$missing ASC_KEY_P8_BASE64"
+          if [ -n "$missing" ]; then echo "::error::Secrets 가 없습니다:$missing"; exit 1; fi
+
+      - name: write API key
+        env:
+          P8: ${{ secrets.ASC_KEY_P8_BASE64 }}
+          KID: ${{ secrets.ASC_KEY_ID }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/asc"
+          echo "$P8" | base64 --decode > "$RUNNER_TEMP/asc/AuthKey_$KID.p8"
+
+      - name: generate Xcode project
+        run: |
+          brew install xcodegen
+          cd iosApp && xcodegen generate
+
+      # 빌드 번호 = 이 워크플로의 실행 번호. App Store Connect 는 같은 번호를 두 번 받지 않는다.
+      - name: archive (cloud signing)
+        env:
+          TEAM: ${{ secrets.APPLE_TEAM_ID }}
+          KID: ${{ secrets.ASC_KEY_ID }}
+          ISS: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          xcodebuild archive \
+            -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/Jeongsan.xcarchive" \
+            DEVELOPMENT_TEAM="$TEAM" CODE_SIGN_STYLE=Automatic \
+            CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/asc/AuthKey_$KID.p8" \
+            -authenticationKeyID "$KID" -authenticationKeyIssuerID "$ISS" \
+            > archive.log 2>&1 || {
+              grep -E "error:|^e: |ld: |FAILED|Provisioning|signing" archive.log | head -n 40 \
+                | while IFS= read -r l; do echo "::error::${l:0:900}"; done
+              tail -n 40 archive.log; exit 1; }
+          tail -n 15 archive.log
+
+      - name: export + upload to App Store Connect
+        env:
+          TEAM: ${{ secrets.APPLE_TEAM_ID }}
+          KID: ${{ secrets.ASC_KEY_ID }}
+          ISS: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>teamID</key><string>$TEAM</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+          </dict></plist>
+          EOF
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/Jeongsan.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/asc/AuthKey_$KID.p8" \
+            -authenticationKeyID "$KID" -authenticationKeyIssuerID "$ISS" \
+            > export.log 2>&1 || {
+              grep -E "error|Error|rejected|Invalid" export.log | head -n 40 \
+                | while IFS= read -r l; do echo "::error::${l:0:900}"; done
+              tail -n 40 export.log; exit 1; }
+          tail -n 15 export.log
+          echo "::notice::업로드 완료 — 빌드 ${{ github.run_number }}. App Store Connect 처리(10~30분) 뒤 TestFlight 에 뜬다"
+
+      - name: clean up key
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/asc"
