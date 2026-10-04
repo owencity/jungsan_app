@@ -7,6 +7,7 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.minus
+import kotlinx.datetime.toDeprecatedInstant
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 
@@ -23,7 +24,8 @@ object MockV3 {
     /** 오늘 기준 며칠 전 몇 시 */
     fun at(daysAgo: Int, hh: Int = 21, mm: Int = 0, now: Instant = Clock.System.now()): Instant {
         val date = now.toLocalDateTime(zone).date.minus(daysAgo, DateTimeUnit.DAY)
-        return LocalDateTime(date, LocalTime(hh, mm)).toInstant(zone)
+        // datetime 0.7(-0.6.x-compat) 부터 toInstant 가 kotlin.time.Instant 를 준다 — 앱 모델은 아직 kotlinx 쪽이라 바꿔 담는다
+        return LocalDateTime(date, LocalTime(hh, mm)).toInstant(zone).toDeprecatedInstant()
     }
 
     private val myPayout = Payout("카카오뱅크", "3333-01-2345678", "김동규")

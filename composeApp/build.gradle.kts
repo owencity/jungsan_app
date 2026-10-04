@@ -29,7 +29,7 @@ kotlin {
      *    링크 단계에서 건너뛴다. 검증은 CI(macOS 러너)가 한다.
      */
     listOf(
-        iosX64(),
+        // iosX64(인텔 맥 시뮬레이터)는 Compose 1.12 부터 지원하지 않는다 — 실기기 arm64 와 Apple Silicon 시뮬레이터만
         iosArm64(),
         iosSimulatorArm64(),
     ).forEach { target ->
@@ -125,6 +125,10 @@ android {
             signingConfigs.findByName("upload")?.let { signingConfig = it }
         }
     }
+
+    // AGP 8.7 의 Lint 는 Kotlin 2.0 기준이라 Kotlin 2.4(Xcode 26 대응) 메타데이터를 못 읽고 죽는다.
+    // 릴리스 빌드에서 도는 lintVital 만 끈다 — 출시 뒤 AGP 를 올리면서 되살린다.
+    lint { checkReleaseBuilds = false }
 
     // 공통 코드의 isDebugBuild(개발용 바 숨김)가 BuildConfig.DEBUG 를 읽는다
     buildFeatures { buildConfig = true }

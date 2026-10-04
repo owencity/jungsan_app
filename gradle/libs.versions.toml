@@ -1,8 +1,8 @@
 # 버전은 여기서만 올린다. 모듈 build.gradle.kts 에 숫자를 직접 쓰지 않는다.
 [versions]
 # Kotlin 과 Compose Multiplatform 은 짝이 맞아야 한다 — 따로 올리면 컴파일러 플러그인이 깨진다.
-kotlin = "2.1.21"
-composeMultiplatform = "1.8.0"
+kotlin = "2.4.20"
+composeMultiplatform = "1.11.1"
 agp = "8.7.3"
 
 androidCompileSdk = "36"
@@ -12,12 +12,12 @@ androidMinSdk = "24"
 androidTargetSdk = "36"
 
 androidxActivity = "1.9.3"
-androidxLifecycle = "2.8.4"
+androidxLifecycle = "2.10.0"
 ktor = "3.0.3"
-kotlinxSerialization = "1.7.3"
-kotlinxCoroutines = "1.9.0"
-kotlinxDatetime = "0.6.1"
-navigation = "2.8.0-alpha10"
+kotlinxSerialization = "1.10.0"
+kotlinxCoroutines = "1.10.2"
+kotlinxDatetime = "0.7.1-0.6.x-compat"
+navigation = "2.9.2"
 
 [libraries]
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidxActivity" }

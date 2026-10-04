@@ -22,6 +22,7 @@ import app.jeongsan.v3.ActionKind
 import app.jeongsan.v3.GatheringStatus
 import app.jeongsan.v3.MockV3
 import app.jeongsan.v3.isDebugBuild
+import androidx.savedstate.read
 import app.jeongsan.v3.SettleResult
 import app.jeongsan.v3.Target
 import app.jeongsan.v3.V3Store
@@ -87,7 +88,9 @@ private fun NavHostController.toTarget(t: Target) = when (t) {
     is Target.Account -> toSub(t.roomId, V3Routes.account(t.roomId))
 }
 
-private fun androidx.navigation.NavBackStackEntry.idArg(name: String = "id"): Id? = arguments?.getString(name)?.toLongOrNull()
+// navigation 2.9 부터 arguments 가 플랫폼 공통 SavedState 다 — Bundle.getString 대신 read { } 로 읽는다
+private fun androidx.navigation.NavBackStackEntry.strArg(name: String): String? = arguments?.read { getStringOrNull(name) }
+private fun androidx.navigation.NavBackStackEntry.idArg(name: String = "id"): Id? = strArg(name)?.toLongOrNull()
 
 fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, onLeave: () -> Unit) {
     // 개발용 바 — 지금 보는 술자리(있으면)에서 각 사람의 역할을 같이 보여준다. 릴리스 빌드에는 없다
@@ -145,7 +148,7 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, onLeave: () 
     }
 
     composable(V3Routes.Join) { entry ->
-        val token = entry.arguments?.getString("token").orEmpty()
+        val token = entry.strArg("token").orEmpty()
         val s = store.state
         val g = s.rooms.values.find { it.shareToken == token }
         EntryScreen(
@@ -214,7 +217,7 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, onLeave: () 
 
     composable(V3Routes.Round) { entry ->
         val id = entry.idArg()
-        val ridArg = entry.arguments?.getString("rid")
+        val ridArg = entry.strArg("rid")
         val s = store.state
         val g = id?.let { s.rooms[it] }
         val back = { id?.let { nav.toRoom(it) } ?: nav.toHome() }
