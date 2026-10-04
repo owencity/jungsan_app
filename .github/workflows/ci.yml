@@ -55,8 +55,8 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-  ios-compile-check:
-    name: iOS (compile only, no Mac dev machine yet)
+  ios-build:
+    name: iOS (simulator app build + launch screenshot)
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -69,12 +69,48 @@ jobs:
 
       - uses: gradle/actions/wrapper-validation@v4
 
-      # 실행 파일을 만드는 게 아니라 **컴파일이 통과하는지만** 본다.
-      # Xcode 프로젝트·서명·TestFlight 업로드는 Codemagic 이 릴리스 시점에 담당한다
-      # (역할 분리: Actions=CI 매 푸시, Codemagic=CD 릴리스만).
-      - name: compile iOS targets
+      # 실기기(arm64) 타깃은 시뮬레이터 빌드가 안 거치므로 컴파일만 따로 확인한다.
+      - name: compile iOS device target
+        run: ./gradlew :composeApp:compileKotlinIosArm64 --console=plain --stacktrace
+
+      # 개발 PC가 윈도우라 .xcodeproj 를 커밋하지 않는다 — iosApp/project.yml 로 매번 만든다.
+      - name: generate Xcode project
         run: |
-          ./gradlew \
-            :composeApp:compileKotlinIosArm64 \
-            :composeApp:compileKotlinIosSimulatorArm64 \
-            --console=plain --stacktrace
+          brew install xcodegen
+          cd iosApp && xcodegen generate
+
+      # 서명 없이 시뮬레이터용 앱을 만든다. Apple 개발자 계정(2026-10-06~)이 생기면 서명·업로드는
+      # 별도 릴리스 워크플로가 맡는다. 러너가 Apple Silicon 이라 arm64 하나만 빌드한다.
+      - name: build app (simulator, unsigned)
+        run: |
+          xcodebuild \
+            -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build/dd ARCHS=arm64 ONLY_ACTIVE_ARCH=YES \
+            CODE_SIGNING_ALLOWED=NO \
+            build | tail -n 60
+          test "${PIPESTATUS[0]}" -eq 0
+
+      # 실제로 뜨는지 본다 — 컴파일은 되는데 실행하자마자 죽는 경우(프레임워크 링크·초기화)를 잡는다.
+      # 스크린샷은 아티팩트로 올려 사람이(그리고 Claude가) 눈으로 확인한다.
+      - name: launch on simulator + screenshot
+        run: |
+          UDID=$(xcrun simctl list devices available -j | jq -r '[.devices[][] | select(.name | startswith("iPhone"))][0].udid')
+          echo "simulator $UDID"
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl install "$UDID" build/dd/Build/Products/Debug-iphonesimulator/Jeongsan.app
+          xcrun simctl launch "$UDID" app.jeongsan
+          sleep 25
+          # 실행 직후 죽었으면 여기서 실패한다
+          xcrun simctl spawn "$UDID" launchctl list | grep -q "app.jeongsan" || { echo "app not running"; exit 1; }
+          mkdir -p shots && xcrun simctl io "$UDID" screenshot shots/ios-launch.png
+
+      - name: upload screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-simulator-screenshot
+          path: shots/*.png
+          if-no-files-found: ignore
+          retention-days: 7

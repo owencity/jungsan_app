@@ -1,0 +1,46 @@
+# iOS 앱 프로젝트 정의 — XcodeGen이 이 파일로 iosApp.xcodeproj 를 만든다.
+#
+# 왜 .xcodeproj 를 커밋하지 않고 이 파일을 두나: 개발 PC가 윈도우라 Xcode가 없다. 손으로 쓴
+# project.pbxproj 는 깨지기 쉽고 읽을 수도 없다. 이 YAML은 사람이 읽고 고칠 수 있고, CI(macOS 러너)가
+# `xcodegen generate`로 매번 같은 프로젝트를 만든다. 맥이 생겨도 같은 명령 한 줄이면 된다.
+#
+# 화면은 전부 Kotlin(composeApp)에 있다. 여기 Swift는 MainViewController()를 띄우는 껍데기뿐이다.
+name: iosApp
+options:
+  bundleIdPrefix: app.jeongsan
+  deploymentTarget:
+    iOS: "15.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+
+targets:
+  iosApp:
+    type: application
+    platform: iOS
+    sources:
+      - path: iosApp
+    settings:
+      base:
+        PRODUCT_NAME: Jeongsan        # 실행 파일 이름은 ASCII 로. 홈 화면 이름은 Info.plist 의 CFBundleDisplayName(정산어택)
+        PRODUCT_BUNDLE_IDENTIFIER: app.jeongsan
+        INFOPLIST_FILE: iosApp/Info.plist
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        TARGETED_DEVICE_FAMILY: "1"          # 아이폰만. 아이패드 화면은 만들지 않았다
+        SWIFT_VERSION: "5.0"
+        # Kotlin 프레임워크(정적) — 아래 빌드 스크립트가 여기에 만들어 둔다
+        FRAMEWORK_SEARCH_PATHS: "$(SRCROOT)/../composeApp/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)"
+        OTHER_LDFLAGS: "$(inherited) -framework ComposeApp"
+        # Xcode 15+ 의 스크립트 샌드박스는 gradlew 가 프로젝트 밖(~/.gradle)을 못 쓰게 막는다
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
+        # 서명 — 10/6 Apple 개발자 계정이 생기면 CI 가 DEVELOPMENT_TEAM 을 넘긴다. 그 전엔 서명 없이 빌드한다
+        CODE_SIGN_STYLE: Automatic
+    preBuildScripts:
+      - name: Kotlin 프레임워크 빌드
+        basedOnDependencyAnalysis: false
+        script: |
+          cd "$SRCROOT/.."
+          ./gradlew :composeApp:embedAndSignAppleFrameworkForXcode --console=plain

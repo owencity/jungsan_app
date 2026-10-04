@@ -6,3 +6,6 @@ build/
 *.iml
 xcuserdata/
 .DS_Store
+
+# XcodeGen 이 iosApp/project.yml 로 만든다 — 커밋하지 않는다
+iosApp/iosApp.xcodeproj/
