@@ -90,7 +90,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             build > xcodebuild.log 2>&1 || {
               # 로그는 인증 없이 못 읽는다 — 오류 줄을 annotation 으로 올려 공개 API 로 읽히게 한다
-              grep -E "error:|^e: |FAILED|ld: |Undefined symbol|not found|warning: Could not" xcodebuild.log | head -n 40 \
+              grep -E "error:|^e: |FAILED|ld: |Undefined symbol|^ +\"_|referenced from" xcodebuild.log | head -n 40 \
                 | while IFS= read -r l; do echo "::error::${l:0:900}"; done
               tail -n 40 xcodebuild.log
               exit 1
