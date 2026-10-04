@@ -18,13 +18,11 @@ import app.jeongsan.v3.ui.v3Graph
  * 제품 v3(일회용 술자리, 모임 없음): 로그인 → 내 술자리(H1) → 정산방(R1) → 차수(R2)·정산하기(R3)·
  * 응답(P2)·보낼 돈(P3)·알림함(N1). 화면 목록과 흐름은 `docs/SCREENS.md`.
  *
- * 옛 모임 구조 화면(`screens/` 의 GroupHome·CreateGroup·GroupDetail·Amount·Collect·Confirm·Roster·
- * Result·DrinkInput)은 더 이상 연결하지 않는다. v3 화면이 다 옮겨지면 파일째 지운다(SCREENS.md §2).
+ * 옛 모임 구조 화면은 2026-10-04에 지웠다. 남은 `screens/`는 로그인 화면뿐이다.
  */
 @Composable
 fun App() {
     JeongsanTheme {
-        val store = remember { AppStore() }
         val v3 = remember { V3Store() }
         val navController = rememberNavController()
 
@@ -32,7 +30,7 @@ fun App() {
             composable(Routes.Login) {
                 LoginScreen(
                     onLogin = {
-                        store.login()
+                        // 목데이터 단계 — 카카오 SDK가 붙으면 여기서 로그인 결과를 받는다
                         navController.navigate(V3Routes.Home) {
                             popUpTo(Routes.Login) { inclusive = true }
                         }
