@@ -88,8 +88,14 @@ jobs:
             -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath build/dd ARCHS=arm64 ONLY_ACTIVE_ARCH=YES \
             CODE_SIGNING_ALLOWED=NO \
-            build | tail -n 60
-          test "${PIPESTATUS[0]}" -eq 0
+            build > xcodebuild.log 2>&1 || {
+              # 로그는 인증 없이 못 읽는다 — 오류 줄을 annotation 으로 올려 공개 API 로 읽히게 한다
+              grep -E "error:|^e: |FAILED|BUILD FAILED|Command .* failed" xcodebuild.log | head -n 25 \
+                | while IFS= read -r l; do echo "::error::${l:0:900}"; done
+              tail -n 40 xcodebuild.log
+              exit 1
+            }
+          tail -n 20 xcodebuild.log
 
       # 실제로 뜨는지 본다 — 컴파일은 되는데 실행하자마자 죽는 경우(프레임워크 링크·초기화)를 잡는다.
       # 스크린샷은 아티팩트로 올려 사람이(그리고 Claude가) 눈으로 확인한다.
