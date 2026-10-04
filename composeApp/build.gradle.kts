@@ -1,3 +1,4 @@
+import java.util.Properties
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
@@ -84,7 +85,8 @@ android {
         applicationId = "app.jeongsan"
         minSdk = libs.versions.androidMinSdk.get().toInt()
         targetSdk = libs.versions.androidTargetSdk.get().toInt()
-        versionCode = 1
+        // CI 가 실행 번호를 넘긴다(Play 는 같은 versionCode 를 두 번 받지 않는다). 로컬은 1
+        versionCode = (System.getenv("JS_VERSION_CODE") ?: "1").toInt()
         versionName = "0.1.0"
     }
 
@@ -92,11 +94,40 @@ android {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
     }
 
-    buildTypes {
-        getByName("release") {
-            isMinifyEnabled = false
+    /*
+     * 업로드 키 서명 — Play 앱 서명(Play App Signing)을 쓰므로 이 키는 "업로드용"이다. 잃어버려도 Play 콘솔에서
+     * 재설정할 수 있지만, 그 사이 업로드가 막히니 백업해 둔다.
+     * 값은 커밋하지 않는다: 로컬은 local.properties, CI 는 Secrets 로 넘긴 환경변수. 없으면 서명 없이 빌드된다.
+     */
+    val localProps = Properties().apply {
+        val f = rootProject.file("local.properties")
+        if (f.exists()) f.inputStream().use { load(it) }
+    }
+    fun secret(name: String): String? = System.getenv(name) ?: localProps.getProperty(name)
+    val keystorePath = secret("JS_KEYSTORE_PATH")
+
+    signingConfigs {
+        if (keystorePath != null) {
+            create("upload") {
+                storeFile = file(keystorePath)
+                storePassword = secret("JS_KEYSTORE_PASSWORD")
+                keyAlias = secret("JS_KEY_ALIAS")
+                keyPassword = secret("JS_KEY_PASSWORD")
+            }
         }
     }
+
+    buildTypes {
+        getByName("release") {
+            // 난독화·축소(R8)는 첫 출시에서 끈다 — Ktor·serialization·Compose 의 keep 규칙을 맞추다
+            // 실행 중에만 터지는 문제를 출시 주간에 만들지 않기 위해서다. 출시 뒤 규칙과 함께 켠다.
+            isMinifyEnabled = false
+            signingConfigs.findByName("upload")?.let { signingConfig = it }
+        }
+    }
+
+    // 공통 코드의 isDebugBuild(개발용 바 숨김)가 BuildConfig.DEBUG 를 읽는다
+    buildFeatures { buildConfig = true }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11

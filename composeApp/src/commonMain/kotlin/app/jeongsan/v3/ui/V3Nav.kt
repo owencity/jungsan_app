@@ -21,6 +21,7 @@ import app.jeongsan.ui.JsColor
 import app.jeongsan.v3.ActionKind
 import app.jeongsan.v3.GatheringStatus
 import app.jeongsan.v3.MockV3
+import app.jeongsan.v3.isDebugBuild
 import app.jeongsan.v3.SettleResult
 import app.jeongsan.v3.Target
 import app.jeongsan.v3.V3Store
@@ -89,9 +90,9 @@ private fun NavHostController.toTarget(t: Target) = when (t) {
 private fun androidx.navigation.NavBackStackEntry.idArg(name: String = "id"): Id? = arguments?.getString(name)?.toLongOrNull()
 
 fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, onLeave: () -> Unit) {
-    // 개발용 바 — 지금 보는 술자리(있으면)에서 각 사람의 역할을 같이 보여준다
+    // 개발용 바 — 지금 보는 술자리(있으면)에서 각 사람의 역할을 같이 보여준다. 릴리스 빌드에는 없다
     val devBar: (Id?) -> @Composable () -> Unit = { roomId ->
-        {
+        { if (isDebugBuild) {
             val s = store.state
             val room = roomId?.let { s.rooms[it] }
             DevBar(
@@ -114,7 +115,7 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, onLeave: () 
                 links = s.rooms.values.filter { it.participantOfUser(s.me.id) == null }.map { it.title to it.shareToken },
                 onLink = { token -> nav.navigate(V3Routes.join(token)) },
             )
-        }
+        } }
     }
 
     composable(V3Routes.Home) {
