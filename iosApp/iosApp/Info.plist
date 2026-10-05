@@ -20,6 +20,9 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<!-- 서버 주소. 비면 목데이터 모드(웹 VITE_JEONGSAN_API_BASE_URL 과 같은 역할) — 빌드 설정 JS_API_BASE_URL -->
+	<key>JSApiBaseUrl</key>
+	<string>$(JS_API_BASE_URL)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<!-- Compose 가 120Hz(ProMotion)로 그리게 한다 -->

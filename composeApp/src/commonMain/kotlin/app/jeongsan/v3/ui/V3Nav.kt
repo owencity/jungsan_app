@@ -22,6 +22,7 @@ import app.jeongsan.v3.ActionKind
 import app.jeongsan.v3.GatheringStatus
 import app.jeongsan.v3.MockV3
 import app.jeongsan.v3.isDebugBuild
+import app.jeongsan.v3.api.V3Gateway
 import androidx.savedstate.read
 import app.jeongsan.v3.SettleResult
 import app.jeongsan.v3.Target
@@ -92,7 +93,7 @@ private fun NavHostController.toTarget(t: Target) = when (t) {
 private fun androidx.navigation.NavBackStackEntry.strArg(name: String): String? = arguments?.read { getStringOrNull(name) }
 private fun androidx.navigation.NavBackStackEntry.idArg(name: String = "id"): Id? = strArg(name)?.toLongOrNull()
 
-fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, onLeave: () -> Unit) {
+fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3Gateway, onLeave: () -> Unit) {
     // 개발용 바 — 지금 보는 술자리(있으면)에서 각 사람의 역할을 같이 보여준다. 릴리스 빌드에는 없다
     val devBar: (Id?) -> @Composable () -> Unit = { roomId ->
         { if (isDebugBuild) {
@@ -125,7 +126,7 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, onLeave: () 
         val s = store.state
         // L2 이름 확인 — 첫 로그인이면 내 술자리 대신 한 번
         if (s.me.needsName) {
-            NameScreen(devBar = devBar(null), me = s.me, onBack = onLeave, onConfirm = { store.confirmName(it) })
+            NameScreen(devBar = devBar(null), me = s.me, onBack = onLeave, onConfirm = { gateway.confirmName(it) })
             return@composable
         }
         HomeScreen(
@@ -158,8 +159,10 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, onLeave: () 
             // 첫 로그인이면 P1에서 이름 확인(L2)을 같이 받는다 — 확인한 이름으로 참여한다
             askName = s.me.needsName,
             onJoin = { answers, name ->
-                if (name != null) store.confirmName(name)
-                store.joinGathering(token, answers)?.let { nav.toRoom(it) }
+                // 실명 등록이 성공한 뒤에 참여한다 — 실패하면 그 문구를 돌려주고 참여하지 않는다(FC-014 §5)
+                val err = if (name != null) gateway.confirmName(name) else null
+                if (err == null) store.joinGathering(token, answers)?.let { nav.toRoom(it) }
+                err
             },
             onOpenRoom = { g?.let { nav.toRoom(it.id) } },
             onHome = { nav.toHome() },

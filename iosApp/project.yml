@@ -16,6 +16,8 @@ settings:
   base:
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: "1"
+    # 서버 주소 — 비면 목데이터 모드. CI 는 xcodebuild 인자로 덮어쓴다(JS_API_BASE_URL=https://…)
+    JS_API_BASE_URL: ""
 
 targets:
   iosApp:

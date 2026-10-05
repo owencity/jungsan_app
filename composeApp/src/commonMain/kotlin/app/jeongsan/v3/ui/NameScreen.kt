@@ -16,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,6 +40,7 @@ import app.jeongsan.v3.User
 import app.jeongsan.v3.nameLength
 import app.jeongsan.v3.nameWithNick
 import app.jeongsan.v3.validateName
+import kotlinx.coroutines.launch
 
 /**
  * L2 이름 확인 — 웹 `NamePage.tsx`. 첫 로그인 때 한 번 **실명을 성까지** 받는다 — 총무가 은행 앱의 입금자명과
@@ -46,14 +48,30 @@ import app.jeongsan.v3.validateName
  * 한 번 정하면 바뀌지 않는다. 카카오 닉네임은 목록에서 `이름(닉네임)`으로 옆에 붙는다. 키보드의 [완료]로도 시작한다.
  */
 @Composable
-fun NameScreen(devBar: @Composable () -> Unit, me: User, onBack: () -> Unit, onConfirm: (String) -> Unit) {
+fun NameScreen(
+    devBar: @Composable () -> Unit,
+    me: User,
+    onBack: () -> Unit,
+    /** 실패면 보여줄 문구, 성공이면 null([app.jeongsan.v3.api.V3Gateway.confirmName]) */
+    onConfirm: suspend (String) -> String?,
+) {
     var name by remember(me.id) { mutableStateOf("") }
     var tried by remember(me.id) { mutableStateOf(false) }
-    val errors = validateName(name)
+    // 서버가 거절한 이유(예: 이미 이름을 정함). 입력을 고치면 지운다
+    var serverError by remember(me.id) { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val errors = serverError?.let { listOf(it) } ?: validateName(name)
     val preview = name.trim().ifEmpty { "김동규" }
     val submit = {
         tried = true
-        if (errors.isEmpty()) onConfirm(name.trim())
+        if (!busy && validateName(name).isEmpty()) {
+            busy = true
+            scope.launch {
+                serverError = onConfirm(name.trim())
+                busy = false
+            }
+        }
     }
 
     V3Screen(
@@ -67,7 +85,7 @@ fun NameScreen(devBar: @Composable () -> Unit, me: User, onBack: () -> Unit, onC
                     color = JsColor.warn, fontSize = 13.5.sp, fontWeight = FontWeight.Bold,
                 )
             }
-            CtaButton("이 이름으로 시작", onClick = submit)
+            CtaButton(if (busy) "저장하는 중…" else "이 이름으로 시작", enabled = !busy, onClick = submit)
         },
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -81,7 +99,7 @@ fun NameScreen(devBar: @Composable () -> Unit, me: User, onBack: () -> Unit, onC
             Text("  ${nameLength(name.trim())}/$MAX_NAME", color = JsColor.ink3, fontSize = 12.sp)
         }
         NameGuide()
-        NameField(name, { name = it }, 20.sp, onDone = submit)
+        NameField(name, { name = it; serverError = null }, 20.sp, onDone = submit)
 
         // 실제로 어떻게 보이는지 — 목록엔 이름(닉네임), 알림·타임라인 문장엔 이름만
         Column(

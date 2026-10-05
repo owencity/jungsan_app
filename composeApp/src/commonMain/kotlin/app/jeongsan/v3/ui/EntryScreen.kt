@@ -15,6 +15,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,6 +38,7 @@ import app.jeongsan.v3.participantOfUser
 import app.jeongsan.v3.validateName
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import kotlinx.coroutines.launch
 
 /**
  * P1 참여 입구 — 웹 `EntryPage.tsx`. 링크를 누른 사람이 처음 보는 화면.
@@ -54,13 +56,16 @@ fun EntryScreen(
     meUserId: Id,
     /** 첫 로그인이라 실명을 아직 안 받았으면 true — P1 안에서 L2(이름 확인)를 같이 받는다 */
     askName: Boolean = false,
-    /** 두 번째 값: askName이었을 때 받은 실명 */
-    onJoin: (Map<Id, ResponseType>, String?) -> Unit,
+    /** 두 번째 값: askName이었을 때 받은 실명. 실패면 보여줄 문구, 성공이면 null */
+    onJoin: suspend (Map<Id, ResponseType>, String?) -> String?,
     onOpenRoom: () -> Unit,
     onHome: () -> Unit,
 ) {
     val draft = remember(g?.id, meUserId) { mutableStateMapOf<Id, ResponseType>() }
     var name by remember(g?.id, meUserId) { mutableStateOf("") }
+    var joinError by remember(g?.id, meUserId) { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     @Composable
     fun Notice(title: String, body: String, action: String, onAction: () -> Unit) {
@@ -94,8 +99,13 @@ fun EntryScreen(
         top = { BackButton(onHome) },
         bottom = {
             if (!answered) Text("모든 차수를 골라야 참여할 수 있어요", Modifier.fillMaxWidth(), color = JsColor.ink3, fontSize = 12.sp, textAlign = TextAlign.Center)
-            CtaButton(if (g.rounds.isEmpty()) "참여하기" else "참여하고 응답 완료", enabled = filled) {
-                onJoin(g.rounds.associate { it.id to draft.getValue(it.id) }, if (askName) name.trim() else null)
+            joinError?.let { Text(it, Modifier.fillMaxWidth(), color = JsColor.warn, fontSize = 13.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center) }
+            CtaButton(if (g.rounds.isEmpty()) "참여하기" else "참여하고 응답 완료", enabled = filled && !busy) {
+                busy = true
+                scope.launch {
+                    joinError = onJoin(g.rounds.associate { it.id to draft.getValue(it.id) }, if (askName) name.trim() else null)
+                    busy = false
+                }
             }
         },
     ) {

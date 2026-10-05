@@ -37,6 +37,15 @@ data class V3State(
             notifications = MockV3.notifications(),
             paySeen = emptySet(),
         )
+
+        /** API 모드 — 목데이터 없이 빈 상태로 시작한다(실제 사용자에게 가짜 술자리가 보이면 안 된다). 웹 store 와 같다 */
+        fun empty() = V3State(
+            me = User(id = 0, displayName = "", spoonCount = 0),
+            rooms = emptyMap(),
+            notifications = emptyList(),
+            paySeen = emptySet(),
+            users = emptyList(),
+        )
     }
 }
 
@@ -337,6 +346,12 @@ class V3Store(
             g.copy(participants = g.participants.map { if (it.userId == me.id) it.copy(displayName = displayName) else it })
         }
         state = state.copy(me = me, users = state.users.map { if (it.id == me.id) me else it }, rooms = rooms)
+    }
+
+    /** 서버가 준 내 정보로 바꾼다(API 모드, [app.jeongsan.v3.api.V3Gateway]) */
+    fun setMe(me: User) {
+        val users = if (state.users.any { it.id == me.id }) state.users.map { if (it.id == me.id) me else it } else state.users + me
+        state = state.copy(me = me, users = users)
     }
 
     /**

@@ -64,7 +64,7 @@ kotlin {
             implementation(compose.preview)
             implementation(libs.androidx.activity.compose)
             // 엔진만 플랫폼별로 갈린다. 호출하는 코드는 commonMain 하나뿐이다.
-            implementation(libs.ktor.client.okhttp)
+            implementation(libs.ktor.client.android)
         }
 
         iosMain.dependencies {
@@ -73,6 +73,9 @@ kotlin {
 
         commonTest.dependencies {
             implementation(kotlin("test"))
+            // API 연결 계층 테스트 — 가짜 서버 엔진
+            implementation(libs.ktor.client.mock)
+            implementation(libs.kotlinx.coroutines.test)
         }
     }
 }
@@ -88,6 +91,9 @@ android {
         // CI 가 실행 번호를 넘긴다(Play 는 같은 versionCode 를 두 번 받지 않는다). 로컬은 1
         versionCode = (System.getenv("JS_VERSION_CODE") ?: "1").toInt()
         versionName = "0.1.0"
+        // 서버 주소 — 비어 있으면 목데이터 모드(웹 VITE_JEONGSAN_API_BASE_URL 과 같은 역할).
+        // CI·로컬은 JS_API_BASE_URL 환경변수 또는 local.properties 로 넘긴다
+        buildConfigField("String", "API_BASE_URL", "\"${System.getenv("JS_API_BASE_URL") ?: localApiBase()}\"")
     }
 
     packaging {
@@ -137,4 +143,11 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+}
+
+/** local.properties 의 JS_API_BASE_URL (없으면 빈 문자열 = 목데이터 모드) */
+fun localApiBase(): String {
+    val f = rootProject.file("local.properties")
+    if (!f.exists()) return ""
+    return Properties().apply { f.inputStream().use { load(it) } }.getProperty("JS_API_BASE_URL") ?: ""
 }

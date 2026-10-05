@@ -1,14 +1,21 @@
 package app.jeongsan
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import app.jeongsan.nav.Routes
 import app.jeongsan.screens.LoginScreen
 import app.jeongsan.ui.JeongsanTheme
+import app.jeongsan.v3.V3State
 import app.jeongsan.v3.V3Store
+import app.jeongsan.v3.api.ApiClient
+import app.jeongsan.v3.api.V3Gateway
+import app.jeongsan.v3.api.apiBaseUrl
+import app.jeongsan.v3.api.platformTokenStore
 import app.jeongsan.v3.ui.V3Routes
 import app.jeongsan.v3.ui.v3Graph
 
@@ -23,16 +30,30 @@ import app.jeongsan.v3.ui.v3Graph
 @Composable
 fun App() {
     JeongsanTheme {
-        val v3 = remember { V3Store() }
+        // 서버 주소가 없으면 목데이터 모드 — 웹과 같은 스위치(`apiBaseUrl`)
+        val client = remember { if (apiBaseUrl.isEmpty()) null else ApiClient(apiBaseUrl, platformTokenStore()) }
+        val v3 = remember { V3Store(if (client == null) V3State.initial() else V3State.empty()) }
+        val gateway = remember { V3Gateway(v3, client) }
         val navController = rememberNavController()
+        val uri = LocalUriHandler.current
+
+        // 저장된 토큰이 살아 있으면 로그인 화면을 건너뛴다(API 모드). 실명이 없으면 Home 이 L2를 띄운다
+        LaunchedEffect(Unit) {
+            if (gateway.loadMe()) navController.navigate(V3Routes.Home) { popUpTo(Routes.Login) { inclusive = true } }
+        }
 
         NavHost(navController = navController, startDestination = Routes.Login) {
             composable(Routes.Login) {
                 LoginScreen(
                     onLogin = {
-                        // 목데이터 단계 — 카카오 SDK가 붙으면 여기서 로그인 결과를 받는다
-                        navController.navigate(V3Routes.Home) {
-                            popUpTo(Routes.Login) { inclusive = true }
+                        if (client != null) {
+                            // API 모드: SDK 없이 서버 OAuth 를 브라우저로 연다(FC-014 1-1). 앱 스킴 복귀·티켓 교환은
+                            // 서버 1-1 이 나오면 붙인다 — ApiClient.exchangeTicket
+                            uri.openUri(client.kakaoLoginUrl())
+                        } else {
+                            navController.navigate(V3Routes.Home) {
+                                popUpTo(Routes.Login) { inclusive = true }
+                            }
                         }
                     },
                 )
@@ -41,6 +62,7 @@ fun App() {
             v3Graph(
                 nav = navController,
                 store = v3,
+                gateway = gateway,
                 // 내 술자리(첫 화면)의 뒤로가기 — 로그인 화면으로. 서버 로그아웃 API가 생기면 여기서 같이 부른다
                 onLeave = {
                     navController.navigate(Routes.Login) {
