@@ -89,6 +89,8 @@ fun RoomScreen(
     onRemove: (Id) -> Unit,
     /** 링크 공유(OS 공유 시트) — 총무는 위 바에서 언제든 */
     onShare: () -> Unit,
+    /** 참여자가 "다음 차는 내가 계산했어요" — 내가 총무인 새 술자리를 만든다 */
+    onStartNext: () -> Unit,
 ) {
     var managing by remember { mutableStateOf<Id?>(null) }
     val host = g.host()
@@ -168,6 +170,9 @@ fun RoomScreen(
             }
         }
 
+        // 다음 차를 내가 계산했다 → 내가 총무인 새 술자리. 총무 본인은 [+ 차수]로 이어 가면 된다
+        if (!isHost && me != null && g.status != GatheringStatus.COMPLETED) NextRoundOffer(onStartNext)
+
         if (incoming.isNotEmpty()) {
             Label("받을 돈")
             for (t in incoming) {
@@ -195,6 +200,35 @@ fun RoomScreen(
         }
 
         Timeline(g, me?.id)
+    }
+}
+
+/**
+ * "다음 차는 내가 계산했어요" — 첫 탭은 무엇이 분리되는지 보여주고, 두 번째 탭에 만든다. 웹 `NextRoundOffer`와 같다.
+ * 잘못 눌러 빈 술자리가 생기지 않게, 그리고 "따로 정산된다"는 걸 만들기 전에 알게 하려는 것이다.
+ */
+@Composable
+private fun NextRoundOffer(onStart: () -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    if (!open) {
+        Text(
+            "🍻 다음 차는 내가 계산했어요",
+            Modifier.background(JsColor.accentBg).border(2.dp, JsColor.accent).clickable { open = true }
+                .semantics { role = Role.Button }.padding(horizontal = 12.dp, vertical = 8.dp),
+            color = JsColor.accentStrong, fontSize = 13.5.sp, fontWeight = FontWeight.ExtraBold,
+        )
+        return
+    }
+    Column(
+        Modifier.fillMaxWidth().background(JsColor.accentBg).border(2.dp, JsColor.accent).padding(horizontal = 12.dp, vertical = 11.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text("내가 총무인 새 술자리를 만들어요", color = JsColor.accentStrong, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
+        Text("이 술자리와는 완전히 따로 정산돼요. 같이 간 사람들은 새 링크로 들어와요.", color = JsColor.ink2, fontSize = 13.sp, lineHeight = 19.sp)
+        Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
+            MiniButton("취소") { open = false }
+            MiniButton("새 술자리 만들기", filled = JsColor.ok, onClick = onStart)
+        }
     }
 }
 

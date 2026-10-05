@@ -37,6 +37,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.jeongsan.domain.Id
@@ -76,6 +77,8 @@ fun RoundEditScreen(
     var amountText by remember { mutableStateOf(round?.let { commas(it.total) } ?: "") }
     val drinks = remember { mutableStateListOf<DrinkItem>().apply { addAll(round?.drinks.orEmpty()) } }
     var payer by remember { mutableStateOf(round?.payerParticipantId ?: host.id) }
+    // 결제자는 거의 항상 총무라 고르는 칸을 접어 둔다. 이미 다른 사람이 낸 차수면 펼친 채로 연다
+    var payerOpen by remember { mutableStateOf(payer != host.id) }
     var editingPrice by remember { mutableStateOf<Int?>(null) }
     var tried by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
@@ -199,7 +202,20 @@ fun RoundEditScreen(
             Text("술 합계 ${won(drinksTotal(drinks))}", Modifier.fillMaxWidth(), color = JsColor.ink2, fontSize = 13.sp, textAlign = TextAlign.End)
         }
 
+        // 총무 = 받는 사람(2026-10-06 CTO 결정). 다음 차를 다른 사람이 계산했으면 그 사람이 정산방에서
+        // [다음 차는 내가 계산했어요]로 따로 술자리를 만든다. 같은 자리에서 카드가 안 돼 대신 낸 경우만 여기서 고른다
+        if (!payerOpen) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("낸 사람 ", color = JsColor.ink2, fontSize = 13.5.sp)
+                Text("나(총무)", Modifier.weight(1f), color = JsColor.ink, fontSize = 13.5.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    "다른 사람이 냈어요", Modifier.clickable { payerOpen = true }.semantics { role = Role.Button }.padding(4.dp),
+                    color = JsColor.ink3, fontSize = 12.5.sp, textDecoration = TextDecoration.Underline,
+                )
+            }
+        } else {
         Label("누가 냈나요?")
+        Text("다음 장소를 다른 사람이 계산했다면, 그 사람이 정산방에서 [다음 차는 내가 계산했어요]로 새 술자리를 만들면 돼요", color = JsColor.ink3, fontSize = 12.sp, lineHeight = 18.sp)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             for (p in g.participants) {
                 val on = payer == p.id
@@ -213,6 +229,7 @@ fun RoundEditScreen(
             }
         }
         if (g.participants.size == 1) Text("사람들이 들어오면 여기서 고를 수 있어요", color = JsColor.ink3, fontSize = 12.sp)
+        }
 
         if (tried && errors.isNotEmpty()) {
             Column(

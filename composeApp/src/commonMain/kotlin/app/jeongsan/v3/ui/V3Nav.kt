@@ -22,6 +22,7 @@ import app.jeongsan.v3.ActionKind
 import app.jeongsan.v3.GatheringStatus
 import app.jeongsan.v3.MockV3
 import app.jeongsan.v3.isDebugBuild
+import app.jeongsan.v3.nextTitle
 import app.jeongsan.v3.api.V3Gateway
 import androidx.savedstate.read
 import app.jeongsan.v3.SettleResult
@@ -215,6 +216,11 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3G
             onExempt = { pid, rid, ex -> store.setExempt(g.id, pid, rid, ex) },
             onRemove = { pid -> store.removeParticipant(g.id, pid) },
             onShare = { share(shareMessage(g, shareUrl(SHARE_BASE, g.shareToken))) },
+            onStartNext = {
+                // 내가 총무인 새 술자리 → 바로 1차 금액 입력. 사람은 옮기지 않는다 — 새 링크로 들어온다
+                val id = store.createGathering(nextTitle(g.title))
+                nav.toSub(id, V3Routes.round(id, null))
+            },
         )
     }
 

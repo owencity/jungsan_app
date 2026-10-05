@@ -170,14 +170,18 @@ class V3Store(
     }
 
     /** 입력 없이 새 술자리를 만들고 id를 돌려준다. 만든 사람이 총무이자 첫 참여자다 */
-    fun createGathering(): Id {
+    /**
+     * 새 술자리를 만들고 id를 돌려준다. 만든 사람이 총무이자 첫 참여자다. 제목이 없으면 `M/d 술자리`.
+     * 다음 차를 다른 사람이 계산했을 때도 이걸 쓴다 — 그 사람이 총무인 **완전히 별개의** 술자리다(사람도 새로 들어온다)
+     */
+    fun createGathering(title: String? = null): Id {
         val s = state
         val all = s.rooms.values
         val id = (all.maxOfOrNull { it.id } ?: 0) + 1
         val pid = (all.flatMap { g -> g.participants.map { it.id } }.maxOrNull() ?: 0) + 1
         val now = clock()
         val g = Gathering(
-            id = id, title = autoTitle(now), date = now, hostUserId = s.me.id, status = GatheringStatus.OPEN,
+            id = id, title = title?.trim()?.ifEmpty { null } ?: autoTitle(now), date = now, hostUserId = s.me.id, status = GatheringStatus.OPEN,
             // 목데이터용 링크 토큰. 실제로는 서버가 발급한다
             shareToken = List(5) { "abcdefghijkmnpqrstuvwxyz23456789".random(Random) }.joinToString(""),
             inputRevision = 0,

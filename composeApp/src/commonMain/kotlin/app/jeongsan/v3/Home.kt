@@ -13,6 +13,25 @@ fun autoTitle(at: Instant, zone: TimeZone = TimeZone.currentSystemDefault()): St
     return "${d.monthNumber}/${d.dayOfMonth} 술자리"
 }
 
+/** 술자리 제목 최대 길이(FC-014 §4 PATCH 규칙과 같다) */
+const val MAX_TITLE = 20
+
+/**
+ * 다음 차를 다른 사람이 계산해 새로 만드는 술자리의 이름 — "9/28 술자리 다음 차". 단톡방에서 어느 자리에서
+ * 이어진 정산인지 알아보게 하는 이름일 뿐, 두 술자리는 데이터로 이어지지 않는다(완전히 분리). 웹 `nextTitle`과 같다.
+ */
+fun nextTitle(prev: String): String {
+    val s = "$prev 다음 차"
+    var i = 0
+    var n = 0
+    // 글자(코드포인트) 단위로 자른다 — 이모지를 반으로 자르지 않게
+    while (i < s.length && n < MAX_TITLE) {
+        i += if (s[i].isHighSurrogate() && i + 1 < s.length) 2 else 1
+        n++
+    }
+    return s.substring(0, i)
+}
+
 enum class HomeTab(val label: String) { HOSTING("내가 총무"), JOINED("참여 중"), DONE("완료") }
 
 /**
