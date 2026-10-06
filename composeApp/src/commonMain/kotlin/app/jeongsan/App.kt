@@ -10,6 +10,8 @@ import androidx.navigation.compose.rememberNavController
 import app.jeongsan.nav.Routes
 import app.jeongsan.screens.LoginScreen
 import app.jeongsan.ui.JeongsanTheme
+import app.jeongsan.v3.LaunchOptions
+import app.jeongsan.v3.SCREENSHOT_SCREENS
 import app.jeongsan.v3.V3State
 import app.jeongsan.v3.V3Store
 import app.jeongsan.v3.api.ApiClient
@@ -31,14 +33,34 @@ import app.jeongsan.v3.ui.v3Graph
 fun App() {
     JeongsanTheme {
         // 서버 주소가 없으면 목데이터 모드 — 웹과 같은 스위치(`apiBaseUrl`)
-        val client = remember { if (apiBaseUrl.isEmpty()) null else ApiClient(apiBaseUrl, platformTokenStore()) }
+        // 스크린샷 모드는 서버 주소가 있어도 목데이터로 찍는다(LaunchOptions)
+        val shot = LaunchOptions.screenshot
+        val client = remember { if (apiBaseUrl.isEmpty() || shot != null) null else ApiClient(apiBaseUrl, platformTokenStore()) }
         val v3 = remember { V3Store(if (client == null) V3State.initial() else V3State.empty()) }
         val gateway = remember { V3Gateway(v3, client) }
         val navController = rememberNavController()
         val uri = LocalUriHandler.current
 
-        // 저장된 토큰이 살아 있으면 로그인 화면을 건너뛴다(API 모드). 실명이 없으면 Home 이 L2를 띄운다
         LaunchedEffect(Unit) {
+            // 스크린샷 모드: 이름 확인을 끝낸 상태에서 그 화면의 보는 사람으로 바꾸고 바로 띄운다
+            val target = shot?.let { SCREENSHOT_SCREENS[it] }
+            if (target != null) {
+                val (viewer, roomId) = target
+                if (viewer == 0L) return@LaunchedEffect // 로그인 화면 그대로
+                v3.confirmName("김동규")
+                if (viewer != v3.state.me.id) v3.actAs(viewer)
+                navController.navigate(V3Routes.Home) { popUpTo(Routes.Login) { inclusive = true } }
+                if (roomId != null) navController.navigate(
+                    when (shot) {
+                        "respond" -> V3Routes.respond(roomId)
+                        "settle" -> V3Routes.settle(roomId)
+                        "pay" -> V3Routes.pay(roomId)
+                        else -> V3Routes.room(roomId)
+                    },
+                )
+                return@LaunchedEffect
+            }
+            // 저장된 토큰이 살아 있으면 로그인 화면을 건너뛴다(API 모드). 실명이 없으면 Home 이 L2를 띄운다
             if (gateway.loadMe()) navController.navigate(V3Routes.Home) { popUpTo(Routes.Login) { inclusive = true } }
         }
 

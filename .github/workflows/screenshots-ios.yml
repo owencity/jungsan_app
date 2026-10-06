@@ -1,0 +1,73 @@
+name: Store screenshots (iOS 6.9")
+
+# 손으로만 실행한다(Actions 탭 → Run workflow). App Store 에 올릴 아이폰 6.9인치 스크린샷을 찍어 아티팩트로 올린다.
+# 앱의 "스크린샷 모드"(-jsScreen <화면>, v3/LaunchOptions.kt)로 목데이터 화면을 바로 띄워 찍는다 — 개발용 바는 숨겨진다.
+# 화면 이름 목록은 LaunchOptions.kt 의 SCREENSHOT_SCREENS 와 같아야 한다.
+on:
+  workflow_dispatch:
+
+jobs:
+  shots:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: generate Xcode project
+        run: |
+          brew install xcodegen
+          cd iosApp && xcodegen generate
+
+      - name: build app (simulator, unsigned)
+        run: |
+          xcodebuild \
+            -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build/dd ARCHS=arm64 ONLY_ACTIVE_ARCH=YES \
+            CODE_SIGNING_ALLOWED=NO \
+            build > xcodebuild.log 2>&1 || {
+              grep -E "error:|^e: |FAILED|ld: " xcodebuild.log | head -n 40 \
+                | while IFS= read -r l; do echo "::error::${l:0:900}"; done
+              tail -n 40 xcodebuild.log; exit 1; }
+
+      # 6.9인치(Pro Max) 시뮬레이터 — App Store 가 요구하는 가장 큰 아이폰 크기(1320×2868)
+      - name: boot 6.9" simulator
+        run: |
+          UDID=$(xcrun simctl list devices available -j | jq -r '[.devices[][] | select(.name | test("Pro Max"))] | last | .udid')
+          NAME=$(xcrun simctl list devices available -j | jq -r --arg u "$UDID" '.devices[][] | select(.udid == $u) | .name')
+          echo "simulator: $NAME ($UDID)"
+          echo "UDID=$UDID" >> "$GITHUB_ENV"
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          # 상태 표시줄을 깔끔하게 — 9:41, 배터리 가득, 신호 가득
+          xcrun simctl status_bar "$UDID" override --time 9:41 --batteryState charged --batteryLevel 100 \
+            --cellularMode active --cellularBars 4 --wifiBars 3 --dataNetwork wifi
+          xcrun simctl ui "$UDID" appearance light
+          xcrun simctl install "$UDID" build/dd/Build/Products/Debug-iphonesimulator/Jeongsan.app
+
+      - name: take screenshots
+        run: |
+          mkdir -p shots
+          n=1
+          for s in room respond settle pay home login; do
+            xcrun simctl terminate "$UDID" app.jeongsan 2>/dev/null || true
+            xcrun simctl launch "$UDID" app.jeongsan -jsScreen "$s"
+            sleep 15
+            f=$(printf "shots/%02d-%s.png" "$n" "$s")
+            xcrun simctl io "$UDID" screenshot "$f"
+            echo "saved $f"
+            n=$((n+1))
+          done
+          sips -g pixelWidth -g pixelHeight shots/01-room.png
+
+      - name: upload screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-store-screenshots-6.9
+          path: shots/*.png
+          retention-days: 30

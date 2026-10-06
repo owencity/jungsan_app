@@ -22,6 +22,7 @@ import app.jeongsan.v3.ActionKind
 import app.jeongsan.v3.GatheringStatus
 import app.jeongsan.v3.MockV3
 import app.jeongsan.v3.isDebugBuild
+import app.jeongsan.v3.LaunchOptions
 import app.jeongsan.v3.nextTitle
 import app.jeongsan.v3.api.V3Gateway
 import androidx.savedstate.read
@@ -97,7 +98,8 @@ private fun androidx.navigation.NavBackStackEntry.idArg(name: String = "id"): Id
 fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3Gateway, onLeave: () -> Unit) {
     // 개발용 바 — 지금 보는 술자리(있으면)에서 각 사람의 역할을 같이 보여준다. 릴리스 빌드에는 없다
     val devBar: (Id?) -> @Composable () -> Unit = { roomId ->
-        { if (isDebugBuild) {
+        // 스크린샷 모드(스토어 사진)에는 개발용 바를 그리지 않는다
+        { if (isDebugBuild && LaunchOptions.screenshot == null) {
             val s = store.state
             val room = roomId?.let { s.rooms[it] }
             DevBar(
