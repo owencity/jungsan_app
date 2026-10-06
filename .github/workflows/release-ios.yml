@@ -17,7 +17,7 @@ on:
   workflow_dispatch:
     inputs:
       sign_mode:
-        description: "서명 시점 — export: 업로드 때만 배포용 서명(등록 기기 불필요, 시험 중) / archive: 빌드 때부터 자동 서명(등록 기기 1대 이상 필요)"
+        description: "서명 시점 — export: 업로드 때만 배포용 서명(등록 기기 불필요, 2026-10-07 빌드 2로 성공 확인) / archive: 빌드 때부터 자동 서명(등록 기기 1대 이상 필요)"
         type: choice
         options: [export, archive]
         default: export
