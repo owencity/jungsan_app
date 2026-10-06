@@ -15,6 +15,12 @@ name: Release iOS (TestFlight)
 # 그리고 App Store Connect 에 번들 ID app.jeongsan 으로 앱을 먼저 만들어 둬야 업로드가 받아진다.
 on:
   workflow_dispatch:
+    inputs:
+      sign_mode:
+        description: "서명 시점 — export: 업로드 때만 배포용 서명(등록 기기 불필요, 시험 중) / archive: 빌드 때부터 자동 서명(등록 기기 1대 이상 필요)"
+        type: choice
+        options: [export, archive]
+        default: export
 
 concurrency:
   group: release-ios
@@ -60,18 +66,25 @@ jobs:
           cd iosApp && xcodegen generate
 
       # 빌드 번호 = 이 워크플로의 실행 번호. App Store Connect 는 같은 번호를 두 번 받지 않는다.
+      # 자동 서명은 archive 때 먼저 "개발용" 프로파일을 만들고, 개발용 프로파일은 등록 기기가 1대 이상 있어야 한다.
+      # 기기가 없으면 export 모드 — archive 는 서명 없이 하고, export(app-store-connect) 때 배포용으로만 서명한다.
       - name: archive (cloud signing)
         env:
           TEAM: ${{ secrets.APPLE_TEAM_ID }}
           KID: ${{ secrets.ASC_KEY_ID }}
           ISS: ${{ secrets.ASC_ISSUER_ID }}
+          MODE: ${{ github.event.inputs.sign_mode || 'export' }}
         run: |
+          SIGN_ARGS=""
+          if [ "$MODE" = "export" ]; then SIGN_ARGS="CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO"; fi
+          echo "sign mode: $MODE"
           xcodebuild archive \
             -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Release \
             -destination 'generic/platform=iOS' \
             -archivePath "$RUNNER_TEMP/Jeongsan.xcarchive" \
             DEVELOPMENT_TEAM="$TEAM" CODE_SIGN_STYLE=Automatic \
             CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
+            $SIGN_ARGS \
             -allowProvisioningUpdates \
             -authenticationKeyPath "$RUNNER_TEMP/asc/AuthKey_$KID.p8" \
             -authenticationKeyID "$KID" -authenticationKeyIssuerID "$ISS" \
