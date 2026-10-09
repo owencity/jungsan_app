@@ -19,8 +19,14 @@ import kotlin.io.encoding.ExperimentalEncodingApi
  * PKCE(RFC 7636) — 다른 앱이 `jeongsan://` 주소를 가로채 티켓을 훔쳐도, verifier 는 이 앱 메모리에만 있어 토큰으로 바꿀 수 없다.
  */
 object AppAuth {
-    /** 로그인 중인 verifier. 브라우저에 다녀오는 동안만 있다 */
-    private var verifier: String? = null
+    /**
+     * 로그인 중인 verifier 를 두는 곳. 브라우저에 다녀오는 동안 Android 가 메모리가 모자라 앱을 내리면 메모리 값은 사라진다 —
+     * 그래서 앱은 기기 저장소([platformVerifierStore])를 쓴다. 테스트·목데이터는 메모리
+     */
+    var store: TokenStore = MemoryTokenStore()
+    private var verifier: String?
+        get() = store.get()
+        set(v) = store.set(v)
 
     /** 로그인을 시작한다 — 브라우저로 열 주소를 돌려준다 */
     fun start(client: ApiClient, provider: Provider): String {
@@ -39,9 +45,12 @@ object AppAuth {
         if (ticketOf(url) != null) returned = url
     }
 
-    /** 티켓을 토큰으로 바꾼다. 성공하면 null, 실패하면 보여줄 문구 */
+    /**
+     * 티켓을 토큰으로 바꾼다. 성공하면 null, 실패하면 보여줄 문구.
+     * [returned]는 여기서 지우지 않는다 — 화면이 그 값을 열쇠로 이 작업을 돌리고 있어서, 도중에 지우면 작업이 취소된다
+     * (서버는 이미 티켓을 써버려 다시 할 수도 없다). 다 끝난 뒤 화면이 [consumed]를 부른다.
+     */
     suspend fun finish(client: ApiClient, url: String): String? {
-        returned = null
         val ticket = ticketOf(url) ?: return "로그인 주소가 올바르지 않아요"
         val v = verifier ?: return "로그인을 처음부터 다시 해주세요" // 앱이 브라우저에 있는 동안 종료됐다
         verifier = null
@@ -50,10 +59,17 @@ object AppAuth {
             null
         } catch (e: ApiError) {
             V3Gateway.messageOf(e)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             // 응답 모양이 다르거나(서버 배포 차이) 읽다가 끊김 — 화면을 죽이지 않고 다시 하게 한다
             "로그인하지 못했어요. 다시 시도해주세요"
         }
+    }
+
+    /** 처리한 복귀 주소를 지운다 — 같은 주소로 두 번 교환하지 않게 */
+    fun consumed(url: String) {
+        if (returned == url) returned = null
     }
 
     /** `jeongsan://auth?ticket=…` 에서 티켓만 */

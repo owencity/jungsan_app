@@ -51,8 +51,12 @@ class ApiClient(
                     setBody(body)
                 }
             }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e // 화면이 요청을 취소한 것 — 네트워크 오류로 바꾸면 취소가 안 퍼지고 엉뚱한 문구가 뜬다
         } catch (e: Exception) {
-            throw ApiError(0, NETWORK_ERROR, "연결이 불안정해요. 잠시 뒤 다시 시도해주세요")
+            // 원인을 남긴다 — 화면에는 한 문구로 보이지만 디버그 빌드 로그(logcat·Xcode)로 진짜 이유를 본다
+            if (app.jeongsan.v3.isDebugBuild) println("ApiClient ${method.value} $path 실패: $e")
+            throw ApiError(0, NETWORK_ERROR, "연결이 불안정해요. 잠시 뒤 다시 시도해주세요", e)
         }
         if (!res.status.isSuccess()) {
             val text = res.bodyAsText()
@@ -148,7 +152,7 @@ class ApiClient(
 }
 
 /** API.md §1.2 오류. `code`로 화면 문구를 고르고, 없으면 서버 `message`를 그대로 보여준다 */
-class ApiError(val status: Int, val code: String, message: String) : Exception(message)
+class ApiError(val status: Int, val code: String, message: String, cause: Throwable? = null) : Exception(message, cause)
 
 /** Bearer 토큰 보관소 — Android SharedPreferences, iOS UserDefaults([platformTokenStore]) */
 interface TokenStore {

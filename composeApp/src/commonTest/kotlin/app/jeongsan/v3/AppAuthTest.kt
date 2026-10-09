@@ -62,6 +62,10 @@ class AppAuthTest {
         AppAuth.handle("jeongsan://auth?ticket=T1")
         val back = assertNotNull(AppAuth.returned)
         assertNull(AppAuth.finish(client, back))
+        // 교환 도중에는 복귀 주소를 지우지 않는다 — 화면이 이 값을 열쇠로 작업을 돌려서, 지우면 작업이 취소됐다(2026-10-10 에뮬레이터)
+        assertEquals(back, AppAuth.returned)
+        AppAuth.consumed(back)
+        assertNull(AppAuth.returned)
 
         val body = (calls.single().body as OutgoingContent.ByteArrayContent).bytes().decodeToString()
         assertEquals("https://api.test/api/v1/auth/app/exchange", calls.single().url.toString())
@@ -70,6 +74,19 @@ class AppAuthTest {
         val verifier = Regex(""""codeVerifier":"([^"]+)"""").find(body)!!.groupValues[1]
         assertEquals(challenge, Pkce.challenge(verifier))
         assertEquals("tok-9", tokens.get())
+    }
+
+    @Test fun 브라우저에_있는_동안_앱이_내려가도_기기에_둔_verifier로_교환한다() = runTest {
+        val device = MemoryTokenStore() // 기기 저장소 흉내 — 앱이 다시 떠도 남는다
+        AppAuth.store = device
+        val ok = """{"token":"t","expiresAt":"2026-11-09T00:00:00Z"}"""
+        val client = ApiClient("https://api.test", MemoryTokenStore(), MockEngine { respond(ok, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json")) })
+        AppAuth.start(client, AppAuth.Provider.KAKAO)
+        val saved = device.get()
+        AppAuth.store = MemoryTokenStore(saved) // 프로세스가 새로 떴다 — 메모리는 비고 기기 값만 남음
+        assertNull(AppAuth.finish(client, "jeongsan://auth?ticket=T1"))
+        assertNull(AppAuth.store.get()) // 한 번 쓰면 지운다
+        AppAuth.store = MemoryTokenStore()
     }
 
     @Test fun 브라우저에_있는_동안_앱이_종료돼_verifier가_없으면_처음부터_다시_안내한다() = runTest {

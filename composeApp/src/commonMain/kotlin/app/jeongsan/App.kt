@@ -23,6 +23,7 @@ import app.jeongsan.v3.api.ApiClient
 import app.jeongsan.v3.api.V3Gateway
 import app.jeongsan.v3.api.apiBaseUrl
 import app.jeongsan.v3.api.platformTokenStore
+import app.jeongsan.v3.api.platformVerifierStore
 import app.jeongsan.v3.ui.V3Routes
 import app.jeongsan.v3.ui.v3Graph
 
@@ -40,7 +41,10 @@ fun App() {
         // 서버 주소가 없으면 목데이터 모드 — 웹과 같은 스위치(`apiBaseUrl`)
         // 스크린샷 모드는 서버 주소가 있어도 목데이터로 찍는다(LaunchOptions)
         val shot = LaunchOptions.screenshot
-        val client = remember { if (apiBaseUrl.isEmpty() || shot != null) null else ApiClient(apiBaseUrl, platformTokenStore()) }
+        val client = remember {
+            if (apiBaseUrl.isEmpty() || shot != null) null
+            else ApiClient(apiBaseUrl, platformTokenStore()).also { AppAuth.store = platformVerifierStore() }
+        }
         val v3 = remember { V3Store(if (client == null) V3State.initial() else V3State.empty()) }
         val gateway = remember { V3Gateway(v3, client) }
         val navController = rememberNavController()
@@ -76,10 +80,10 @@ fun App() {
             val url = returned ?: return@LaunchedEffect
             val c = client ?: return@LaunchedEffect
             loginError = AppAuth.finish(c, url)
-            if (loginError == null) {
-                if (gateway.loadMe()) navController.navigate(V3Routes.Home) { popUpTo(Routes.Login) { inclusive = true } }
-                else loginError = "로그인하지 못했어요. 다시 시도해주세요"
-            }
+            if (loginError == null && !gateway.loadMe()) loginError = "로그인하지 못했어요. 다시 시도해주세요"
+            // 다 끝난 뒤에 지운다 — 지우는 순간 이 효과가 다시 시작돼 진행 중인 작업이 취소되기 때문(AppAuth.finish)
+            AppAuth.consumed(url)
+            if (loginError == null) navController.navigate(V3Routes.Home) { popUpTo(Routes.Login) { inclusive = true } }
         }
 
         NavHost(navController = navController, startDestination = Routes.Login) {

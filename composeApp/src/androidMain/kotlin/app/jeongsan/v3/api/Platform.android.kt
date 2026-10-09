@@ -13,11 +13,16 @@ object AndroidAppContext {
 private const val PREFS = "jeongsan_auth"
 private const val KEY_TOKEN = "token"
 
-actual fun platformTokenStore(): TokenStore = object : TokenStore {
+actual fun platformTokenStore(): TokenStore = prefsStore(KEY_TOKEN)
+
+actual fun platformVerifierStore(): TokenStore = prefsStore("verifier")
+
+private fun prefsStore(key: String): TokenStore = object : TokenStore {
     private val prefs get() = AndroidAppContext.context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-    override fun get(): String? = prefs.getString(KEY_TOKEN, null)
+    override fun get(): String? = prefs.getString(key, null)
     override fun set(token: String?) {
-        prefs.edit().apply { if (token == null) remove(KEY_TOKEN) else putString(KEY_TOKEN, token) }.apply()
+        // commit — 바로 브라우저로 넘어가므로 비동기 저장(apply)이 끝나기 전에 앱이 내려가면 안 된다
+        prefs.edit().apply { if (token == null) remove(key) else putString(key, token) }.commit()
     }
 }
 

@@ -11,3 +11,6 @@ expect fun platformTokenStore(): TokenStore
 
 /** iOS 면 true — Apple 로그인 버튼은 iOS 에만 둔다(App Store 4.8: 카카오 로그인을 주면 Apple 로그인도) */
 expect val platformIsIos: Boolean
+
+/** 로그인 중 verifier 보관소(AppAuth) — 브라우저에 다녀오는 동안 앱이 내려가도 남게 기기에 둔다 */
+expect fun platformVerifierStore(): TokenStore

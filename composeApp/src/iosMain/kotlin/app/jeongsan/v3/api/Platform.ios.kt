@@ -9,11 +9,15 @@ actual val apiBaseUrl: String = (NSBundle.mainBundle.objectForInfoDictionaryKey(
 private const val KEY_TOKEN = "jeongsan.token"
 
 // 출시 1차는 UserDefaults. 토큰은 정산 정보만 여는 열쇠라 송금 권한이 없다(API.md §2.3) — Keychain 은 출시 뒤 옮긴다
-actual fun platformTokenStore(): TokenStore = object : TokenStore {
+actual fun platformTokenStore(): TokenStore = defaultsStore(KEY_TOKEN)
+
+actual fun platformVerifierStore(): TokenStore = defaultsStore("jeongsan.verifier")
+
+private fun defaultsStore(key: String): TokenStore = object : TokenStore {
     private val defaults get() = NSUserDefaults.standardUserDefaults
-    override fun get(): String? = defaults.stringForKey(KEY_TOKEN)
+    override fun get(): String? = defaults.stringForKey(key)
     override fun set(token: String?) {
-        if (token == null) defaults.removeObjectForKey(KEY_TOKEN) else defaults.setObject(token, KEY_TOKEN)
+        if (token == null) defaults.removeObjectForKey(key) else defaults.setObject(token, key)
     }
 }
 
