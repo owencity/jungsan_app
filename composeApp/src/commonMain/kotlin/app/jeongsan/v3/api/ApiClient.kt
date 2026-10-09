@@ -1,5 +1,6 @@
 package app.jeongsan.v3.api
 
+import app.jeongsan.v3.Payout
 import app.jeongsan.v3.User
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.HttpClientEngine
@@ -12,6 +13,7 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpMethod
 import io.ktor.http.contentType
+import io.ktor.http.encodeURLPathPart
 import io.ktor.http.isSuccess
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.Serializable
@@ -82,6 +84,48 @@ class ApiClient(
 
     fun logout() = tokens.set(null)
 
+    /** 응답 본문이 없거나 쓰지 않는 요청 */
+    private suspend fun exec(method: HttpMethod, path: String, body: Any? = null) { send(method, path, body) }
+
+    private fun u(gid: Long, uid: Long) = "/api/v1/gatherings/$gid/settlement-units/$uid"
+    private fun enc(token: String) = token.encodeURLPathPart()
+
+    suspend fun putPayout(p: PayoutBody) = exec(HttpMethod.Put, "/api/v1/users/me/payout", p)
+
+    // 술자리 — 응답은 술자리 전체([ServerGathering]). 화면은 toRooms 로 정산방들로 바꾼다
+    suspend fun myGatherings(): List<ServerGathering> = call(HttpMethod.Get, "/api/v1/me/gatherings")
+    suspend fun gathering(gid: Long): ServerGathering = call(HttpMethod.Get, "/api/v1/gatherings/$gid")
+    suspend fun createGathering(): ServerGathering = call(HttpMethod.Post, "/api/v1/gatherings", EmptyBody())
+    suspend fun sendMessage(gid: Long, text: String) = exec(HttpMethod.Post, "/api/v1/gatherings/$gid/messages", MessageBody(text))
+    suspend fun joinPreview(token: String): ServerJoinPreview = call(HttpMethod.Get, "/api/v1/join/${enc(token)}")
+    suspend fun join(token: String, unitId: Long, responses: List<AnswerBody>): JoinResult =
+        call(HttpMethod.Post, "/api/v1/join/${enc(token)}", JoinBody(unitId, responses))
+
+    // 정산 단위 — 다음 차 총무(FC-015)
+    suspend fun createUnit(gid: Long, requestId: String, participantIds: List<Long>): IdBody =
+        call(HttpMethod.Post, "/api/v1/gatherings/$gid/settlement-units", UnitBody(requestId, participantIds))
+    suspend fun removeMember(gid: Long, uid: Long, pid: Long) = exec(HttpMethod.Delete, "${u(gid, uid)}/participants/$pid")
+    suspend fun addRound(gid: Long, uid: Long, body: RoundBody): IdBody = call(HttpMethod.Post, "${u(gid, uid)}/rounds", body)
+    suspend fun putRound(gid: Long, uid: Long, rid: Long, body: RoundBody): IdBody = call(HttpMethod.Put, "${u(gid, uid)}/rounds/$rid", body)
+    suspend fun deleteRound(gid: Long, uid: Long, rid: Long) = exec(HttpMethod.Delete, "${u(gid, uid)}/rounds/$rid")
+    suspend fun respond(gid: Long, uid: Long, answers: List<AnswerBody>) = exec(HttpMethod.Put, "${u(gid, uid)}/responses/me", AnswersBody(answers))
+    suspend fun respondFor(gid: Long, uid: Long, pid: Long, answers: List<AnswerBody>) =
+        exec(HttpMethod.Put, "${u(gid, uid)}/participants/$pid/responses", AnswersBody(answers))
+    suspend fun preview(gid: Long, uid: Long): ServerPreview = call(HttpMethod.Get, "${u(gid, uid)}/settlement/preview")
+    suspend fun settle(gid: Long, uid: Long, inputRevision: Int, inputHash: String): ServerGathering =
+        call(HttpMethod.Post, "${u(gid, uid)}/settlement", SettleBody(inputRevision, inputHash))
+    suspend fun markViewed(gid: Long, uid: Long) = exec(HttpMethod.Post, "${u(gid, uid)}/settlement/viewed")
+
+    // 송금 — 송금자·수취인만
+    suspend fun sent(tid: Long) = exec(HttpMethod.Post, "/api/v1/transfers/$tid/sent")
+    suspend fun confirm(tid: Long) = exec(HttpMethod.Post, "/api/v1/transfers/$tid/confirm")
+    suspend fun notReceived(tid: Long) = exec(HttpMethod.Post, "/api/v1/transfers/$tid/not-received")
+
+    // 알림
+    suspend fun notifications(): List<ServerNotification> = call(HttpMethod.Get, "/api/v1/me/notifications")
+    suspend fun readNotification(id: Long) = exec(HttpMethod.Post, "/api/v1/me/notifications/$id/read")
+    suspend fun readAllNotifications() = exec(HttpMethod.Post, "/api/v1/me/notifications/read-all")
+
     companion object {
         const val NETWORK_ERROR = "NETWORK_ERROR"
     }
@@ -112,7 +156,28 @@ data class MeResponse(
     /** 등록한 실명. 아직 안 받았으면 null(FC-013) */
     val displayName: String? = null,
     val needsName: Boolean,
+    /** 본인 계좌(FC-014 §9) — 없으면 null */
+    val payout: SPayout? = null,
+    val spoonCount: Int? = null,
+    val unreadNotificationCount: Int? = null,
 )
+
+@Serializable data class ServerNotification(
+    val id: Long, val type: String, val gatheringId: Long, val settlementUnitId: Long? = null,
+    val title: String = "", val body: String = "", val createdAt: String, val readAt: String? = null,
+)
+
+@Serializable data class PayoutBody(val bank: String, val accountNo: String, val holder: String)
+@Serializable class EmptyBody
+@Serializable data class MessageBody(val text: String)
+@Serializable data class AnswerBody(val roundId: Long, val type: String)
+@Serializable data class AnswersBody(val answers: List<AnswerBody>)
+@Serializable data class JoinBody(val settlementUnitId: Long, val responses: List<AnswerBody>)
+@Serializable data class JoinResult(val gatheringId: Long, val participantId: Long)
+@Serializable data class UnitBody(val requestId: String, val participantIds: List<Long>)
+@Serializable data class IdBody(val id: Long)
+@Serializable data class RoundBody(val total: Long, val payerParticipantId: Long, val drinks: List<SDrink>)
+@Serializable data class SettleBody(val inputRevision: Int, val inputHash: String)
 
 @Serializable data class DisplayNameRequest(val displayName: String)
 @Serializable data class TicketRequest(val ticket: String)
@@ -128,8 +193,9 @@ fun MeResponse.toUser(prev: User?): User {
     return User(
         id = id,
         displayName = displayName.orEmpty(),
-        spoonCount = if (same) prev!!.spoonCount else 0,
-        payout = if (same) prev!!.payout else null,
+        // 서버가 주면 서버 값, 아직 안 주는 서버면 같은 사람의 이전 값
+        spoonCount = spoonCount ?: if (same) prev!!.spoonCount else 0,
+        payout = payout?.let { Payout(it.bank, it.accountNo, it.holder) } ?: if (same) prev!!.payout else null,
         needsName = needsName,
         nickname = nickname,
     )

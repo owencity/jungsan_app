@@ -150,7 +150,7 @@ class V3Store(
             } else {
                 val newId = (g.rounds.maxOfOrNull { it.id } ?: 0) + 1
                 created = newId
-                relabel(g.rounds + Round(newId, g.rounds.size + 1, "", draft.total, draft.payerParticipantId, draft.drinks))
+                relabel(g.rounds + Round(newId, Int.MAX_VALUE, "", draft.total, draft.payerParticipantId, draft.drinks), g.firstSeq ?: 1)
             }
             val label = rounds.first { it.id == (if (exists) draft.id else created) }.label
             g.copy(rounds = rounds, inputRevision = g.inputRevision + 1)
@@ -179,7 +179,7 @@ class V3Store(
         val target = g.rounds.find { it.id == roundId }
         if (target == null || g.hostUserId != me.id || g.status != GatheringStatus.OPEN) return@update g
         g.copy(
-            rounds = relabel(g.rounds.filter { it.id != roundId }),
+            rounds = relabel(g.rounds.filter { it.id != roundId }, g.firstSeq ?: 1),
             responses = g.responses.filter { it.roundId != roundId },
             inputRevision = g.inputRevision + 1,
         ).push(TimelineType.SYSTEM, "${target.label}를 지웠어요")
@@ -369,6 +369,49 @@ class V3Store(
     }
 
     /** 서버가 준 내 정보로 바꾼다(API 모드, [app.jeongsan.v3.api.V3Gateway]) */
+    // ── 서버 응답으로 채우기(API 모드) — 웹 store 의 같은 이름 동작 ──
+
+    /** 서버 술자리 하나의 정산방들을 통째로 바꾼다. [viewed]는 내가 정산금액을 열어본 정산 단위 id */
+    fun replaceGathering(gatheringId: Id, rooms: List<Gathering>, viewed: List<Id>) {
+        val s = state
+        val ids = rooms.map { it.id }.toSet()
+        val kept = s.rooms.values.filter { (it.gatheringId ?: it.id) != gatheringId && it.id !in ids }
+        val seen = s.paySeen.filter { it.substringBefore(':').toLongOrNull() !in ids }.toSet() + viewed.map { seenKey(it, s.me.id) }
+        state = s.copy(rooms = (kept + rooms).associateBy { it.id }, paySeen = seen)
+    }
+
+    /** 내 술자리 전부(H1) */
+    fun replaceAllRooms(rooms: List<Gathering>, viewed: List<Id>) {
+        state = state.copy(rooms = rooms.associateBy { it.id }, paySeen = viewed.map { seenKey(it, state.me.id) }.toSet())
+    }
+
+    fun setNotifications(list: List<AppNotification>) {
+        state = state.copy(notifications = list)
+    }
+
+    /**
+     * 다음 차 총무 되기(목데이터, FC-015) — 같은 술자리 안에 내가 총무인 정산방을 만든다. 계산 대상은 고른 사람 + 나.
+     * 차수 번호는 술자리 전체에서 이어진다(앞 총무가 2차까지 했으면 내 첫 차수는 3차). 웹 store `createUnit`과 같다
+     */
+    fun createUnit(roomId: Id, participantIds: List<Id>): Id? {
+        val s = state
+        val src = s.rooms[roomId] ?: return null
+        val mine = src.participantOfUser(s.me.id) ?: return null
+        val all = s.rooms.values
+        val id = (all.maxOfOrNull { it.id } ?: 0) + 1
+        val gatheringId = src.gatheringId ?: src.id
+        val lastSeq = all.filter { (it.gatheringId ?: it.id) == gatheringId }.flatMap { g -> g.rounds.map { it.seq } }.maxOrNull() ?: 0
+        val picked = (participantIds + mine.id).toSet()
+        val g = src.copy(
+            id = id, gatheringId = gatheringId, hostUserId = s.me.id, status = GatheringStatus.OPEN, inputRevision = 0,
+            completedAt = null, participants = src.participants.filter { it.id in picked },
+            rounds = emptyList(), responses = emptyList(), transfers = emptyList(), spoonGivers = emptyList(),
+            firstSeq = lastSeq + 1,
+        ).push(TimelineType.SYSTEM, "${s.me.displayName}님이 추가 차수의 총무가 되었어요")
+        state = s.copy(rooms = s.rooms + (id to g) + (src.id to src.copy(gatheringId = gatheringId)))
+        return id
+    }
+
     fun setMe(me: User) {
         val users = if (state.users.any { it.id == me.id }) state.users.map { if (it.id == me.id) me else it } else state.users + me
         state = state.copy(me = me, users = users)

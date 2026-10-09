@@ -32,6 +32,8 @@ data class SettlePreview(
     val inputRevision: Int,
     val lines: List<PreviewLine>,
     val transfers: List<PreviewTransfer>,
+    /** 서버 미리보기의 입력 해시(ADR-004) — 정산하기에 그대로 돌려보낸다. 목데이터는 없다 */
+    val inputHash: String? = null,
 )
 
 /** 응답이 빈 칸은 정산 때 "참석·알코올"로 채운다 — REQUIREMENTS 자동응답 규칙 */

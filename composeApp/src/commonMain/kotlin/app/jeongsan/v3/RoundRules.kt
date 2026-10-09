@@ -54,5 +54,5 @@ fun validateRound(d: RoundDraft, g: Gathering): List<String> {
 }
 
 /** 차수 이름은 순서로 정한다. 중간 차수를 지우면 뒤 차수가 당겨진다(1·2·3차 → 2차 삭제 → 1·2차). */
-fun relabel(rounds: List<Round>): List<Round> =
-    rounds.sortedBy { it.seq }.mapIndexed { i, r -> r.copy(seq = i + 1, label = "${i + 1}차") }
+fun relabel(rounds: List<Round>, start: Int = 1): List<Round> =
+    rounds.sortedBy { it.seq }.mapIndexed { i, r -> r.copy(seq = start + i, label = "${start + i}차") }

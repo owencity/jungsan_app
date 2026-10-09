@@ -53,6 +53,7 @@ import app.jeongsan.v3.ResponseType
 import app.jeongsan.v3.RoundDraft
 import app.jeongsan.v3.drinksTotal
 import app.jeongsan.v3.host
+import app.jeongsan.v3.nextRoundLabel
 import app.jeongsan.v3.parseAmount
 import app.jeongsan.v3.responseOf
 import app.jeongsan.v3.validateRound
@@ -94,7 +95,7 @@ fun RoundEditScreen(
     val total = parseAmount(amountText)
     val draft = RoundDraft(round?.id, total, drinks.toList(), payer)
     val errors = validateRound(draft, g)
-    val label = round?.label ?: "${g.rounds.size + 1}차"
+    val label = round?.label ?: g.nextRoundLabel()
 
     fun addDrink(d: DrinkItem) {
         // 같은 술 칩을 또 누르면 줄을 늘리지 않고 병 수를 올린다

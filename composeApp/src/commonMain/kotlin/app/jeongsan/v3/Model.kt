@@ -103,6 +103,12 @@ data class Gathering(
     /** 이 술자리에서 총무에게 스푼을 준 참여자 id */
     val spoonGivers: List<Id>,
     val completedAt: Instant? = null,
+    /** 서버의 술자리 id(API 모드) — 한 술자리에 총무별 정산 단위(정산방)가 여럿일 수 있다. 목데이터는 null */
+    val gatheringId: Id? = null,
+    /** 다음에 넣을 차수 번호(API 모드) — 서버는 술자리 전체에서 번호를 매긴다. 없으면 이 정산방 차수로 센다 */
+    val nextSeq: Int? = null,
+    /** 이 정산방의 첫 차수 번호(목데이터) — 다음 차 총무의 정산방은 술자리 전체 번호를 이어받는다. 없으면 1 */
+    val firstSeq: Int? = null,
 )
 
 /** 앱 안 알림(N1). 실제 서비스에선 서버가 만들고 푸시(FCM)도 같이 보낸다 */
@@ -131,6 +137,10 @@ sealed interface Target {
 // ── 조회 도우미 ─────────────────────────────────
 
 fun Gathering.host(): Participant = participants.first { it.userId == hostUserId }
+
+/** 새로 넣을 차수의 이름(R2) — 다음 차 총무의 정산방은 술자리 전체 번호를 이어받는다("4차 넣기"). 웹 `nextRoundLabel` */
+fun Gathering.nextRoundLabel(): String =
+    "${nextSeq ?: ((rounds.maxOfOrNull { it.seq } ?: ((firstSeq ?: 1) - 1)) + 1)}차"
 
 fun Gathering.participantOfUser(userId: Id): Participant? = participants.find { it.userId == userId }
 
