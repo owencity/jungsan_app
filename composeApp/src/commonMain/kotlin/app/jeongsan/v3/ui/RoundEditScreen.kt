@@ -49,10 +49,12 @@ import app.jeongsan.v3.DRINK_PRESETS
 import app.jeongsan.v3.DrinkItem
 import app.jeongsan.v3.Gathering
 import app.jeongsan.v3.Round
+import app.jeongsan.v3.ResponseType
 import app.jeongsan.v3.RoundDraft
 import app.jeongsan.v3.drinksTotal
 import app.jeongsan.v3.host
 import app.jeongsan.v3.parseAmount
+import app.jeongsan.v3.responseOf
 import app.jeongsan.v3.validateRound
 
 /**
@@ -70,7 +72,8 @@ fun RoundEditScreen(
     /** 새 차수면 null */
     round: Round?,
     onBack: () -> Unit,
-    onSave: (RoundDraft, Boolean) -> Unit,
+    /** (차수, 저장 뒤 다음 차수, 총무 본인의 이 차수 응답 — FC-019) */
+    onSave: (RoundDraft, Boolean, ResponseType) -> Unit,
     onDelete: (() -> Unit)?,
 ) {
     val host = g.host()
@@ -82,6 +85,11 @@ fun RoundEditScreen(
     var editingPrice by remember { mutableStateOf<Int?>(null) }
     var tried by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
+    // 총무 본인 응답(FC-019 A) — 대부분 마시니 알코올이 눌린 채 보이고, 안 마신 날은 여기서 한 번 바꾼다.
+    // 숨은 기본값이 아니라 화면에 보이는 기본값이다. 고치는 중이면 이미 넣은 응답을 보여준다
+    var mine by remember {
+        mutableStateOf(round?.let { g.responseOf(host.id, it.id)?.type }?.takeIf { it != ResponseType.EXEMPT } ?: ResponseType.DRANK)
+    }
 
     val total = parseAmount(amountText)
     val draft = RoundDraft(round?.id, total, drinks.toList(), payer)
@@ -96,7 +104,7 @@ fun RoundEditScreen(
 
     fun save(andNext: Boolean) {
         tried = true
-        if (errors.isEmpty()) onSave(draft, andNext)
+        if (errors.isEmpty()) onSave(draft, andNext, mine)
     }
 
     V3Screen(
@@ -201,6 +209,9 @@ fun RoundEditScreen(
         if (drinks.isNotEmpty()) {
             Text("술 합계 ${won(drinksTotal(drinks))}", Modifier.fillMaxWidth(), color = JsColor.ink2, fontSize = 13.sp, textAlign = TextAlign.End)
         }
+
+        Label("나는 이 차수에")
+        ResponseRow(mine) { mine = it }
 
         // 총무 = 받는 사람(2026-10-06 CTO 결정). 다음 차를 다른 사람이 계산했으면 그 사람이 정산방에서
         // [다음 차는 내가 계산했어요]로 따로 술자리를 만든다. 같은 자리에서 카드가 안 돼 대신 낸 경우만 여기서 고른다

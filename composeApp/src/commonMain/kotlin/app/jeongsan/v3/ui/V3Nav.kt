@@ -245,8 +245,8 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3G
                     g = g,
                     round = round,
                     onBack = back,
-                    onSave = { draft, andNext ->
-                        store.saveRound(g.id, draft)
+                    onSave = { draft, andNext, mine ->
+                        store.saveRoundAsHost(g.id, draft, mine)
                         if (andNext) nav.toSub(g.id, V3Routes.round(g.id, null)) else nav.toRoom(g.id)
                     },
                     onDelete = round?.let { r -> { store.deleteRound(g.id, r.id); nav.toRoom(g.id) } },

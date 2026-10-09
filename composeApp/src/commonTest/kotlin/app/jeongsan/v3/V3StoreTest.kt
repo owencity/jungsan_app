@@ -120,6 +120,34 @@ class V3StoreTest {
         assertFalse(g(OPEN).responses.any { it.roundId == 2L })
     }
 
+    // ── 총무 본인 응답(FC-019 A) — 웹 hostResponse.test.ts 와 같은 규칙 ──
+
+    @Test fun 새_차수를_넣으면_고른_응답이_총무_몫으로_같이_들어간다() {
+        val id = s.saveRoundAsHost(OPEN, draft, ResponseType.DRANK)!!
+        val host = g(OPEN).host()
+        assertEquals(ResponseType.DRANK, g(OPEN).responseOf(host.id, id)?.type)
+        assertFalse(g(OPEN).unrespondedParticipants().any { it.id == host.id })
+    }
+
+    @Test fun 그날_술을_안_마셨으면_논알코올로_바꾼_그대로_저장된다() {
+        val id = s.saveRoundAsHost(OPEN, draft, ResponseType.SOBER)!!
+        assertEquals(ResponseType.SOBER, g(OPEN).responseOf(g(OPEN).host().id, id)?.type)
+    }
+
+    @Test fun 차수만_고치고_응답이_그대로면_응답을_다시_넣지_않는다() {
+        val id = s.saveRoundAsHost(OPEN, draft, ResponseType.DRANK)!!
+        val lines = g(OPEN).timeline.size
+        s.saveRoundAsHost(OPEN, draft.copy(id = id, total = 60_000), ResponseType.DRANK)
+        assertEquals(lines + 1, g(OPEN).timeline.size)
+        assertFalse(g(OPEN).timeline.any { it.body.contains("응답을 고쳤어요") })
+    }
+
+    @Test fun 고치면서_응답을_바꾸면_그것만_반영된다() {
+        val id = s.saveRoundAsHost(OPEN, draft, ResponseType.DRANK)!!
+        s.saveRoundAsHost(OPEN, draft.copy(id = id), ResponseType.ABSENT)
+        assertEquals(ResponseType.ABSENT, g(OPEN).responseOf(g(OPEN).host().id, id)?.type)
+    }
+
     @Test fun 총무가_아니면_차수를_넣을_수_없다() {
         s.actAs(2)
         assertNull(s.saveRound(OPEN, draft))

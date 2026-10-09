@@ -159,6 +159,22 @@ class V3Store(
         return created
     }
 
+    /**
+     * 차수 저장 + 총무 본인 응답(FC-019 A) — 웹 `gateway.saveRound`. R2의 "나는 이 차수에"를 같이 저장해
+     * 정산하기에서 총무 이름이 "응답 없음"에 뜨지 않게 한다. 응답은 새 차수거나 값이 바뀌었을 때만 넣는다 —
+     * 같은 값을 또 넣으면 타임라인에 "응답을 고쳤어요"가 쌓인다. 반환은 [saveRound]와 같다.
+     */
+    fun saveRoundAsHost(roomId: Id, draft: RoundDraft, mine: ResponseType): Id? {
+        val before = state.rooms[roomId] ?: return null
+        if (before.hostUserId != me.id || before.status != GatheringStatus.OPEN) return null
+        val meP = before.participants.find { it.userId == me.id }
+        val prev = draft.id?.let { rid -> meP?.let { before.responseOf(it.id, rid)?.type } }
+        val created = saveRound(roomId, draft)
+        val id = created ?: draft.id ?: return null
+        if (mine != prev) respond(roomId, mapOf(id to mine))
+        return created
+    }
+
     fun deleteRound(roomId: Id, roundId: Id) = update(roomId) { g, _ ->
         val target = g.rounds.find { it.id == roundId }
         if (target == null || g.hostUserId != me.id || g.status != GatheringStatus.OPEN) return@update g
