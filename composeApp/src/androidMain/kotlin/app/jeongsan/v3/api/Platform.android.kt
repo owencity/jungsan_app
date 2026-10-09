@@ -20,3 +20,5 @@ actual fun platformTokenStore(): TokenStore = object : TokenStore {
         prefs.edit().apply { if (token == null) remove(KEY_TOKEN) else putString(KEY_TOKEN, token) }.apply()
     }
 }
+
+actual val platformIsIos: Boolean = false

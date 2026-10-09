@@ -14,10 +14,19 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTask"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- 로그인 복귀(jeongsan://auth?ticket=…) — 브라우저 로그인 뒤 서버가 이 주소로 앱을 연다(AppAuth).
+                 singleTask 라 새 화면을 띄우지 않고 지금 앱의 onNewIntent 로 들어온다 -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="jeongsan" android:host="auth" />
             </intent-filter>
         </activity>
     </application>

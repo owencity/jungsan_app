@@ -1,5 +1,6 @@
 package app.jeongsan.v3.ui
 
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -55,6 +56,9 @@ fun AccountScreen(
     me: User,
     onBack: () -> Unit,
     onSave: (Payout) -> Unit,
+    /** 내 술자리에서 연 경우만 — 계정 메뉴(로그아웃·탈퇴)를 맨 아래에 둔다 */
+    onLogout: (() -> Unit)? = null,
+    onDeleteAccount: (() -> Unit)? = null,
 ) {
     var bank by remember(me.id) { mutableStateOf(me.payout?.bank.orEmpty()) }
     var accountNo by remember(me.id) { mutableStateOf(me.payout?.accountNo.orEmpty()) }
@@ -108,6 +112,37 @@ fun AccountScreen(
 
         Label("예금주")
         Field(holder, { if (it.length <= 20) holder = it }, "", "예금주", KeyboardType.Text, 14.sp)
+
+        if (onLogout != null || onDeleteAccount != null) AccountMenu(onLogout, onDeleteAccount)
+    }
+}
+
+/**
+ * 계정 — 로그아웃과 탈퇴. 탈퇴는 되돌릴 수 없어 두 번 눌러야 한다(차수 지우기와 같은 방식).
+ * 앱 안에서 탈퇴를 시작할 수 있어야 한다(App Store 5.1.1(v)).
+ */
+@Composable
+private fun AccountMenu(onLogout: (() -> Unit)?, onDeleteAccount: (() -> Unit)?) {
+    var armed by remember { mutableStateOf(false) }
+    Column(Modifier.fillMaxWidth().padding(top = 28.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Label("계정")
+        if (onLogout != null) SubButton("로그아웃", onLogout)
+        if (onDeleteAccount != null) {
+            if (armed) {
+                Text(
+                    "탈퇴하면 계정과 등록한 계좌가 지워지고 되돌릴 수 없어요. 진행 중인 정산의 기록은 다른 사람 화면에 남아요.",
+                    color = JsColor.warn, fontSize = 13.sp, lineHeight = 19.sp,
+                )
+            }
+            Text(
+                if (armed) "한 번 더 누르면 탈퇴해요" else "회원 탈퇴",
+                Modifier.fillMaxWidth().clickable { if (armed) onDeleteAccount() else armed = true }
+                    .semantics { role = Role.Button }.padding(vertical = 8.dp),
+                color = if (armed) JsColor.warn else JsColor.ink3, fontSize = 13.5.sp,
+                fontWeight = if (armed) FontWeight.Bold else FontWeight.Normal, textAlign = TextAlign.Center,
+                textDecoration = TextDecoration.Underline,
+            )
+        }
     }
 }
 

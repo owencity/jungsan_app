@@ -104,6 +104,25 @@ class V3Gateway(private val store: V3Store, private val client: ApiClient?) {
         }
     }
 
+    /** 로그아웃 — 서버 세션을 끊고 기기의 토큰·화면 데이터를 지운다. 목데이터는 할 일 없음 */
+    suspend fun logout() {
+        val c = client ?: return
+        c.signOut()
+        store.reset(app.jeongsan.v3.V3State.empty())
+    }
+
+    /** 회원 탈퇴(App Store 5.1.1(v)) — 성공하면 null. 서버가 계정·연결을 지우고, 기기의 토큰·화면 데이터도 지운다 */
+    suspend fun deleteAccount(): String? {
+        val c = client ?: return "목데이터 모드에서는 탈퇴할 수 없어요"
+        return try {
+            c.deleteAccount()
+            store.reset(app.jeongsan.v3.V3State.empty())
+            null
+        } catch (e: ApiError) {
+            messageOf(e)
+        }
+    }
+
     // ── 읽기 ──
 
     /** 내 술자리 전부 + 알림(H1 들어올 때). 목데이터는 할 일 없음 */

@@ -404,6 +404,11 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3G
             devBar = devBar(null),
             me = store.state.me,
             onBack = { nav.popBackStack() },
+            // 계정 메뉴는 서버 계정이 있을 때만(목데이터에는 로그아웃할 계정이 없다)
+            onLogout = if (gateway.isApiMode) ({ scope.launch { gateway.logout(); onLeave() } }) else null,
+            onDeleteAccount = if (gateway.isApiMode) ({
+                scope.launch { gateway.deleteAccount()?.let(V3Toast::show) ?: onLeave() }
+            }) else null,
             onSave = { p ->
                 scope.launch {
                     gateway.registerPayout(p)?.let(V3Toast::show) ?: run { V3Toast.show("받을 계좌를 저장했어요"); nav.popBackStack() }

@@ -1,5 +1,10 @@
 package app.jeongsan
 
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import app.jeongsan.v3.api.platformIsIos
+import app.jeongsan.v3.api.AppAuth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -64,14 +69,29 @@ fun App() {
             if (gateway.loadMe()) navController.navigate(V3Routes.Home) { popUpTo(Routes.Login) { inclusive = true } }
         }
 
+        // 브라우저 로그인에서 jeongsan://auth?ticket=… 으로 돌아오면 토큰으로 바꾸고 내 술자리로(AppAuth)
+        var loginError by remember { mutableStateOf<String?>(null) }
+        val returned = AppAuth.returned
+        LaunchedEffect(returned) {
+            val url = returned ?: return@LaunchedEffect
+            val c = client ?: return@LaunchedEffect
+            loginError = AppAuth.finish(c, url)
+            if (loginError == null) {
+                if (gateway.loadMe()) navController.navigate(V3Routes.Home) { popUpTo(Routes.Login) { inclusive = true } }
+                else loginError = "로그인하지 못했어요. 다시 시도해주세요"
+            }
+        }
+
         NavHost(navController = navController, startDestination = Routes.Login) {
             composable(Routes.Login) {
                 LoginScreen(
-                    onLogin = {
+                    showApple = platformIsIos && client != null,
+                    error = loginError,
+                    onLogin = { provider ->
                         if (client != null) {
-                            // API 모드: SDK 없이 서버 OAuth 를 브라우저로 연다(FC-014 1-1). 앱 스킴 복귀·티켓 교환은
-                            // 서버 1-1 이 나오면 붙인다 — ApiClient.exchangeTicket
-                            uri.openUri(client.kakaoLoginUrl())
+                            // API 모드: SDK 없이 서버 OAuth 를 브라우저로 연다(FC-014 1-1) — PKCE 로 시작해 앱 스킴으로 돌아온다
+                            loginError = null
+                            uri.openUri(AppAuth.start(client, provider))
                         } else {
                             navController.navigate(V3Routes.Home) {
                                 popUpTo(Routes.Login) { inclusive = true }
@@ -85,7 +105,7 @@ fun App() {
                 nav = navController,
                 store = v3,
                 gateway = gateway,
-                // 내 술자리(첫 화면)의 뒤로가기 — 로그인 화면으로. 서버 로그아웃 API가 생기면 여기서 같이 부른다
+                // 내 술자리(첫 화면)의 뒤로가기·로그아웃·탈퇴 뒤 — 로그인 화면으로
                 onLeave = {
                     navController.navigate(Routes.Login) {
                         popUpTo(V3Routes.Home) { inclusive = true }

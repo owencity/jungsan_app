@@ -74,7 +74,7 @@ class ApiTest {
         val tokens = MemoryTokenStore()
         val (engine, calls) = server(HttpStatusCode.OK to """{"token":"tok-new","expiresAt":"2026-11-05T00:00:00Z"}""", HttpStatusCode.OK to me)
         val c = ApiClient("https://api.test", tokens, engine)
-        c.exchangeTicket("ticket-1")
+        c.exchangeTicket("ticket-1", "v".repeat(64))
         assertEquals("tok-new", tokens.get())
         c.me()
         assertEquals("Bearer tok-new", calls[1].headers[HttpHeaders.Authorization])

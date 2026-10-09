@@ -1,5 +1,11 @@
 package app.jeongsan.screens
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import app.jeongsan.v3.api.AppAuth
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -40,7 +46,13 @@ import app.jeongsan.ui.PrimaryButton
  * 새로 그려야 해서 별도 작업으로 미룬다.
  */
 @Composable
-fun LoginScreen(onLogin: () -> Unit) {
+fun LoginScreen(
+    onLogin: (AppAuth.Provider) -> Unit,
+    /** iOS 에서만 — App Store 4.8 */
+    showApple: Boolean = false,
+    /** 로그인이 실패했을 때 문구 */
+    error: String? = null,
+) {
     val textShadow = Shadow(color = Color.Black.copy(alpha = 0.45f), offset = Offset(0f, 2f), blurRadius = 10f)
 
     Box(Modifier.fillMaxSize()) {
@@ -81,7 +93,22 @@ fun LoginScreen(onLogin: () -> Unit) {
 
                 Spacer(Modifier.height(28.dp))
 
-                PrimaryButton("카카오로 3초만에 시작하기", onClick = onLogin)
+                PrimaryButton("카카오로 3초만에 시작하기", onClick = { onLogin(AppAuth.Provider.KAKAO) })
+                if (showApple) {
+                    Spacer(Modifier.height(10.dp))
+                    // Apple 가이드 — 검은 바탕·흰 글자·로고. 다른 로그인 버튼과 같은 크기
+                    Box(
+                        Modifier.fillMaxWidth().height(52.dp).background(Color.Black).clickable { onLogin(AppAuth.Provider.APPLE) }
+                            .semantics { role = Role.Button },
+                        contentAlignment = Alignment.Center,
+                    ) { Text("\uF8FF  Apple로 계속하기", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold) }
+                }
+                if (error != null) {
+                    Text(
+                        error, Modifier.padding(top = 12.dp), style = TextStyle(shadow = textShadow),
+                        color = Color.White, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
+                    )
+                }
             }
         }
     }

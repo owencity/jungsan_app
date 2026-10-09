@@ -16,3 +16,5 @@ actual fun platformTokenStore(): TokenStore = object : TokenStore {
         if (token == null) defaults.removeObjectForKey(KEY_TOKEN) else defaults.setObject(token, KEY_TOKEN)
     }
 }
+
+actual val platformIsIos: Boolean = true

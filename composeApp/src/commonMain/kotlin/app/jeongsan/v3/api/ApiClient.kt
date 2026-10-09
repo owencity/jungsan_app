@@ -75,14 +75,28 @@ class ApiClient(
     suspend fun putDisplayName(displayName: String): MeResponse =
         call(HttpMethod.Put, "/api/v1/users/me/display-name", DisplayNameRequest(displayName))
 
-    /** 앱 로그인 마지막 단계(FC-014 1-1) — 앱 스킴으로 돌아온 1회용 티켓을 토큰으로 바꾸고 저장한다 */
-    suspend fun exchangeTicket(ticket: String): TokenResponse =
-        call<TokenResponse>(HttpMethod.Post, "/api/v1/auth/app/exchange", TicketRequest(ticket)).also { tokens.set(it.token) }
+    /** 앱 로그인 마지막 단계(FC-014 1-1) — 앱 스킴으로 돌아온 1회용 티켓과 PKCE verifier 로 토큰을 받아 저장한다 */
+    suspend fun exchangeTicket(ticket: String, codeVerifier: String): TokenResponse =
+        call<TokenResponse>(HttpMethod.Post, "/api/v1/auth/app/exchange", TicketRequest(ticket, codeVerifier)).also { tokens.set(it.token) }
 
-    /** 앱 안 브라우저로 여는 카카오 로그인 주소(FC-014 1-1). 서버가 `jeongsan://auth?ticket=…`으로 돌려보낸다 */
-    fun kakaoLoginUrl(): String = "$baseUrl/api/v1/auth/kakao/login?client=app"
+    /** 브라우저로 여는 로그인 주소(FC-014 1-1). 서버가 `jeongsan://auth?ticket=…`으로 돌려보낸다 — [AppAuth] */
+    fun loginUrl(provider: AppAuth.Provider, codeChallenge: String): String =
+        "$baseUrl/api/v1/auth/${provider.path}/login?client=app&codeChallenge=$codeChallenge"
 
+    /** 이 기기의 토큰만 버린다(서버를 부르지 않음) — 만료된 토큰 정리용 */
     fun logout() = tokens.set(null)
+
+    /** 로그아웃 — 서버 세션을 끊고(실패해도) 기기의 토큰을 버린다 */
+    suspend fun signOut() {
+        runCatching { exec(HttpMethod.Post, "/api/v1/auth/logout") }
+        tokens.set(null)
+    }
+
+    /** 회원 탈퇴(App Store 5.1.1(v)) — 성공하면 기기의 토큰도 버린다 */
+    suspend fun deleteAccount() {
+        exec(HttpMethod.Delete, "/api/v1/users/me")
+        tokens.set(null)
+    }
 
     /** 응답 본문이 없거나 쓰지 않는 요청 */
     private suspend fun exec(method: HttpMethod, path: String, body: Any? = null) { send(method, path, body) }
@@ -183,7 +197,7 @@ data class MeResponse(
 @Serializable data class SettleBody(val inputRevision: Int, val inputHash: String)
 
 @Serializable data class DisplayNameRequest(val displayName: String)
-@Serializable data class TicketRequest(val ticket: String)
+@Serializable data class TicketRequest(val ticket: String, val codeVerifier: String)
 @Serializable data class TokenResponse(val token: String, val expiresAt: String)
 @Serializable internal data class ErrorBody(val code: String? = null, val message: String? = null)
 

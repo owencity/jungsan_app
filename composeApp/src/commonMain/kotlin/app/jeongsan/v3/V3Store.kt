@@ -434,6 +434,11 @@ class V3Store(
         return id
     }
 
+    /** 로그아웃·탈퇴 뒤 — 다른 사람 정보가 화면에 남지 않게 통째로 비운다 */
+    fun reset(next: V3State) {
+        state = next
+    }
+
     fun setMe(me: User) {
         val users = if (state.users.any { it.id == me.id }) state.users.map { if (it.id == me.id) me else it } else state.users + me
         state = state.copy(me = me, users = users)
