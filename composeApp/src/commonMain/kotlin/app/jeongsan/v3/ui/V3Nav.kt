@@ -190,6 +190,8 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3G
             },
             onOpenAlerts = { nav.navigate(V3Routes.Notifications) },
             onEditAccount = { nav.navigate(V3Routes.MyAccount) },
+            // 계정 메뉴는 계좌 화면 맨 아래에 있다 — 같은 화면으로 간다
+            onOpenAccount = if (gateway.isApiMode) ({ nav.navigate(V3Routes.MyAccount) }) else null,
         )
     }
 

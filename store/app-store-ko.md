@@ -21,20 +21,23 @@ App Store Connect → 앱 → 정산어택 → **iOS 앱 1.0** 화면에 그대�
 ## 2. 프로모션 텍스트 (170자, 심사 없이 언제든 바꿀 수 있다)
 
 ```
-1차는 다 같이, 2차는 마신 사람만. 링크 하나 보내면 각자 버튼만 누르고, 누가 누구에게 얼마 보낼지 근거와 함께 바로 나와요.
+1차는 다 같이, 2차는 마신 사람만. 링크 하나 보내면 각자 버튼만 누르고, 다 모이면 누가 누구에게 얼마 보낼지 근거와 함께 자동으로 나와요.
 ```
+(91자)
 
 ## 3. 설명 (4,000자)
 
 ```
-같이 놀고 같이 먹는데 왜 총무만 고생해야 하나요?
+간단한 건 그대로 N분의 1 하면 되지만, 계산이 복잡해지면 총무분들은 계산이 힘들어집니다.
 
 정산어택은 술자리 비용을 차수별로, 마신 사람 기준으로 나눠 주는 정산 앱입니다.
 엑셀도, 계산기도, 단톡방 "얼마 보내면 돼?"도 필요 없어요.
 
-■ 총무는 금액만 넣으세요
-· 차수마다 금액과 마신 술을 넣으면 끝
+■ 총무는 금액과 인원만 넣으세요
+· 차수마다 금액과 마신 술, 몇 명이서 마셨는지 넣으면 끝
 · 링크 하나를 단톡방에 보내면 사람들이 알아서 들어와요
+· 인원이 다 응답하면 자동으로 계산돼요. 총무가 따로 누를 필요가 없어요
+· 생각보다 한 명 더 들어오면 알려드려요. 함께 정산할지 총무가 고르면 돼요
 
 ■ 참여자는 버튼만 누르세요
 · 차수마다 [불참] [논알코올] [알코올] 중 하나만 고르면 응답 끝
@@ -43,10 +46,11 @@ App Store Connect → 앱 → 정산어택 → **iOS 앱 1.0** 화면에 그대�
 ■ 금액과 근거를 같이 보여줘요
 · "1차 알코올 40,300원 + 2차 알코올 32,000원"처럼 왜 이 금액인지 한눈에
 · 누가 누구에게 얼마 보내면 되는지 송금 목록이 자동으로 나와요
+· 계산이 끝나면 [입금 요청 보내기] 한 번으로 사람별 금액과 계좌를 단톡방에 공유해요
 · 계좌번호는 숫자만 복사돼서 은행 앱에 바로 붙여 넣을 수 있어요
 
 ■ 다음 차는 다른 사람이 계산했다면
-· 계산한 사람이 [다음 차는 내가 계산했어요]를 누르면 따로 정산돼요
+· 계산한 사람이 [다음 차는 내가 계산했어요]를 누르고 같이 간 사람만 고르면 따로 정산돼요
 
 ■ 끝나면 사라져요
 · 모두 입금을 확인하면 정산 완료! 7일 뒤 기록이 사라져요
@@ -95,15 +99,23 @@ App Store Connect → 앱 → 정산어택 → **iOS 앱 1.0** 화면에 그대�
 
 - **로그인 정보**: 심사관은 **Sign in with Apple**로 들어온다(D6). 별도 데모 계정이 필요 없다.
   카카오 로그인만 있으면 심사관이 카카오 계정을 만들기 어려워 반려되기 쉽다 — Apple 로그인이 빠진 채 제출하지 않는다.
-- **메모(영어 권장)**:
+- **메모(영어 권장)** — 탈퇴 경로는 실제 화면 그대로 적는다(심사관이 못 찾으면 5.1.1(v)로 반려된다):
 
 ```
 Jeongsan Attack splits drinking-party bills by round (1st/2nd/3rd round) based on who attended and who drank.
-Sign in with Apple to start. To test the participant flow, open the invite link below on the device,
-answer each round with [Absent]/[Non-alcohol]/[Alcohol], and you will see who owes whom and why.
+The UI is Korean only. Sign in with Apple ("Apple로 계속하기") to start.
+
+Host flow: tap "+ 새 술자리" (new gathering), enter the amount and the number of people, then share the invite link.
+When that many people have answered, the bill is calculated automatically and everyone is notified.
+
+Participant flow: open the invite link below on the device, answer each round with
+[불참 Absent] / [논알코올 Non-alcohol] / [알코올 Alcohol], and you will see who owes whom and why.
 Invite link (pre-made test gathering): {심사용 술자리 링크}
+
 The app does not move money; users transfer with their own bank apps.
-Account deletion: My info > Delete account.
+
+Account deletion (in-app): Home ("내 술자리") > tap "내 계정 · 로그아웃 · 탈퇴 ›" under your name
+> scroll to the bottom > "회원 탈퇴" > tap again to confirm. Logout is in the same place ("로그아웃").
 ```
 
 - **연락처**: 이름·전화번호·이메일 — 심사관이 막혔을 때 연락하는 곳. {보호책임자 성명} / {연락처}
@@ -122,9 +134,19 @@ Account deletion: My info > Delete account.
 
 ## 9. 제출 전 CTO 결정·확인 필요
 
-1. **보호책임자 성명·문의 이메일·서버 리전**(OCI 어느 리전인지) — 방침·지원 페이지·저작권에 들어간다
-2. **Apple 로그인과 탈퇴 API**(FC-014 1-3·1-4)가 서버에 들어가야 제출할 수 있다 — 둘 다 심사 필수
+> 2026-10-10 갱신. ✅ 끝남 · ⏳ 진행 중 · ❓ 결정 필요
+
+1. ❓ **보호책임자 성명·문의 이메일·서버 리전**(OCI 어느 리전인지) — 방침·지원 페이지·저작권에 들어간다
+2. ⏳ **Apple 로그인과 탈퇴** — 서버(`feat/auth-release`)와 앱 화면(084ce79·fa7a204)은 끝났다. 로컬 서버로 앱 로그인 → 토큰 교환 →
+   정산방까지 확인했다. **운영 배포와 Apple Services ID·콜백 도메인 설정(FC-021)** 이 남았다 — 이게 돼야 심사관이 들어온다
 3. **계좌번호를 로그에 남기지 않는다**는 방침 문구가 서버에서 실제로 지켜지는지(DOMAIN §9 마스킹) — 백엔드 확인
 4. 카카오 **프로필 사진 주소**를 계속 받을지(안 쓰면 받지 않는 게 단순)
 5. 정산방 메시지 **신고 버튼**을 출시 전에 넣을지(사용자 생성 콘텐츠 정책) — 추천: 반려되면 추가
 6. **심사용 술자리 링크** — 서버 배포 뒤 운영 서버에 테스트 술자리를 하나 만들어 둔다
+
+## 10. 스크린샷
+
+- `screenshots-ios.yml`(6.9")로 찍은 것은 10/6 화면이다. 로그인 첫 문구·인원 입력·자동 계산 배너가 바뀌었으니 **제출 직전에 다시 찍는다**
+  (Actions → Store screenshots → Run workflow, 결과 묶음을 내려받아 App Store Connect에 올린다)
+- 6.9" 한 벌이면 작은 아이폰 크기는 Apple이 줄여 쓴다. 앱은 아이폰 전용(`TARGETED_DEVICE_FAMILY: 1`)이라 아이패드 스크린샷은 필요 없다
+  (아이패드에서는 아이폰 앱 호환 모드로 돈다)

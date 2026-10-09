@@ -74,6 +74,8 @@ fun HomeScreen(
     onCreate: () -> Unit,
     onOpenAlerts: () -> Unit,
     onEditAccount: () -> Unit,
+    /** 계정 메뉴(로그아웃·탈퇴) — 서버 계정이 있을 때만. 탈퇴를 찾기 쉽게 따로 보인다(App Store 5.1.1(v)) */
+    onOpenAccount: (() -> Unit)? = null,
 ) {
     val tabs = myRoomTabs(rooms, me.id)
     // 보는 사람이 바뀌면 처음 열 탭도 그 사람 기준으로 다시 고른다
@@ -107,6 +109,13 @@ fun HomeScreen(
                         color = JsColor.p600, fontSize = 12.5.sp, fontWeight = FontWeight.Bold,
                         textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline,
                     )
+                    if (onOpenAccount != null) {
+                        Text(
+                            "내 계정 · 로그아웃 · 탈퇴 ›",
+                            Modifier.clickable(onClick = onOpenAccount).semantics { role = Role.Button }.padding(vertical = 2.dp),
+                            color = JsColor.ink3, fontSize = 12.sp,
+                        )
+                    }
                 }
             }
         }
