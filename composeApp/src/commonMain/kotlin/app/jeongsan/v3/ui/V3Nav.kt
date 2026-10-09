@@ -275,6 +275,8 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3G
                     ActionKind.SHARE -> share(shareMessage(g, shareUrl(SHARE_BASE, g.shareToken)))
                     // 계산이 끝나면 단톡방에 사람별 금액·계좌(FC-020)
                     ActionKind.REQUEST_PAYMENT -> share(paymentRequestMessage(g, shareUrl(SHARE_BASE, g.shareToken)))
+                    // 인원을 들어온 사람 수로 — 모두 응답했으면 이 순간 자동 정산된다
+                    ActionKind.INCLUDE_EXTRA -> scope.fire { gateway.setHeadcount(g.id, g.participants.size) }
                     // 받을 돈 목록이 화면 안에 있다
                     ActionKind.CONFIRM_INCOMING -> Unit
                 }

@@ -258,7 +258,15 @@ class V3Store(
      * 정산(서버 흉내) — 미리보기대로 송금을 만들고 금액을 고정한다. 수동([지금 계산하기])과 자동(FC-020)이 같이 쓴다.
      * 응답 없는 칸은 전 차수 참석·알코올(AUTO)로 채운다. 보낼 돈이 하나도 없으면 바로 완료
      */
-    private fun settleNow(g: Gathering, auto: Boolean): Gathering {
+    private fun settleNow(source: Gathering, auto: Boolean): Gathering {
+        // 자동 정산은 인원 안의 사람만 — 인원 밖에 들어온 사람은 이번 정산에서 빠진다(총무가 [포함하기]를 안 눌렀다).
+        // 수동([지금 계산하기])은 총무가 명단을 보고 직접 누른 것이라 그대로 둔다(빼려면 [내보내기]). 웹 settleNow 와 같다
+        val extras = if (auto) source.extraParticipants() else emptyList()
+        val out = extras.map { it.id }.toSet()
+        val g = if (extras.isEmpty()) source else source.copy(
+            participants = source.participants.filter { it.id !in out },
+            responses = source.responses.filter { it.participantId !in out },
+        ).push(TimelineType.SYSTEM, "${extras.joinToString("·") { it.displayName }}님은 인원(${source.headcount}명) 밖이라 이번 정산에서 빠졌어요")
         val preview = mockPreview(g)
         val autoNames = preview.lines.filter { it.auto }.map { g.nameOf(it.participantId) }
         val who = if (auto) "모두 응답해서 자동으로 계산했어요" else "${g.host().displayName}님이 정산했어요"

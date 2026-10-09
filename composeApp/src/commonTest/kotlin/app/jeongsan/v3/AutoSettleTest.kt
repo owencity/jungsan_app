@@ -66,10 +66,10 @@ class AutoSettleTest {
         s.setHeadcount(open, 4)
         assertNull(g().headcount)
         s.actAs(1)
-        s.setHeadcount(open, 1)
-        assertEquals(2, g().headcount)
         s.setHeadcount(open, 99)
         assertEquals(50, g().headcount)
+        s.setHeadcount(open, 1)
+        assertEquals(2, g().headcount)
     }
 
     @Test fun 인원을_넣었으면_총무는_몇_명_응답했는지와_링크_공유를_본다() {
@@ -108,5 +108,67 @@ class AutoSettleTest {
         val first = room.transfers.first()
         val done = room.copy(transfers = room.transfers.map { if (it.id == first.id) it.copy(status = TransferStatus.CONFIRMED) else it })
         assertFalse(paymentRequestMessage(done, "u").contains("· ${room.nameOf(first.fromParticipantId)} "))
+    }
+}
+
+/** 인원보다 더 들어오면(CTO 결정 2026-10-09) — 웹 autoSettle.test.ts 같은 이름 describe 와 같은 케이스 */
+class OverflowTest {
+    private lateinit var s: V3Store
+    private val open = 101L
+    private fun g() = s.state.rooms.getValue(open)
+    private fun answerAll(userId: Long) {
+        s.actAs(userId)
+        s.respond(open, g().rounds.associate { it.id to ResponseType.DRANK })
+    }
+
+    @BeforeTest fun setUp() { s = V3Store() }
+
+    @Test fun 총무에게_인원_확인과_모두_포함하기가_먼저_뜬다() {
+        s.setHeadcount(open, 4)
+        val a = nextAction(g(), 1)
+        assertEquals("현재 5명이 참여했어요 · 인원(4명)이 맞는지 확인해주세요", a.banner)
+        assertEquals("그대로면 4명으로 계산되고 정민수님은 빠져요", a.note)
+        assertEquals(ActionKind.INCLUDE_EXTRA, a.action?.kind)
+        assertEquals("5명 모두 포함하기", a.action?.label)
+        assertFalse(canSettleNow(g(), 1))
+    }
+
+    @Test fun 링크로_인원보다_한_명_더_들어오는_순간_총무에게_알림이_한_번_간다() {
+        s.setHeadcount(open, 5)
+        s.actAs(6)
+        s.joinGathering(g().shareToken, emptyMap())
+        s.actAs(2)
+        s.sendMessage(open, "안녕")
+        val host = g().host().userId
+        assertEquals(1, s.state.notifications.count { it.userId == host && it.title.startsWith("현재 6명이 참여했어요") })
+    }
+
+    @Test fun 그대로_두면_앞에서부터_인원만큼_응답했을_때_정산되고_뒤에_온_사람은_빠진다() {
+        s.setHeadcount(open, 4)
+        answerAll(4)
+        assertEquals(GatheringStatus.SETTLING, g().status)
+        assertFalse(g().participants.any { it.displayName == "정민수" })
+        assertTrue(g().timeline.any { it.body == "정민수님은 인원(4명) 밖이라 이번 정산에서 빠졌어요" })
+        assertTrue(s.state.notifications.any { it.userId == 5L && it.body.contains("인원(4명) 밖이라") })
+    }
+
+    @Test fun 포함하기를_누르면_인원이_늘고_모두_응답해야_함께_정산된다() {
+        s.setHeadcount(open, 4)
+        s.setHeadcount(open, g().participants.size)
+        answerAll(4)
+        assertEquals(GatheringStatus.OPEN, g().status)
+        answerAll(5)
+        assertEquals(GatheringStatus.SETTLING, g().status)
+        assertTrue(g().participants.any { it.displayName == "정민수" })
+    }
+
+    @Test fun 인원_밖에_들어온_사람은_총무가_포함하면_함께_정산된다를_본다() {
+        s.setHeadcount(open, 4)
+        assertEquals("인원이 다 찼어요 · 총무가 포함하면 함께 정산돼요", nextAction(g(), 5).note)
+    }
+
+    @Test fun 응답_수는_인원_안의_사람만_센다() {
+        s.setHeadcount(open, 4)
+        assertEquals(3, g().respondedCount())
     }
 }

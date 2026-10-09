@@ -29,7 +29,13 @@ fun notificationsFor(prev: Gathering, next: Gathering): List<NewNotification> {
     // ── 총무가 내보냄: 빠진 사람에게 (술자리에 더는 못 들어가니 내 술자리로) ──
     for (p in prev.participants) {
         if (next.participants.any { it.id == p.id }) continue
-        out += NewNotification(p.userId, next.id, "${next.title}에서 빠졌어요", "${host.displayName} 총무가 명단에서 뺐어요", Target.Home)
+        // 자동 정산 때 인원 밖이라 빠진 것(FC-020)과 총무가 내보낸 것을 문구로 구분한다
+        val why = if (prev.status == GatheringStatus.OPEN && next.status != GatheringStatus.OPEN) {
+            "인원(${prev.headcount}명) 밖이라 이번 정산에서 빠졌어요"
+        } else {
+            "${host.displayName} 총무가 명단에서 뺐어요"
+        }
+        out += NewNotification(p.userId, next.id, "${next.title}에서 빠졌어요", why, Target.Home)
     }
 
     // ── 총무가 면제함: 그 사람에게 ──
@@ -53,6 +59,16 @@ fun notificationsFor(prev: Gathering, next: Gathering): List<NewNotification> {
                 "${next.title} · ${won(t.amount)}", Target.Pay(next.id),
             )
         }
+    }
+
+    // ── 인원보다 더 들어옴: 총무에게 (CTO 결정 2026-10-09) — 넘는 순간 한 번 ──
+    val hc = next.headcount
+    if (next.status == GatheringStatus.OPEN && hc != null && next.participants.size > hc &&
+        prev.participants.size <= (prev.headcount ?: Int.MAX_VALUE)) {
+        out += NewNotification(
+            next.host().userId, next.id, "현재 ${next.participants.size}명이 참여했어요. 인원이 맞는지 확인해주세요",
+            "그대로면 ${hc}명으로 계산되고 마지막에 들어온 사람은 빠져요", Target.Room(next.id),
+        )
     }
 
     // ── 정산됨: 참여자 모두에게 "입금액을 확인해주세요" ──

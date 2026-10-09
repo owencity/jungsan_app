@@ -16,6 +16,8 @@ enum class ActionKind {
     REGISTER_ACCOUNT, RESPOND, EDIT_RESPONSE, RESEND, GIVE_SPOON,
     /** 정산 뒤 총무가 단톡방에 사람별 금액·계좌를 보낸다(FC-020) */
     REQUEST_PAYMENT,
+    /** 인원보다 더 들어온 사람까지 함께 정산 — 인원을 들어온 사람 수로 늘린다(FC-020) */
+    INCLUDE_EXTRA,
 }
 
 enum class Tone { TODO, WAIT, DONE }
@@ -63,6 +65,15 @@ fun nextAction(g: Gathering, meUserId: Id, now: Instant = Clock.System.now()): N
             if (g.participants.size == 1) {
                 return NextAction("링크를 보내서 사람들을 불러주세요", Tone.TODO, Action(ActionKind.SHARE, "링크 공유"))
             }
+            // 인원보다 더 들어왔으면 총무 확인이 먼저(CTO 결정 2026-10-09) — 그대로면 인원만큼만 계산되고 뒤에 온 사람은 빠진다
+            val extras = g.extraParticipants()
+            if (extras.isNotEmpty()) {
+                return NextAction(
+                    "현재 ${g.participants.size}명이 참여했어요 · 인원(${g.headcount}명)이 맞는지 확인해주세요", Tone.TODO,
+                    Action(ActionKind.INCLUDE_EXTRA, "${g.participants.size}명 모두 포함하기"),
+                    "그대로면 ${g.headcount}명으로 계산되고 ${extras.joinToString("·") { it.displayName }}님은 빠져요",
+                )
+            }
             val waiting = g.unrespondedParticipants().size
             // 인원을 넣었으면 다 모일 때 서버가 자동 정산한다(FC-020) — 총무는 링크만 돌리면 된다.
             // 안 들어오는 사람이 있을 때의 [지금 계산하기]는 R1 배너 아래 작은 버튼(canSettleNow)
@@ -77,6 +88,15 @@ fun nextAction(g: Gathering, meUserId: Id, now: Instant = Clock.System.now()): N
             }
         }
         val labels = g.rounds.joinToString("·") { it.label }
+        // 인원 밖에 들어온 사람 — 총무가 포함하면 함께, 아니면 이번 정산에서 빠진다
+        if (g.extraParticipants().any { it.id == me.id }) {
+            val full = "인원이 다 찼어요 · 총무가 포함하면 함께 정산돼요"
+            return if (g.hasResponded(me.id)) {
+                NextAction(full, Tone.WAIT, Action(ActionKind.EDIT_RESPONSE, "응답 고치기"))
+            } else {
+                NextAction("$labels 응답을 남겨주세요", Tone.TODO, Action(ActionKind.RESPOND, "응답하기"), full)
+            }
+        }
         return if (g.hasResponded(me.id)) {
             NextAction(
                 if (g.headcount != null) "응답 완료! 다 모이면 자동으로 계산돼요" else "응답 완료! 총무가 정산하면 알려드릴게요",
@@ -135,4 +155,6 @@ fun nextAction(g: Gathering, meUserId: Id, now: Instant = Clock.System.now()): N
  * 총무가 직접 마무리한다. 하단 버튼은 [링크 공유]라 이 버튼이 따로 있어야 한다. 웹 `canSettleNow`
  */
 fun canSettleNow(g: Gathering, meUserId: Id): Boolean =
-    g.status == GatheringStatus.OPEN && g.hostUserId == meUserId && g.headcount != null && g.rounds.isNotEmpty() && g.participants.size >= 2
+    g.status == GatheringStatus.OPEN && g.hostUserId == meUserId && g.headcount != null && g.rounds.isNotEmpty() && g.participants.size >= 2 &&
+        // 인원보다 더 들어왔으면 "안 들어온 사람"이 없다 — 그때는 [포함하기]만
+        g.extraParticipants().isEmpty()

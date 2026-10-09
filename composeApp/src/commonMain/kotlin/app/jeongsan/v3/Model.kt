@@ -161,7 +161,7 @@ fun Gathering.hasResponded(participantId: Id): Boolean =
 fun Gathering.unrespondedParticipants(): List<Participant> = participants.filter { !hasResponded(it.id) }
 
 /** 모든 차수에 응답을 마친 사람 수 — R1 "5명 중 3명 응답" */
-fun Gathering.respondedCount(): Int = participants.count { hasResponded(it.id) }
+fun Gathering.respondedCount(): Int = countedParticipants().count { hasResponded(it.id) }
 
 /**
  * 자동 정산 조건(FC-020) — 총무가 넣은 인원만큼 들어와 모두가 모든 차수에 응답했다. 서버 판정·웹 `allIn`과 같은 규칙.
@@ -169,8 +169,17 @@ fun Gathering.respondedCount(): Int = participants.count { hasResponded(it.id) }
  */
 fun Gathering.allIn(): Boolean {
     val n = headcount ?: return false
-    return status == GatheringStatus.OPEN && rounds.isNotEmpty() && participants.size >= n && participants.all { hasResponded(it.id) }
+    return status == GatheringStatus.OPEN && rounds.isNotEmpty() && participants.size >= n && countedParticipants().all { hasResponded(it.id) }
 }
+
+/**
+ * 인원 안에 드는 사람(CTO 결정 2026-10-09) — 들어온 순서로 앞에서부터 인원만큼. 명단은 들어온 순서다(총무가 맨 앞).
+ * 인원보다 더 들어와도 막지 않지만, 총무가 [포함하기]로 인원을 늘리지 않으면 뒤에 들어온 사람은 자동 정산에서 빠진다.
+ */
+fun Gathering.countedParticipants(): List<Participant> = headcount?.let { participants.take(it) } ?: participants
+
+/** 인원 밖에 들어온 사람 — 총무가 확인해야 한다 */
+fun Gathering.extraParticipants(): List<Participant> = headcount?.let { participants.drop(it) } ?: emptyList()
 
 /** 인원 입력 범위(FC-020) — 서버 검증과 같다 */
 const val HEADCOUNT_MIN = 2
