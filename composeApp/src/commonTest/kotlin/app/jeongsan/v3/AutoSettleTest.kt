@@ -1,0 +1,112 @@
+package app.jeongsan.v3
+
+import kotlin.test.BeforeTest
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
+
+/**
+ * 인원 입력 · 전원 응답 시 자동 정산 · 입금 요청(FC-020) — 웹 `autoSettle.test.ts`와 같은 케이스.
+ * 총무가 [정산하기]를 누르지 않는다 — 넣어 둔 인원만큼 모두 응답한 순간 계산이 확정된다.
+ */
+class AutoSettleTest {
+    private lateinit var s: V3Store
+    private val open = 101L // 김동규 총무, 5명 중 최지영(4)·정민수(5)가 아직 응답 안 함
+    private fun g() = s.state.rooms.getValue(open)
+    private fun answerAll(userId: Long) {
+        s.actAs(userId)
+        s.respond(open, g().rounds.associate { it.id to ResponseType.DRANK })
+    }
+
+    @BeforeTest fun setUp() { s = V3Store() }
+
+    @Test fun 넣어_둔_인원이_모두_응답하면_마지막_응답에_정산이_확정된다() {
+        s.setHeadcount(open, 5)
+        answerAll(4)
+        assertEquals(GatheringStatus.OPEN, g().status) // 아직 한 명 남음
+        answerAll(5)
+        assertEquals(GatheringStatus.SETTLING, g().status)
+        assertTrue(g().transfers.isNotEmpty())
+        assertTrue(g().timeline.any { it.body.startsWith("모두 응답해서 자동으로 계산했어요") })
+    }
+
+    @Test fun 정산되면_총무에게_입금_요청_알림이_간다() {
+        s.setHeadcount(open, 5)
+        answerAll(4)
+        answerAll(5)
+        val host = g().host().userId
+        assertTrue(s.state.notifications.any { it.userId == host && it.title.contains("입금 요청") })
+    }
+
+    @Test fun 인원보다_적게_모이면_모두_응답해도_정산하지_않는다() {
+        s.setHeadcount(open, 6)
+        answerAll(4)
+        answerAll(5)
+        assertEquals(GatheringStatus.OPEN, g().status)
+    }
+
+    @Test fun 인원을_넣지_않은_술자리는_총무가_정산할_때까지_기다린다() {
+        answerAll(4)
+        answerAll(5)
+        assertEquals(GatheringStatus.OPEN, g().status)
+    }
+
+    @Test fun 이미_모두_응답한_뒤_인원을_맞추면_그때_정산된다() {
+        answerAll(4)
+        answerAll(5)
+        s.actAs(1)
+        s.setHeadcount(open, 5)
+        assertEquals(GatheringStatus.SETTLING, g().status)
+    }
+
+    @Test fun 인원은_총무만_2명에서_50명_안에서만_바꾼다() {
+        s.actAs(2)
+        s.setHeadcount(open, 4)
+        assertNull(g().headcount)
+        s.actAs(1)
+        s.setHeadcount(open, 1)
+        assertEquals(2, g().headcount)
+        s.setHeadcount(open, 99)
+        assertEquals(50, g().headcount)
+    }
+
+    @Test fun 인원을_넣었으면_총무는_몇_명_응답했는지와_링크_공유를_본다() {
+        s.setHeadcount(open, 5)
+        val a = nextAction(g(), 1)
+        assertEquals("5명 중 3명 응답했어요 · 다 모이면 자동으로 계산돼요", a.banner)
+        assertEquals(ActionKind.SHARE, a.action?.kind)
+        assertTrue(canSettleNow(g(), 1))
+        assertFalse(canSettleNow(g(), 2))
+    }
+
+    @Test fun 참여자는_응답_뒤_다_모이면_자동으로_계산된다를_본다() {
+        s.setHeadcount(open, 5)
+        assertEquals("응답 완료! 다 모이면 자동으로 계산돼요", nextAction(g(), 2).banner)
+    }
+
+    @Test fun 계산이_끝나면_총무_할_일은_입금_요청_보내기() {
+        s.setHeadcount(open, 5)
+        answerAll(4)
+        answerAll(5)
+        val a = nextAction(g(), 1)
+        assertEquals("계산 끝! 단톡방에 입금 요청을 보내주세요", a.banner)
+        assertEquals(ActionKind.REQUEST_PAYMENT, a.action?.kind)
+    }
+
+    @Test fun 입금_요청_문구는_받는_사람별로_보낼_사람_금액_계좌를_담고_확인된_송금은_뺀다() {
+        s.setHeadcount(open, 5)
+        answerAll(4)
+        answerAll(5)
+        val room = g()
+        val text = paymentRequestMessage(room, "https://x/jungsan/j/k7Qx2")
+        assertTrue(text.startsWith("[정산어택] ${room.title} 계산 끝!"))
+        for (t in room.transfers) assertTrue(text.contains("${room.nameOf(t.fromParticipantId)} "))
+        assertTrue(text.contains(room.host().payout!!.accountNo))
+
+        val first = room.transfers.first()
+        val done = room.copy(transfers = room.transfers.map { if (it.id == first.id) it.copy(status = TransferStatus.CONFIRMED) else it })
+        assertFalse(paymentRequestMessage(done, "u").contains("· ${room.nameOf(first.fromParticipantId)} "))
+    }
+}

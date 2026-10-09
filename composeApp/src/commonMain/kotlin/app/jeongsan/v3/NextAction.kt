@@ -14,6 +14,8 @@ import kotlinx.datetime.Instant
 enum class ActionKind {
     EDIT_FIRST_ROUND, SHARE, SETTLE, VIEW_PAY, CONFIRM_INCOMING,
     REGISTER_ACCOUNT, RESPOND, EDIT_RESPONSE, RESEND, GIVE_SPOON,
+    /** 정산 뒤 총무가 단톡방에 사람별 금액·계좌를 보낸다(FC-020) */
+    REQUEST_PAYMENT,
 }
 
 enum class Tone { TODO, WAIT, DONE }
@@ -62,15 +64,24 @@ fun nextAction(g: Gathering, meUserId: Id, now: Instant = Clock.System.now()): N
                 return NextAction("링크를 보내서 사람들을 불러주세요", Tone.TODO, Action(ActionKind.SHARE, "링크 공유"))
             }
             val waiting = g.unrespondedParticipants().size
+            // 인원을 넣었으면 다 모일 때 서버가 자동 정산한다(FC-020) — 총무는 링크만 돌리면 된다.
+            // 안 들어오는 사람이 있을 때의 [지금 계산하기]는 R1 배너 아래 작은 버튼(canSettleNow)
+            val n = g.headcount
+            if (n != null && waiting + maxOf(0, n - g.participants.size) > 0) {
+                return NextAction("${n}명 중 ${g.respondedCount()}명 응답했어요 · 다 모이면 자동으로 계산돼요", Tone.WAIT, Action(ActionKind.SHARE, "링크 공유"))
+            }
             return if (waiting > 0) {
-                NextAction("${waiting}명이 아직 응답 안 했어요 · 준비되면 정산하세요", Tone.WAIT, Action(ActionKind.SETTLE, "정산하기"))
+                NextAction("${waiting}명이 아직 응답 안 했어요 · 준비되면 정산하세요", Tone.WAIT, Action(ActionKind.SETTLE, "지금 계산하기"))
             } else {
-                NextAction("모두 응답했어요", Tone.TODO, Action(ActionKind.SETTLE, "정산하기"))
+                NextAction("모두 응답했어요", Tone.TODO, Action(ActionKind.SETTLE, "지금 계산하기"))
             }
         }
         val labels = g.rounds.joinToString("·") { it.label }
         return if (g.hasResponded(me.id)) {
-            NextAction("응답 완료! 총무가 정산하면 알려드릴게요", Tone.WAIT, Action(ActionKind.EDIT_RESPONSE, "응답 고치기"))
+            NextAction(
+                if (g.headcount != null) "응답 완료! 다 모이면 자동으로 계산돼요" else "응답 완료! 총무가 정산하면 알려드릴게요",
+                Tone.WAIT, Action(ActionKind.EDIT_RESPONSE, "응답 고치기"),
+            )
         } else {
             NextAction("$labels 응답을 남겨주세요", Tone.TODO, Action(ActionKind.RESPOND, "응답하기"))
         }
@@ -102,7 +113,12 @@ fun nextAction(g: Gathering, meUserId: Id, now: Instant = Clock.System.now()): N
     }
     val waitingIn = incoming.count { it.status == TransferStatus.WAITING }
     if (waitingIn > 0) {
-        return NextAction("${waitingIn}명 입금 기다리는 중", Tone.WAIT, Action(ActionKind.SHARE, "링크 다시 공유"))
+        // 총무는 계산이 끝나면 단톡방에 입금 요청을 돌린다(FC-020) — 사람별 금액·계좌가 담긴 문구
+        return if (isHost) {
+            NextAction("계산 끝! 단톡방에 입금 요청을 보내주세요", Tone.TODO, Action(ActionKind.REQUEST_PAYMENT, "입금 요청 보내기"))
+        } else {
+            NextAction("${waitingIn}명 입금 기다리는 중", Tone.WAIT, Action(ActionKind.SHARE, "링크 다시 공유"))
+        }
     }
     if (outgoing.any { it.status == TransferStatus.SENT }) {
         return NextAction("확인 기다리는 중이에요", Tone.WAIT, note = autoNote)
@@ -113,3 +129,10 @@ fun nextAction(g: Gathering, meUserId: Id, now: Instant = Clock.System.now()): N
     }
     return NextAction("다른 사람들 입금을 기다리는 중이에요", Tone.WAIT)
 }
+
+/**
+ * R1 배너 아래 작은 [지금 계산하기](FC-020) — 인원을 넣어 자동 정산을 기다리는 중인데, 끝까지 안 들어오는 사람이 있으면
+ * 총무가 직접 마무리한다. 하단 버튼은 [링크 공유]라 이 버튼이 따로 있어야 한다. 웹 `canSettleNow`
+ */
+fun canSettleNow(g: Gathering, meUserId: Id): Boolean =
+    g.status == GatheringStatus.OPEN && g.hostUserId == meUserId && g.headcount != null && g.rounds.isNotEmpty() && g.participants.size >= 2

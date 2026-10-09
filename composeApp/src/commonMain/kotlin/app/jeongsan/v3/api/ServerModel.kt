@@ -45,6 +45,8 @@ import kotlinx.serialization.Serializable
 @Serializable data class SUnit(
     val id: Long, val hostParticipantId: Long, val status: String, val inputRevision: Int = 0,
     val completedAt: String? = null, val participantIds: List<Long> = emptyList(), val me: SUnitMe = SUnitMe(),
+    /** 총무가 넣은 인원(FC-020). 서버가 아직 안 주면 null */
+    val headcount: Int? = null,
 )
 @Serializable data class SDrink(val name: String, val unitPrice: Long, val quantity: Int)
 @Serializable data class SRound(
@@ -132,6 +134,7 @@ fun ServerGathering.toRoom(u: SUnit): Gathering {
         status = GatheringStatus.valueOf(u.status),
         shareToken = shareToken,
         inputRevision = u.inputRevision,
+        headcount = u.headcount,
         completedAt = u.completedAt?.let(::instant),
         participants = participants.filter { it.id in members }.map { it.toParticipant() },
         // 차수 이름은 앱이 붙인다(FC-014 D4). seq 는 술자리 전체 번호라 다음 총무의 첫 차수는 "3차"가 된다

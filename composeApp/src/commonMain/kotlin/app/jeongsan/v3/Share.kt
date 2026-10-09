@@ -23,6 +23,21 @@ fun shareMessage(g: Gathering, url: String): String {
 }
 
 /**
+ * 입금 요청(FC-020) — 정산 뒤 총무가 단톡방에 보낸다. 사람별 보낼 금액과 받을 계좌를 한 번에 담는다.
+ * 받는 사람이 둘 이상이면(차수마다 낸 사람이 다름) 받는 사람별로 묶는다. 이미 확인된 송금은 뺀다. 웹 `paymentRequestMessage`와 같은 문구
+ */
+fun paymentRequestMessage(g: Gathering, url: String): String {
+    val open = g.transfers.filter { it.status != TransferStatus.CONFIRMED }
+    val blocks = open.map { it.toParticipantId }.distinct().map { to ->
+        val p = g.participants.find { it.id == to }
+        val account = p?.payout?.let { "${it.bank} ${it.accountNo} (${it.holder})" } ?: "계좌는 앱에서 확인해주세요"
+        val lines = open.filter { it.toParticipantId == to }.map { "· ${g.nameOf(it.fromParticipantId)} ${app.jeongsan.util.won(it.amount)}" }
+        (listOf("→ ${g.nameOf(to)}님께 보내주세요") + lines + "   $account").joinToString("\n")
+    }
+    return (listOf("[정산어택] ${g.title} 계산 끝!") + blocks + "보냈으면 앱에서 [보냈어요]를 눌러주세요 👉 $url").joinToString("\n")
+}
+
+/**
  * OS 공유 시트를 띄우는 함수를 돌려준다 — Android는 공유 인텐트(카카오톡이 목록 맨 위에 뜬다),
  * iOS는 UIActivityViewController. 화면 코드는 이 함수 하나만 부른다.
  */

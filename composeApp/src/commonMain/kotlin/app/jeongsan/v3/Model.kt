@@ -107,6 +107,11 @@ data class Gathering(
     val gatheringId: Id? = null,
     /** 다음에 넣을 차수 번호(API 모드) — 서버는 술자리 전체에서 번호를 매긴다. 없으면 이 정산방 차수로 센다 */
     val nextSeq: Int? = null,
+    /**
+     * 총무가 넣은 인원(총무 포함, FC-020). 이만큼 들어와 모두 응답하면 자동으로 정산된다.
+     * null 이면(옛 술자리·아직 안 넣음) 총무가 [지금 계산하기]로 정산한다
+     */
+    val headcount: Int? = null,
     /** 이 정산방의 첫 차수 번호(목데이터) — 다음 차 총무의 정산방은 술자리 전체 번호를 이어받는다. 없으면 1 */
     val firstSeq: Int? = null,
 )
@@ -154,6 +159,22 @@ fun Gathering.hasResponded(participantId: Id): Boolean =
     rounds.isNotEmpty() && rounds.all { responseOf(participantId, it.id) != null }
 
 fun Gathering.unrespondedParticipants(): List<Participant> = participants.filter { !hasResponded(it.id) }
+
+/** 모든 차수에 응답을 마친 사람 수 — R1 "5명 중 3명 응답" */
+fun Gathering.respondedCount(): Int = participants.count { hasResponded(it.id) }
+
+/**
+ * 자동 정산 조건(FC-020) — 총무가 넣은 인원만큼 들어와 모두가 모든 차수에 응답했다. 서버 판정·웹 `allIn`과 같은 규칙.
+ * 인원보다 더 들어온 건 막지 않는다(≥).
+ */
+fun Gathering.allIn(): Boolean {
+    val n = headcount ?: return false
+    return status == GatheringStatus.OPEN && rounds.isNotEmpty() && participants.size >= n && participants.all { hasResponded(it.id) }
+}
+
+/** 인원 입력 범위(FC-020) — 서버 검증과 같다 */
+const val HEADCOUNT_MIN = 2
+const val HEADCOUNT_MAX = 50
 
 /** 이 참여자가 결제자인 차수 */
 fun Gathering.roundsPaidBy(participantId: Id): List<Round> = rounds.filter { it.payerParticipantId == participantId }

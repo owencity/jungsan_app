@@ -1,5 +1,7 @@
 package app.jeongsan.v3.ui
 
+import app.jeongsan.v3.HEADCOUNT_MAX
+import app.jeongsan.v3.HEADCOUNT_MIN
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -73,8 +75,8 @@ fun RoundEditScreen(
     /** 새 차수면 null */
     round: Round?,
     onBack: () -> Unit,
-    /** (차수, 저장 뒤 다음 차수, 총무 본인의 이 차수 응답 — FC-019) */
-    onSave: (RoundDraft, Boolean, ResponseType) -> Unit,
+    /** (차수, 저장 뒤 다음 차수, 총무 본인의 이 차수 응답 — FC-019, 나 포함 인원 — FC-020) */
+    onSave: (RoundDraft, Boolean, ResponseType, Int) -> Unit,
     onDelete: (() -> Unit)?,
 ) {
     val host = g.host()
@@ -91,6 +93,8 @@ fun RoundEditScreen(
     var mine by remember {
         mutableStateOf(round?.let { g.responseOf(host.id, it.id)?.type }?.takeIf { it != ResponseType.EXEMPT } ?: ResponseType.DRANK)
     }
+    // 인원(FC-020) — 이만큼 모두 응답하면 자동 정산. 처음엔 지금 들어온 사람 수(최소 2)에서 시작한다
+    var headcount by remember { mutableStateOf(g.headcount ?: maxOf(HEADCOUNT_MIN, g.participants.size)) }
 
     val total = parseAmount(amountText)
     val draft = RoundDraft(round?.id, total, drinks.toList(), payer)
@@ -105,7 +109,7 @@ fun RoundEditScreen(
 
     fun save(andNext: Boolean) {
         tried = true
-        if (errors.isEmpty()) onSave(draft, andNext, mine)
+        if (errors.isEmpty()) onSave(draft, andNext, mine, headcount)
     }
 
     V3Screen(
@@ -211,6 +215,17 @@ fun RoundEditScreen(
             Text("술 합계 ${won(drinksTotal(drinks))}", Modifier.fillMaxWidth(), color = JsColor.ink2, fontSize = 13.sp, textAlign = TextAlign.End)
         }
 
+        Label("몇 명이서 마셨나요? (나 포함 · 다 응답하면 자동으로 계산돼요)")
+        Row(
+            Modifier.border(2.dp, JsColor.ink).semantics { contentDescription = "인원 ${headcount}명" },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            StepButton("−", enabled = headcount > HEADCOUNT_MIN) { headcount -= 1 }
+            Text("${headcount}명", Modifier.width(64.dp), color = JsColor.ink, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center)
+            StepButton("+", enabled = headcount < HEADCOUNT_MAX) { headcount += 1 }
+        }
+        if (headcount < g.participants.size) Text("이미 ${g.participants.size}명이 들어와 있어요", color = JsColor.ink3, fontSize = 12.sp)
+
         Label("나는 이 차수에")
         ResponseRow(mine) { mine = it }
 
@@ -279,3 +294,13 @@ fun roundEditKey(round: Round?, g: Gathering): String = round?.let { "r${it.id}"
 
 /** id로 차수를 찾는다(경로 인자용) */
 fun Gathering.roundById(id: Id?): Round? = rounds.find { it.id == id }
+
+/** 인원 [−][+] 한 칸 — 병 수 [−][+]와 같은 모양 */
+@Composable
+private fun StepButton(text: String, enabled: Boolean, onClick: () -> Unit) {
+    Box(
+        Modifier.size(40.dp).background(Color.White).let { if (enabled) it.clickable(onClick = onClick) else it }
+            .semantics { role = Role.Button; contentDescription = if (text == "+") "한 명 더하기" else "한 명 빼기" },
+        contentAlignment = Alignment.Center,
+    ) { Text(text, color = if (enabled) JsColor.ink else JsColor.line, fontSize = 18.sp, fontWeight = FontWeight.Black) }
+}

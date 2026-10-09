@@ -1,5 +1,8 @@
 package app.jeongsan.v3.ui
 
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextAlign
+import app.jeongsan.v3.canSettleNow
 import app.jeongsan.v3.nameWithNick
 import androidx.compose.ui.semantics.selected
 import androidx.compose.runtime.mutableStateListOf
@@ -137,6 +140,14 @@ fun RoomScreen(
         }
 
         Banner(act.banner, act.tone, act.note)
+        // 인원을 넣어 자동 정산을 기다리는 중 — 끝까지 안 들어오는 사람이 있으면 총무가 직접 마무리(FC-020)
+        if (canSettleNow(g, meUserId) && act.action?.kind != ActionKind.SETTLE) {
+            Text(
+                "안 들어온 사람이 있나요? 지금 계산하기",
+                Modifier.fillMaxWidth().clickable { onAction(ActionKind.SETTLE) }.semantics { role = Role.Button }.padding(vertical = 4.dp),
+                color = JsColor.ink3, fontSize = 13.sp, textAlign = TextAlign.End, textDecoration = TextDecoration.Underline,
+            )
+        }
 
         // 총무는 사람을 눌러 면제·내보내기(R4). 총무 자신은 관리 대상이 아니다
         People(g, onPick = if (isHost) ({ pid -> if (pid != host.id) managing = pid }) else null)

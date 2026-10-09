@@ -1,5 +1,6 @@
 package app.jeongsan.v3.ui
 
+import app.jeongsan.v3.paymentRequestMessage
 import app.jeongsan.v3.api.entryChoiceLabel
 import app.jeongsan.v3.api.toEntryRooms
 import app.jeongsan.v3.api.ServerJoinPreview
@@ -272,6 +273,8 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3G
                     ActionKind.VIEW_PAY, ActionKind.RESEND -> nav.navigate(V3Routes.pay(g.id))
                     ActionKind.REGISTER_ACCOUNT -> nav.navigate(V3Routes.account(g.id))
                     ActionKind.SHARE -> share(shareMessage(g, shareUrl(SHARE_BASE, g.shareToken)))
+                    // 계산이 끝나면 단톡방에 사람별 금액·계좌(FC-020)
+                    ActionKind.REQUEST_PAYMENT -> share(paymentRequestMessage(g, shareUrl(SHARE_BASE, g.shareToken)))
                     // 받을 돈 목록이 화면 안에 있다
                     ActionKind.CONFIRM_INCOMING -> Unit
                 }
@@ -319,9 +322,9 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3G
                     g = g,
                     round = round,
                     onBack = back,
-                    onSave = { draft, andNext, mine ->
+                    onSave = { draft, andNext, mine, headcount ->
                         scope.launch {
-                            when (val r = gateway.saveRound(g.id, draft, mine)) {
+                            when (val r = gateway.saveRound(g.id, draft, mine, headcount)) {
                                 is Made.Ok -> if (andNext) nav.toSub(g.id, V3Routes.round(g.id, null)) else nav.toRoom(g.id)
                                 is Made.Err -> V3Toast.show(r.message)
                             }

@@ -163,7 +163,9 @@ class V3Gateway(private val store: V3Store, private val client: ApiClient?) {
         val me = store.state.rooms[roomId]?.participantOfUser(store.state.me.id)
         return try {
             // requestId 는 멱등 키 — 같은 요청을 다시 보내도 단위가 둘 생기지 않는다(SETTLEMENT_UNITS §4.2)
-            val u = c.createUnit(gid, Uuid.random().toString(), (listOfNotNull(me?.id) + participantIds).distinct())
+            val ids = (listOfNotNull(me?.id) + participantIds).distinct()
+            // 다음 차 인원의 시작값은 고른 사람 + 나(FC-020) — R2에서 바꿀 수 있다
+            val u = c.createUnit(gid, Uuid.random().toString(), ids, ids.size)
             refresh(c, gid)
             Made.Ok(u.id)
         } catch (e: ApiError) {
@@ -175,9 +177,15 @@ class V3Gateway(private val store: V3Store, private val client: ApiClient?) {
      * 차수 저장(R2) + 총무 본인 응답(FC-019 A). 응답은 새 차수거나 값이 바뀌었을 때만 보낸다.
      * 서버 변경 없이 기존 `PUT U/responses/me`를 차수 저장 뒤에 한 번 더 부른다
      */
-    suspend fun saveRound(roomId: Id, draft: RoundDraft, mine: ResponseType): Made {
-        val c = client ?: return Made.Ok(store.saveRoundAsHost(roomId, draft, mine) ?: draft.id ?: 0)
+    suspend fun saveRound(roomId: Id, draft: RoundDraft, mine: ResponseType, headcount: Int? = null): Made {
         val before = store.state.rooms[roomId]
+        // 인원(FC-020)은 바뀌었을 때만 — 응답을 넣은 뒤에 바꿔야 "모두 모였다" 판정이 새 응답까지 본다
+        val headcountChanged = headcount != null && headcount != before?.headcount
+        val c = client ?: run {
+            val id = store.saveRoundAsHost(roomId, draft, mine) ?: draft.id ?: 0
+            if (headcountChanged) store.setHeadcount(roomId, headcount!!)
+            return Made.Ok(id)
+        }
         val meP = before?.participantOfUser(store.state.me.id)
         val prev = draft.id?.let { rid -> before?.responses?.find { it.participantId == meP?.id && it.roundId == rid }?.type }
         val (gid, uid) = ctx(roomId)
@@ -186,6 +194,8 @@ class V3Gateway(private val store: V3Store, private val client: ApiClient?) {
             val r = draft.id?.let { c.putRound(gid, uid, it, body) } ?: c.addRound(gid, uid, body)
             // 차수는 들어갔는데 응답만 실패하면 정산 때 "응답 없음"으로 보일 뿐이라 차수 저장을 실패로 돌리지 않는다
             if (mine != prev) attempt { c.respond(gid, uid, listOf(AnswerBody(r.id, mine.name))) }
+            // 인원은 서버가 아직 모르면(FC-020 배포 전) 실패해도 차수 저장은 성공으로 둔다
+            if (headcountChanged) attempt { c.putHeadcount(gid, uid, headcount!!) }
             refresh(c, gid)
             Made.Ok(r.id)
         } catch (e: ApiError) {
