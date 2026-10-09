@@ -130,7 +130,7 @@ private fun AccountMenu(onLogout: (() -> Unit)?, onDeleteAccount: (() -> Unit)?)
         if (onDeleteAccount != null) {
             if (armed) {
                 Text(
-                    "탈퇴하면 계정과 등록한 계좌가 지워지고 되돌릴 수 없어요. 진행 중인 정산의 기록은 다른 사람 화면에 남아요.",
+                    "탈퇴하면 계정과 등록한 계좌가 지워지고 되돌릴 수 없어요. 지난 정산 기록에는 ‘탈퇴한 사용자’로 남아요. 진행 중인 정산이 있으면 끝난 뒤에 탈퇴할 수 있어요.",
                     color = JsColor.warn, fontSize = 13.sp, lineHeight = 19.sp,
                 )
             }
