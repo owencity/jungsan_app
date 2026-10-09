@@ -63,10 +63,11 @@ fun LoginScreen(onLogin: () -> Unit) {
                 )
 
                 Text(
-                    "같이 놀고 같이 먹는데 왜 총무만 고생을 해야하냐!",
+                    // 한국어는 글자 단위로 줄이 바뀌어 "총/무분들은"처럼 끊겼다 — 쉼표 뒤에서 직접 나눈다
+                    "간단한 건 그대로 N분의 1 하면 되지만,\n계산이 복잡해지면 총무분들은 계산이 힘들어집니다.",
                     modifier = Modifier.padding(top = 18.dp),
                     style = TextStyle(shadow = textShadow),
-                    color = JsColor.accent, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold,
+                    color = JsColor.accent, fontSize = 15.sp, lineHeight = 22.sp, fontWeight = FontWeight.ExtraBold,
                     textAlign = TextAlign.Center,
                 )
 
