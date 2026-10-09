@@ -60,6 +60,11 @@ fun EntryScreen(
     onJoin: suspend (Map<Id, ResponseType>, String?) -> String?,
     onOpenRoom: () -> Unit,
     onHome: () -> Unit,
+    /** 서버 미리보기는 명단 대신 인원수만 준다 — 있으면 이것을 쓴다 */
+    participantCount: Int? = null,
+    /** 한 술자리에 총무가 둘 이상이면(FC-015) 참여할 차수 묶음을 고른다 — (정산방 id, 이름) */
+    choices: List<Pair<Id, String>> = emptyList(),
+    onPick: (Id) -> Unit = {},
 ) {
     val draft = remember(g?.id, meUserId) { mutableStateMapOf<Id, ResponseType>() }
     var name by remember(g?.id, meUserId) { mutableStateOf("") }
@@ -112,7 +117,16 @@ fun EntryScreen(
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text("${host.displayName}님이 정산어택에 초대했어요", color = JsColor.accentStrong, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
             Text(g.title, color = JsColor.ink, fontSize = 24.sp, fontWeight = FontWeight.Black)
-            Text("${date.monthNumber}월 ${date.dayOfMonth}일 · ${g.participants.size}명 참여 중", color = JsColor.ink2, fontSize = 13.sp)
+            Text("${date.monthNumber}월 ${date.dayOfMonth}일 · ${participantCount ?: g.participants.size}명 참여 중", color = JsColor.ink2, fontSize = 13.sp)
+        }
+
+        if (choices.size > 1) {
+            Label("어느 총무의 차수에 참여하나요?")
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                for ((id, label) in choices) {
+                    MiniButton(label, filled = if (id == g.id) JsColor.ink else null) { draft.clear(); onPick(id) }
+                }
+            }
         }
 
         RetroSurface(Modifier.fillMaxWidth(), shadowOffset = JsShape.shadowOffsetSmall) {

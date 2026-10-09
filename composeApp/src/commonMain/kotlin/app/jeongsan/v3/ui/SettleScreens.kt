@@ -1,5 +1,8 @@
 package app.jeongsan.v3.ui
 
+import app.jeongsan.v3.api.Settled
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -62,12 +65,15 @@ fun SettleScreen(
     preview: SettlePreview,
     onBack: () -> Unit,
     onRespondFor: (Id, Id, ResponseType) -> Unit,
-    onSettle: (Int) -> SettleResult,
+    /** 미리보기를 그대로 돌려보낸다(입력 버전·해시 — ADR-004). 서버를 기다린다 */
+    onSettle: suspend (SettlePreview) -> Settled,
 ) {
     val host = g.host()
     val missing = g.unrespondedParticipants()
     var editing by remember { mutableStateOf<Id?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     val sum = preview.lines.sumOf { it.total }
     val roundsTotal = g.rounds.sumOf { it.total }
 
@@ -85,11 +91,18 @@ fun SettleScreen(
                     color = JsColor.warn, fontSize = 13.5.sp, fontWeight = FontWeight.Bold,
                 )
             }
-            CtaButton("정산하기") {
-                error = when (onSettle(preview.inputRevision)) {
-                    SettleResult.STALE -> "그 사이 응답이 바뀌었어요. 바뀐 금액을 확인하고 다시 눌러주세요"
-                    SettleResult.DENIED -> "지금은 정산할 수 없어요"
-                    SettleResult.OK -> null
+            CtaButton(if (busy) "정산하는 중…" else "정산하기", enabled = !busy) {
+                busy = true
+                scope.launch {
+                    error = when (val r = onSettle(preview)) {
+                        is Settled.Err -> r.message
+                        is Settled.Done -> when (r.result) {
+                            SettleResult.STALE -> "그 사이 응답이 바뀌었어요. 바뀐 금액을 확인하고 다시 눌러주세요"
+                            SettleResult.DENIED -> "지금은 정산할 수 없어요"
+                            SettleResult.OK -> null
+                        }
+                    }
+                    busy = false
                 }
             }
         },

@@ -1,5 +1,6 @@
 package app.jeongsan.v3.ui
 
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -102,7 +103,37 @@ fun V3Screen(
                 }
             }
         }
+        ToastHost(Modifier.align(Alignment.BottomCenter).windowInsetsPadding(WindowInsets.safeDrawing).padding(bottom = 96.dp, start = 16.dp, end = 16.dp))
     }
+}
+
+/**
+ * 잠깐 떴다 사라지는 안내 — 웹 `.js-toast`. 서버 오류 문구 같은 것.
+ * 화면이 바뀌어도 이어 보이도록 화면 밖(전역)에 하나만 둔다.
+ */
+object V3Toast {
+    var text by mutableStateOf<String?>(null)
+        private set
+    var key by mutableIntStateOf(0)
+        private set
+
+    fun show(message: String) { text = message; key++ }
+    internal fun clear(at: Int) { if (key == at) text = null }
+}
+
+@Composable
+private fun ToastHost(modifier: Modifier) {
+    val text = V3Toast.text ?: return
+    val at = V3Toast.key
+    LaunchedEffect(at) {
+        delay(2400)
+        V3Toast.clear(at)
+    }
+    Text(
+        text,
+        modifier.fillMaxWidth().background(JsColor.ink).padding(horizontal = 14.dp, vertical = 11.dp),
+        color = Color.White, fontSize = 13.5.sp, fontWeight = FontWeight.Bold,
+    )
 }
 
 /** 화면 제목 — 위 바 안에서 남는 폭을 다 쓰고, 넘치면 말줄임 */

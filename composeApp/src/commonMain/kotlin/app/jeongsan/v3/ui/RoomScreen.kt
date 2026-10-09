@@ -1,5 +1,8 @@
 package app.jeongsan.v3.ui
 
+import app.jeongsan.v3.nameWithNick
+import androidx.compose.ui.semantics.selected
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -89,8 +92,10 @@ fun RoomScreen(
     onRemove: (Id) -> Unit,
     /** 링크 공유(OS 공유 시트) — 총무는 위 바에서 언제든 */
     onShare: () -> Unit,
-    /** 참여자가 "다음 차는 내가 계산했어요" — 내가 총무인 새 술자리를 만든다 */
-    onStartNext: () -> Unit,
+    /** 참여자가 "다음 차는 내가 계산했어요" — 고른 사람(나 빼고)과 이 술자리 안에 내 정산 단위를 만든다(FC-015) */
+    onStartNext: (List<Id>) -> Unit,
+    /** 이 술자리에 내가 총무인 정산방이 이미 있으면 그리로 — 있으면 새로 만들지 않는다 */
+    onOpenMyNext: (() -> Unit)? = null,
 ) {
     var managing by remember { mutableStateOf<Id?>(null) }
     val host = g.host()
@@ -171,7 +176,10 @@ fun RoomScreen(
         }
 
         // 다음 차를 내가 계산했다 → 내가 총무인 새 술자리. 총무 본인은 [+ 차수]로 이어 가면 된다
-        if (!isHost && me != null && g.status != GatheringStatus.COMPLETED) NextRoundOffer(onStartNext)
+        if (!isHost && me != null && g.status != GatheringStatus.COMPLETED) {
+            if (onOpenMyNext != null) OfferChip("🍻 내가 계산한 다음 차로 가기", onOpenMyNext)
+            else NextRoundOffer(g.participants.filter { it.id != me.id }, onStartNext)
+        }
 
         if (incoming.isNotEmpty()) {
             Label("받을 돈")
@@ -203,31 +211,50 @@ fun RoomScreen(
     }
 }
 
+@Composable
+private fun OfferChip(text: String, onClick: () -> Unit) {
+    Text(
+        text,
+        Modifier.background(JsColor.accentBg).border(2.dp, JsColor.accent).clickable(onClick = onClick)
+            .semantics { role = Role.Button }.padding(horizontal = 12.dp, vertical = 8.dp),
+        color = JsColor.accentStrong, fontSize = 13.5.sp, fontWeight = FontWeight.ExtraBold,
+    )
+}
+
 /**
- * "다음 차는 내가 계산했어요" — 첫 탭은 무엇이 분리되는지 보여주고, 두 번째 탭에 만든다. 웹 `NextRoundOffer`와 같다.
- * 잘못 눌러 빈 술자리가 생기지 않게, 그리고 "따로 정산된다"는 걸 만들기 전에 알게 하려는 것이다.
+ * "다음 차는 내가 계산했어요" — 첫 탭은 무엇이 분리되는지와 같이 간 사람을 보여주고, 두 번째 탭에 만든다. 웹 `NextRoundOffer`와 같다.
+ * 다음 차에는 사람이 빠지거나 바뀔 수 있어서 고르게 한다(기본은 전원). 나는 늘 들어간다.
+ * 이 명단에 없는 사람(다음 차에만 온 사람)은 같은 링크로 들어와 내 차수를 고르면 된다.
  */
 @Composable
-private fun NextRoundOffer(onStart: () -> Unit) {
+private fun NextRoundOffer(others: List<Participant>, onStart: (List<Id>) -> Unit) {
     var open by remember { mutableStateOf(false) }
-    if (!open) {
-        Text(
-            "🍻 다음 차는 내가 계산했어요",
-            Modifier.background(JsColor.accentBg).border(2.dp, JsColor.accent).clickable { open = true }
-                .semantics { role = Role.Button }.padding(horizontal = 12.dp, vertical = 8.dp),
-            color = JsColor.accentStrong, fontSize = 13.5.sp, fontWeight = FontWeight.ExtraBold,
-        )
-        return
-    }
+    val picked = remember(others.map { it.id }) { mutableStateListOf<Id>().apply { addAll(others.map { it.id }) } }
+    if (!open) return OfferChip("🍻 다음 차는 내가 계산했어요") { open = true }
     Column(
         Modifier.fillMaxWidth().background(JsColor.accentBg).border(2.dp, JsColor.accent).padding(horizontal = 12.dp, vertical = 11.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Text("내가 총무인 새 술자리를 만들어요", color = JsColor.accentStrong, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
-        Text("이 술자리와는 완전히 따로 정산돼요. 같이 간 사람들은 새 링크로 들어와요.", color = JsColor.ink2, fontSize = 13.sp, lineHeight = 19.sp)
+        Text("다음 차는 내가 총무예요", color = JsColor.accentStrong, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
+        Text("지금까지 차수와는 따로 정산돼요. 다음 차에 같이 간 사람을 골라주세요.", color = JsColor.ink2, fontSize = 13.sp, lineHeight = 19.sp)
+        for (p in others) {
+            val on = p.id in picked
+            Row(
+                Modifier.fillMaxWidth().clickable { if (on) picked.remove(p.id) else picked.add(p.id) }
+                    .semantics { role = Role.Checkbox; selected = on }.padding(vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    Modifier.size(20.dp).background(if (on) JsColor.accent else Color.White).border(2.dp, if (on) JsColor.accent else JsColor.line),
+                    contentAlignment = Alignment.Center,
+                ) { if (on) Text("✓", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Black) }
+                Text(p.nameWithNick(), Modifier.padding(start = 10.dp), color = JsColor.ink, fontSize = 14.sp)
+            }
+        }
+        Text("여기 없는 사람은 같은 링크로 들어와 내 차수를 고르면 돼요.", color = JsColor.ink3, fontSize = 12.sp)
         Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
             MiniButton("취소") { open = false }
-            MiniButton("새 술자리 만들기", filled = JsColor.ok, onClick = onStart)
+            MiniButton(if (picked.isEmpty()) "나 혼자 시작하기" else "${picked.size + 1}명으로 시작하기", filled = JsColor.ok) { onStart(picked.toList()) }
         }
     }
 }
