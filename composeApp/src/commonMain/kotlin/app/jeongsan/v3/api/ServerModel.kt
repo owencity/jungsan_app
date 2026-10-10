@@ -47,6 +47,8 @@ import kotlinx.serialization.Serializable
     val completedAt: String? = null, val participantIds: List<Long> = emptyList(), val me: SUnitMe = SUnitMe(),
     /** 총무가 넣은 인원(FC-020). 서버가 아직 안 주면 null */
     val headcount: Int? = null,
+    /** 자동 계산이 멈춘 이유(API v8). 정상이면 null */
+    val autoSettlementError: String? = null,
 )
 @Serializable data class SDrink(val name: String, val unitPrice: Long, val quantity: Int)
 @Serializable data class SRound(
@@ -135,8 +137,10 @@ fun ServerGathering.toRoom(u: SUnit): Gathering {
         shareToken = shareToken,
         inputRevision = u.inputRevision,
         headcount = u.headcount,
+        autoSettlementError = u.autoSettlementError,
         completedAt = u.completedAt?.let(::instant),
-        participants = participants.filter { it.id in members }.map { it.toParticipant() },
+        // 명단은 서버가 준 단위 순서 그대로 — 총무 먼저, 그다음 이 단위에 들어온 순서. "인원 안"을 이 순서로 센다(API v8)
+        participants = u.participantIds.mapNotNull { id -> participants.find { it.id == id } }.map { it.toParticipant() },
         // 차수 이름은 앱이 붙인다(FC-014 D4). seq 는 술자리 전체 번호라 다음 총무의 첫 차수는 "3차"가 된다
         rounds = mine.map { r ->
             Round(r.id, r.seq, "${r.seq}차", r.total, r.payerParticipantId, r.drinks.map { DrinkItem(it.name, it.unitPrice, it.quantity) })

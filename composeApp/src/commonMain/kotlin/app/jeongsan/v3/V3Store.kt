@@ -86,7 +86,8 @@ class V3Store(
         if (after == prev) return
         // 자동 정산(FC-020) — 어떤 동작이든(응답·참여·대리 응답·인원 변경·차수 삭제) "모두 모였다"로 바뀐 순간 정산한다.
         // 알림 규칙처럼 전·후만 보고 정해서, 경로마다 정산 코드를 흩뿌리지 않는다. 웹 store commit 과 같다
-        val next = if (!prev.allIn() && after.allIn()) settleNow(after, auto = true) else after
+        // 보류 중(autoSettlementError)이면 변경마다 다시 판정한다 — 서버도 차수 수정·인원 변경 뒤 다시 판정한다
+        val next = if (after.allIn() && (!prev.allIn() || prev.autoSettlementError != null)) autoSettle(after) else after
         val s = state
         val startId = (s.notifications.maxOfOrNull { it.id } ?: 0) + 1
         val fresh = notificationsFor(prev, next)
@@ -258,6 +259,14 @@ class V3Store(
      * 정산(서버 흉내) — 미리보기대로 송금을 만들고 금액을 고정한다. 수동([지금 계산하기])과 자동(FC-020)이 같이 쓴다.
      * 응답 없는 칸은 전 차수 참석·알코올(AUTO)로 채운다. 보낼 돈이 하나도 없으면 바로 완료
      */
+    /**
+     * 자동 계산(FC-020) — 인원 밖 사람이 결제자면 빼면 그 차수의 돈을 받을 사람이 사라져서 확정하지 않고 사유만 남긴다
+     * (서버 AUTO_SETTLEMENT REMOVE_PAYER, CTO 승인 2026-10-10). 웹 store autoSettle 과 같다
+     */
+    private fun autoSettle(g: Gathering): Gathering =
+        if (g.extraPayers().isNotEmpty()) g.copy(autoSettlementError = "REMOVE_PAYER")
+        else settleNow(g.copy(autoSettlementError = null), auto = true)
+
     private fun settleNow(source: Gathering, auto: Boolean): Gathering {
         // 자동 정산은 인원 안의 사람만 — 인원 밖에 들어온 사람은 이번 정산에서 빠진다(총무가 [포함하기]를 안 눌렀다).
         // 수동([지금 계산하기])은 총무가 명단을 보고 직접 누른 것이라 그대로 둔다(빼려면 [내보내기]). 웹 settleNow 와 같다
@@ -285,7 +294,7 @@ class V3Store(
     fun setHeadcount(roomId: Id, headcount: Int) = update(roomId) { g, _ ->
         if (g.hostUserId != me.id || g.status != GatheringStatus.OPEN) return@update g
         val n = headcount.coerceIn(HEADCOUNT_MIN, HEADCOUNT_MAX)
-        if (n == g.headcount) g else g.copy(headcount = n)
+        if (n == g.headcount) g else g.copy(headcount = n, autoSettlementError = null)
     }
 
     /**

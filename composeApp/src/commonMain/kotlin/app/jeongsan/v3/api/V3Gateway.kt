@@ -153,8 +153,14 @@ class V3Gateway(private val store: V3Store, private val client: ApiClient?) {
         return AppNotification(
             id = n.id, userId = store.state.me.id, roomId = roomId,
             // 서버 title 은 아직 종류 코드다(FC-018) — 고쳐질 때까지 사람이 읽는 body 를 제목으로 쓴다
-            title = n.body, body = "",
-            target = if (n.type in PAY_TYPES) Target.Pay(roomId) else Target.Room(roomId),
+            // 서버가 사람이 읽는 제목을 준다(FC-018 반영, API v8). 옛 서버처럼 비어 있으면 본문을 제목으로
+            title = n.title.ifBlank { n.body }, body = if (n.title.isBlank()) "" else n.body,
+            // 명단에서 빠진 사람은 그 정산방을 더는 못 연다 — 내 술자리로
+            target = when (n.type) {
+                in GONE_TYPES -> Target.Home
+                in PAY_TYPES -> Target.Pay(roomId)
+                else -> Target.Room(roomId)
+            },
             createdAt = kotlin.time.Instant.parse(n.createdAt).toDeprecatedInstant(),
             read = n.readAt != null,
         )
@@ -375,6 +381,9 @@ class V3Gateway(private val store: V3Store, private val client: ApiClient?) {
 
         /** 알림 중 누르면 보낼 돈(P3)으로 가는 종류 */
         private val PAY_TYPES = setOf("SETTLED", "NOT_RECEIVED", "PAYOUT_REGISTERED")
+
+        /** 명단에서 빠진 사람에게 가는 알림 — 그 정산방은 더 열 수 없다 */
+        private val GONE_TYPES = setOf("MEMBER_EXCLUDED", "REMOVED")
 
         fun messageOf(e: ApiError): String = MESSAGES[e.code] ?: e.message ?: "잠시 뒤 다시 시도해주세요"
     }

@@ -172,3 +172,48 @@ class OverflowTest {
         assertEquals(3, g().respondedCount())
     }
 }
+
+
+/** 인원 밖 사람이 결제자면(API v8 REMOVE_PAYER, CTO 승인 2026-10-10) — 웹 autoSettle.test.ts 와 같은 케이스 */
+class RemovePayerTest {
+    private lateinit var s: V3Store
+    private val open = 101L
+    private fun g() = s.state.rooms.getValue(open)
+    private fun answerAll(userId: Long) {
+        s.actAs(userId)
+        s.respond(open, g().rounds.associate { it.id to ResponseType.DRANK })
+    }
+    private fun pay2ndBy(pid: Long) {
+        s.actAs(1)
+        val r2 = g().rounds[1]
+        s.saveRound(open, RoundDraft(r2.id, r2.total, r2.drinks, pid))
+    }
+
+    @BeforeTest fun setUp() { s = V3Store() }
+
+    @Test fun 인원이_다_응답해도_확정하지_않고_멈춘_이유를_남긴다() {
+        s.setHeadcount(open, 4)
+        pay2ndBy(15) // 인원 밖 정민수가 2차를 냈다
+        answerAll(4)
+        assertEquals(GatheringStatus.OPEN, g().status)
+        assertEquals("REMOVE_PAYER", g().autoSettlementError)
+        val a = nextAction(g(), 1)
+        assertEquals("인원 밖 정민수님이 결제자라 자동 계산을 멈췄어요", a.banner)
+        assertEquals(ActionKind.INCLUDE_EXTRA, a.action?.kind)
+    }
+
+    @Test fun 총무가_낸_사람을_바꾸면_다시_판정해_정산된다() {
+        s.setHeadcount(open, 4)
+        pay2ndBy(15)
+        answerAll(4)
+        pay2ndBy(11)
+        assertEquals(GatheringStatus.SETTLING, g().status)
+        assertNull(g().autoSettlementError)
+    }
+
+    @Test fun 그_밖의_이유로_멈추면_지금_계산하기로_마무리하게_한다() {
+        val a = nextAction(g().copy(headcount = 5, autoSettlementError = "NO_ROUNDS"), 1)
+        assertEquals("자동 계산이 멈췄어요 · 금액을 확인하고 지금 계산해주세요", a.banner)
+        assertEquals(ActionKind.SETTLE, a.action?.kind)
+    }
+}

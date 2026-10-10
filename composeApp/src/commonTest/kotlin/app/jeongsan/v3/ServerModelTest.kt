@@ -72,6 +72,18 @@ class ServerModelTest {
         assertNotNull(nextAction(b, 2).action)
     }
 
+    @Test fun 명단은_서버가_준_단위_순서대로_인원_안을_이_순서로_센다() {
+        val u = asB.settlementUnits[0].copy(participantIds = listOf(1, 3, 2))
+        assertEquals(listOf(1L, 3L, 2L), asB.copy(settlementUnits = listOf(u)).toRooms()[0].participants.map { it.id })
+    }
+
+    @Test fun 자동_계산이_멈춘_이유를_정산방에_싣는다() {
+        val u = asB.settlementUnits[1].copy(headcount = 2, autoSettlementError = "REMOVE_PAYER")
+        val room = asB.copy(settlementUnits = listOf(asB.settlementUnits[0], u)).toRooms()[1]
+        assertEquals(2, room.headcount)
+        assertEquals("REMOVE_PAYER", room.autoSettlementError)
+    }
+
     @Test fun 정산금액을_열어봤는지는_단위별이다() {
         assertFalse(1L in asB.viewedUnitIds())
     }

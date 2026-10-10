@@ -66,6 +66,20 @@ fun nextAction(g: Gathering, meUserId: Id, now: Instant = Clock.System.now()): N
                 return NextAction("링크를 보내서 사람들을 불러주세요", Tone.TODO, Action(ActionKind.SHARE, "링크 공유"))
             }
             // 인원보다 더 들어왔으면 총무 확인이 먼저(CTO 결정 2026-10-09) — 그대로면 인원만큼만 계산되고 뒤에 온 사람은 빠진다
+            // 인원이 다 응답했는데 서버가 자동 계산을 멈췄다(API v8) — 총무가 풀어야 한다
+            val held = g.autoSettlementError
+            if (held != null) {
+                val payers = g.extraPayers()
+                return if (held == "REMOVE_PAYER" && payers.isNotEmpty()) {
+                    NextAction(
+                        "인원 밖 ${payers.joinToString("·") { it.displayName }}님이 결제자라 자동 계산을 멈췄어요", Tone.TODO,
+                        Action(ActionKind.INCLUDE_EXTRA, "${g.participants.size}명 모두 포함하기"),
+                        "모두 포함하거나, 낸 사람을 바꾸거나, 지금 계산하기로 마무리할 수 있어요",
+                    )
+                } else {
+                    NextAction("자동 계산이 멈췄어요 · 금액을 확인하고 지금 계산해주세요", Tone.TODO, Action(ActionKind.SETTLE, "지금 계산하기"))
+                }
+            }
             val extras = g.extraParticipants()
             if (extras.isNotEmpty()) {
                 return NextAction(

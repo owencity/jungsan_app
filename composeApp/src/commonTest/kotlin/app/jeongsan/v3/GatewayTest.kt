@@ -96,6 +96,20 @@ class GatewayTest {
         assertEquals("결제자는 뺄 수 없어요. 차수의 낸 사람을 먼저 바꿔주세요", gw.removeParticipant(2, 1))
     }
 
+    @Test fun 알림은_서버_제목을_그대로_쓰고_명단에서_빠진_사람은_내_술자리로_보낸다() = runTest {
+        val notes = """[
+          {"id":1,"type":"MEMBER_EXCLUDED","gatheringId":1,"settlementUnitId":2,"title":"10/9 술자리에서 빠졌어요","body":"인원(4명) 밖이라 이번 정산에서 빠졌어요","createdAt":"2026-10-10T00:00:00Z","readAt":null},
+          {"id":2,"type":"SETTLED","gatheringId":1,"settlementUnitId":2,"title":"정산이 나왔어요","body":"김동규님께 15,000원","createdAt":"2026-10-10T00:00:00Z","readAt":null}
+        ]"""
+        val (gw, store) = gateway(base + ("GET /api/v1/me/notifications" to (HttpStatusCode.OK to notes)))
+        gw.loadMine()
+        val (gone, settled) = store.state.notifications
+        assertEquals("10/9 술자리에서 빠졌어요", gone.title)
+        assertEquals("인원(4명) 밖이라 이번 정산에서 빠졌어요", gone.body)
+        assertEquals(Target.Home, gone.target)
+        assertEquals(Target.Pay(2), settled.target)
+    }
+
     @Test fun 링크로_참여하면_고른_정산_단위로_보내고_그_정산방으로_간다() = runTest {
         val (gw, store) = gateway(base + ("POST /api/v1/join/tok" to (HttpStatusCode.Created to """{"gatheringId":1,"participantId":2}""")))
         assertEquals(Made.Ok(2), gw.join("tok", 2, mapOf(3L to ResponseType.SOBER)))
