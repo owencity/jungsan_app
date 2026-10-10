@@ -13,6 +13,10 @@ name: Release iOS (TestFlight)
 #  - ASC_KEY_P8_BASE64    : 내려받은 AuthKey_XXXX.p8 파일을 base64 로 인코딩한 값
 #    ⚠ 클라우드 서명으로 배포 인증서를 만들려면 키 역할이 "관리자(Admin)" 여야 한다.
 # 그리고 App Store Connect 에 번들 ID app.jeongsan 으로 앱을 먼저 만들어 둬야 업로드가 받아진다.
+#
+# 서버 주소(운영 연결 스위치): 저장소 Settings → Secrets and variables → Actions → **Variables** 의
+#  - JS_API_BASE_URL      : 운영 API 주소(예: https://api.devkdk.com). 비면 앱이 목데이터로 돈다
+# 비밀값이 아니라서 Secret 이 아니라 Variable 에 둔다. Run workflow 의 api_base_url 입력이 있으면 그 값이 먼저다.
 on:
   workflow_dispatch:
     inputs:
@@ -21,6 +25,10 @@ on:
         type: choice
         options: [export, archive]
         default: export
+      api_base_url:
+        description: "서버 주소(https://…) — 비우면 저장소 변수 JS_API_BASE_URL, 그것도 비면 목데이터 모드(테스트용)"
+        type: string
+        default: ""
 
 concurrency:
   group: release-ios
@@ -74,7 +82,11 @@ jobs:
           KID: ${{ secrets.ASC_KEY_ID }}
           ISS: ${{ secrets.ASC_ISSUER_ID }}
           MODE: ${{ github.event.inputs.sign_mode || 'export' }}
+          API: ${{ github.event.inputs.api_base_url || vars.JS_API_BASE_URL }}
         run: |
+          # iOS 는 평문 http 를 막는다(ATS) — https 가 아니면 깔아도 서버에 못 붙는 빌드라 여기서 멈춘다
+          if [ -n "$API" ] && [ "${API#https://}" = "$API" ]; then echo "::error::서버 주소는 https:// 로 시작해야 해요: $API"; exit 1; fi
+          if [ -n "$API" ]; then echo "::notice::서버 연결 빌드 — $API"; else echo "::warning::서버 주소가 없어 목데이터 모드로 올린다(테스트용)"; fi
           SIGN_ARGS=""
           if [ "$MODE" = "export" ]; then SIGN_ARGS="CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO"; fi
           echo "sign mode: $MODE"
@@ -84,6 +96,7 @@ jobs:
             -archivePath "$RUNNER_TEMP/Jeongsan.xcarchive" \
             DEVELOPMENT_TEAM="$TEAM" CODE_SIGN_STYLE=Automatic \
             CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
+            JS_API_BASE_URL="$API" \
             $SIGN_ARGS \
             -allowProvisioningUpdates \
             -authenticationKeyPath "$RUNNER_TEMP/asc/AuthKey_$KID.p8" \

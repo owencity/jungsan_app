@@ -151,3 +151,17 @@ Account deletion (in-app): Home ("내 술자리") > tap "내 계정 · 로그아
   (Actions → Store screenshots → Run workflow, 결과 묶음을 내려받아 App Store Connect에 올린다)
 - 6.9" 한 벌이면 작은 아이폰 크기는 Apple이 줄여 쓴다. 앱은 아이폰 전용(`TARGETED_DEVICE_FAMILY: 1`)이라 아이패드 스크린샷은 필요 없다
   (아이패드에서는 아이폰 앱 호환 모드로 돈다)
+
+## 11. 운영 연결 스위치 — 서버 배포가 끝난 뒤 한 번
+
+서버 주소가 비어 있으면 웹·앱은 **목데이터**로 돈다(지금 배포된 웹·TestFlight 도 목데이터). 운영 API 가 응답하는 것을 확인한 뒤
+아래를 켠다. 순서가 바뀌면 사용자에게 "연결이 불안정해요"만 보인다.
+
+1. 운영 API 확인 — `curl https://api.devkdk.com/api/v1/auth/me` 가 **401** 이면 살아 있다(로그인 안 한 상태라 401 이 정상)
+2. **웹** — Vercel → 프로젝트 → Settings → Environment Variables 에 `VITE_JEONGSAN_API_BASE_URL=https://api.devkdk.com`(Production) → Redeploy.
+   빌드 때 들어가는 값이라 다시 배포해야 반영된다
+3. **iOS** — GitHub `jungsan_app` → Settings → Secrets and variables → Actions → **Variables** 에 `JS_API_BASE_URL=https://api.devkdk.com` →
+   Actions → Release iOS (TestFlight) → Run workflow. 로그에 "서버 연결 빌드 — https://…"가 보이면 연결 빌드다
+4. **Android** — 로컬 릴리스 빌드 때 `local.properties` 에 `JS_API_BASE_URL=https://api.devkdk.com` 을 넣고(또는 같은 이름의 환경변수)
+   `./gradlew :composeApp:bundleRelease`. 앱 서명 키스토어는 저장소 밖(`~/.jeongsan/upload-keystore.jks`)
+5. 확인 — 웹·TestFlight 에서 카카오 로그인 → 새 술자리 → 1차·인원 → 링크 참여 → 자동 계산까지 한 바퀴. 이어서 §7 심사용 테스트 술자리를 만든다
