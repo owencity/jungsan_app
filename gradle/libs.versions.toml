@@ -6,9 +6,9 @@ composeMultiplatform = "1.11.1"
 agp = "8.7.3"
 
 androidCompileSdk = "36"
-# 24(Android 7.0) — 이보다 낮추면 최신 라이브러리 대부분이 안 붙고,
-# 높이면 구형 단말이 잘린다. 정산은 특별한 API 가 필요 없어서 낮게 잡는다.
-androidMinSdk = "24"
+# 26(Android 8.0) — 운영 API 인증서가 Let's Encrypt(ISRG Root X1)라서 이 루트가 없는 7.0(24)은 서버에 못 붙는다.
+# 루트는 7.1.1 부터 들어갔다. 7.1(25)은 세부 버전이 섞여 있어 8.0 으로 끊는다(CTO 결정 2026-10-11, 안드로이드 출시 전).
+androidMinSdk = "26"
 androidTargetSdk = "36"
 
 androidxActivity = "1.9.3"
