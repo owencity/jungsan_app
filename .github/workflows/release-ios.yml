@@ -15,7 +15,7 @@ name: Release iOS (TestFlight)
 # 그리고 App Store Connect 에 번들 ID app.jeongsan 으로 앱을 먼저 만들어 둬야 업로드가 받아진다.
 #
 # 서버 주소(운영 연결 스위치): 저장소 Settings → Secrets and variables → Actions → **Variables** 의
-#  - JS_API_BASE_URL      : 운영 API 주소(예: https://api.devkdk.com). 비면 앱이 목데이터로 돈다
+#  - JS_API_BASE_URL      : 운영 API 주소(예: https://jungsan-api.devkdk.com). 비면 앱이 목데이터로 돈다
 # 비밀값이 아니라서 Secret 이 아니라 Variable 에 둔다. Run workflow 의 api_base_url 입력이 있으면 그 값이 먼저다.
 on:
   workflow_dispatch:
