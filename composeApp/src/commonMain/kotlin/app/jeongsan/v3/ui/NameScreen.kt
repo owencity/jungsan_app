@@ -19,6 +19,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
@@ -46,12 +51,16 @@ import kotlinx.coroutines.launch
  * L2 이름 확인 — 웹 `NamePage.tsx`. 첫 로그인 때 한 번 **실명을 성까지** 받는다 — 총무가 은행 앱의 입금자명과
  * 참여자를 맞춰 보기 때문이다. 칸은 비워 둔다(카카오 닉네임을 채워 두면 그대로 넘어가 실명이 안 모인다).
  * 한 번 정하면 바뀌지 않는다. 카카오 닉네임은 목록에서 `이름(닉네임)`으로 옆에 붙는다. 키보드의 [완료]로도 시작한다.
+ *
+ * 위에 [뒤로가기]를 두지 않는다 — 처음 온 사람에게 "어디로 돌아가나"가 헷갈렸다(2026-10-19 CTO).
+ * 다른 계정으로 잘못 들어온 사람만 아래 작은 [로그아웃]으로 나간다. 웹과 같다.
  */
 @Composable
 fun NameScreen(
     devBar: @Composable () -> Unit,
     me: User,
-    onBack: () -> Unit,
+    /** 잘못 로그인한 사람의 출구 — 서버 로그아웃 뒤 로그인 화면으로 */
+    onLogout: () -> Unit,
     /** 실패면 보여줄 문구, 성공이면 null([app.jeongsan.v3.api.V3Gateway.confirmName]) */
     onConfirm: suspend (String) -> String?,
 ) {
@@ -76,7 +85,7 @@ fun NameScreen(
 
     V3Screen(
         devBar = devBar,
-        top = { BackButton(onBack) },
+        top = {},
         bottom = {
             if (tried && errors.isNotEmpty()) {
                 Text(
@@ -86,6 +95,11 @@ fun NameScreen(
                 )
             }
             CtaButton(if (busy) "저장하는 중…" else "이 이름으로 시작", enabled = !busy, onClick = submit)
+            Text(
+                "잘못 로그인했나요? 로그아웃",
+                Modifier.fillMaxWidth().clickable(onClick = onLogout).semantics { role = Role.Button }.padding(vertical = 4.dp),
+                color = JsColor.ink3, fontSize = 12.5.sp, textAlign = TextAlign.Center, textDecoration = TextDecoration.Underline,
+            )
         },
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {

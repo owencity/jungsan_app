@@ -22,6 +22,9 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -201,14 +204,21 @@ fun RespondScreen(
         devBar = devBar,
         top = {
             BackButton(onBack)
-            TopTitle(if (already) "응답 고치기" else "응답하기")
+            // 제목은 술자리 이름 — 알림·링크로 바로 들어온 사람이 어느 술자리인지 알게(2026-10-19 CTO). 웹과 같다
+            TopTitle(g.title)
         },
         bottom = {
             if (!filled) Text("모든 차수를 골라야 저장할 수 있어요", Modifier.fillMaxWidth(), color = JsColor.ink3, fontSize = 12.sp, textAlign = TextAlign.Center)
             CtaButton("응답 완료", enabled = filled) { onSubmit(editable.associate { it.id to draft.getValue(it.id) }) }
         },
     ) {
-        Text("차수마다 하나만 고르면 끝이에요.", color = JsColor.ink2, fontSize = 14.sp)
+        Text(
+            buildAnnotatedString {
+                withStyle(SpanStyle(fontWeight = FontWeight.ExtraBold, color = JsColor.ink)) { append(if (already) "응답 고치기" else "응답하기") }
+                append(" · 차수마다 하나만 고르면 끝이에요.")
+            },
+            color = JsColor.ink2, fontSize = 14.sp,
+        )
 
         if (editable.size > 1) {
             Label("전 차수 똑같이")

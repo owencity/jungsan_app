@@ -167,7 +167,10 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3G
         rememberLoaded(gateway, Unit) { gateway.loadMine() }
         // L2 이름 확인 — 첫 로그인이면 내 술자리 대신 한 번
         if (s.me.needsName) {
-            NameScreen(devBar = devBar(null), me = s.me, onBack = onLeave, onConfirm = { gateway.confirmName(it) })
+            NameScreen(
+                devBar = devBar(null), me = s.me, onConfirm = { gateway.confirmName(it) },
+                onLogout = { scope.launch { gateway.logout(); onLeave() } },
+            )
             return@composable
         }
         HomeScreen(
