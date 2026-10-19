@@ -56,17 +56,21 @@ fun App() {
             if (target != null) {
                 val (viewer, roomId) = target
                 if (viewer == 0L) return@LaunchedEffect // 로그인 화면 그대로
-                v3.confirmName("김동규")
+                if (shot != "name") v3.confirmName("김동규") // name: 이름 확인(L2)을 띄우려고 확인 전 상태로 둔다
                 if (viewer != v3.state.me.id) v3.actAs(viewer)
                 navController.navigate(V3Routes.Home) { popUpTo(Routes.Login) { inclusive = true } }
-                if (roomId != null) navController.navigate(
-                    when (shot) {
-                        "respond" -> V3Routes.respond(roomId)
-                        "settle" -> V3Routes.settle(roomId)
-                        "pay" -> V3Routes.pay(roomId)
-                        else -> V3Routes.room(roomId)
-                    },
-                )
+                val route = when (shot) {
+                    "respond" -> roomId?.let(V3Routes::respond)
+                    "settle" -> roomId?.let(V3Routes::settle)
+                    "pay" -> roomId?.let(V3Routes::pay)
+                    "round-new" -> roomId?.let { V3Routes.round(it, null) }
+                    "round-edit" -> roomId?.let { id -> V3Routes.round(id, v3.state.rooms.getValue(id).rounds.first().id) }
+                    "join" -> roomId?.let { V3Routes.join(v3.state.rooms.getValue(it).shareToken) }
+                    "payout" -> V3Routes.MyAccount
+                    "notifications" -> V3Routes.Notifications
+                    else -> roomId?.let(V3Routes::room)
+                }
+                if (route != null) navController.navigate(route)
                 return@LaunchedEffect
             }
             // 저장된 토큰이 살아 있으면 로그인 화면을 건너뛴다(API 모드). 실명이 없으면 Home 이 L2를 띄운다

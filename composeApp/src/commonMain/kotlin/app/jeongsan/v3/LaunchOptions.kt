@@ -21,4 +21,13 @@ val SCREENSHOT_SCREENS: Map<String, Pair<Long, Long?>> = linkedMapOf(
     "pay" to (1L to 102L),      // P3 보낼 돈 — 금액·근거·계좌 복사
     "home" to (1L to null),     // H1 내 술자리
     "login" to (0L to null),    // L1 로그인(석양 배경) — 아무 것도 하지 않는다
+    // ↓ 흐름 점검용(스토어에는 안 올림) — 위 6장은 스토어 순서라 건드리지 않는다
+    "name" to (1L to null),          // L2 이름 확인 — 처음 로그인한 사람
+    "round-new" to (1L to 101L),     // R2 새 차수 — 금액·인원·결제자
+    "round-edit" to (1L to 101L),    // R2 차수 수정 — 술 항목이 채워진 1차
+    "join" to (6L to 101L),          // P1 링크로 들어온 사람(한서연) — 정산 단위 고르기·응답
+    "settled-room" to (2L to 102L),  // R1 정산이 나온 정산방 — 총무(이민지) 시점
+    "done-room" to (3L to 103L),     // R1 끝난 정산방 — 7일 뒤 삭제 안내
+    "payout" to (1L to null),        // A1 계좌 등록(내 술자리에서)
+    "notifications" to (1L to null), // 알림 목록
 )
