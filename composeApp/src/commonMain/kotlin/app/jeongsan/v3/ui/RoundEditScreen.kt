@@ -48,6 +48,7 @@ import app.jeongsan.ui.JsShape
 import app.jeongsan.ui.RetroSurface
 import app.jeongsan.util.won
 import app.jeongsan.v3.DRINK_PRESETS
+import app.jeongsan.v3.drinkSplitHint
 import app.jeongsan.v3.DrinkItem
 import app.jeongsan.v3.Gathering
 import app.jeongsan.v3.Round
@@ -143,10 +144,8 @@ fun RoundEditScreen(
             }
         }
 
-        Row(verticalAlignment = Alignment.Bottom) {
-            Label("어떤 술을 마셨나요?")
-            Text("  안 마신 차수면 비워두세요", color = JsColor.ink3, fontSize = 11.5.sp)
-        }
+        Label("어떤 술을 마셨나요?")
+        Text(drinkSplitHint(drinks.size), color = JsColor.ink2, fontSize = 12.5.sp, lineHeight = 17.sp)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             for (p in DRINK_PRESETS) {
                 Text(

@@ -19,6 +19,14 @@ val DRINK_PRESETS = listOf(
     DrinkItem("와인", 30_000, 1),
 )
 
+/**
+ * 술 항목 아래 안내 — 총무가 두 나눔 방식을 화면에서 바로 알게(2026-10-19 CTO). 웹 `drinkSplitHint` 와 같은 문구.
+ * 술을 비우면 차수 금액 전체를 참석자끼리 N분의 1, 술을 넣으면 그 술값만 알코올 고른 사람끼리(CALC_RULES §2.1).
+ */
+fun drinkSplitHint(drinkCount: Int): String =
+    if (drinkCount == 0) "비워두면 참석한 사람끼리 똑같이 나눠요(N분의 1)"
+    else "술값은 알코올 고른 사람끼리만 나눠요. 나머지는 참석한 사람끼리 똑같이"
+
 /** 한 차수 금액 상한 — 오타(0 하나 더)를 잡기 위한 값. 서버 검증과 별개로 둔다. */
 const val MAX_ROUND_TOTAL: Money = 10_000_000
 

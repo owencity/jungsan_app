@@ -52,6 +52,14 @@ class RulesTest {
 
     // ── 칭호 구간 — REQUIREMENTS.md §8.3, 경계값은 위 단계 ──
 
+    @Test fun 술을_비우면_참석한_사람끼리_N분의_1이라고_알려준다() {
+        assertEquals("비워두면 참석한 사람끼리 똑같이 나눠요(N분의 1)", drinkSplitHint(0))
+    }
+
+    @Test fun 술을_넣으면_술값은_알코올_고른_사람끼리만_나눈다고_알려준다() {
+        assertEquals("술값은 알코올 고른 사람끼리만 나눠요. 나머지는 참석한 사람끼리 똑같이", drinkSplitHint(2))
+    }
+
     @Test fun 칭호는_스푼_수로_정해지고_경계값은_위_단계다() {
         val cases = listOf(
             Triple(0, 1, "새내기 총무"), Triple(99, 1, "새내기 총무"),
