@@ -5,6 +5,7 @@ import app.jeongsan.v3.AppNotification
 import app.jeongsan.v3.nextUnitHeadcount
 import app.jeongsan.v3.Payout
 import app.jeongsan.v3.ResponseType
+import app.jeongsan.v3.ReportReason
 import app.jeongsan.v3.RoundDraft
 import app.jeongsan.v3.SettlePreview
 import app.jeongsan.v3.SettleResult
@@ -311,6 +312,40 @@ class V3Gateway(private val store: V3Store, private val client: ApiClient?) {
         return mutate(c, gid) { c.sendMessage(gid, text) }
     }
 
+    /** 메시지 신고(FC-024) — 성공하면 그 메시지는 나에게서 바로 사라진다. 웹 gateway 와 같다 */
+    suspend fun reportMessage(roomId: Id, entryId: Id, reason: ReportReason): String? {
+        val c = client ?: run { store.reportMessage(roomId, entryId); return null }
+        val (gid, _) = ctx(roomId)
+        return mutate(c, gid) { c.reportMessage(gid, entryId, reason.name) }.also { if (it == null) store.reportMessage(roomId, entryId) }
+    }
+
+    /** 이 사람 차단(FC-024) — 그 사람의 메시지가 모든 술자리에서 나에게 안 보인다. 명단·금액은 그대로 */
+    suspend fun blockParticipant(roomId: Id, participantId: Id): String? {
+        val c = client ?: run { store.blockParticipant(roomId, participantId); return null }
+        val (gid, _) = ctx(roomId)
+        return mutate(c, gid) { c.block(gid, participantId) }.also { if (it == null) store.blockParticipant(roomId, participantId) }
+    }
+
+    /** 내 차단 목록을 서버에서 읽는다(계정 화면) */
+    suspend fun loadBlocks(): String? {
+        val c = client ?: return null
+        return try {
+            store.setMyBlocks(c.blocks().map { it.userId to it.displayName }); null
+        } catch (e: ApiError) {
+            messageOf(e)
+        }
+    }
+
+    /** 차단 풀기 — 술자리를 다시 읽어 그 사람의 메시지가 다시 보이게 한다 */
+    suspend fun unblock(userId: Id): String? {
+        val c = client ?: run { store.unblockUser(userId); return null }
+        return try {
+            c.unblock(userId); store.unblockUser(userId); loadMine()
+        } catch (e: ApiError) {
+            messageOf(e)
+        }
+    }
+
     /** 인원(FC-020) — R1 [포함하기]. 서버는 바꾼 뒤 자동 정산 판정을 한 번 돈다 */
     suspend fun setHeadcount(roomId: Id, headcount: Int): String? {
         val c = client ?: run { store.setHeadcount(roomId, headcount); return null }
@@ -378,6 +413,8 @@ class V3Gateway(private val store: V3Store, private val client: ApiClient?) {
             "REMOVE_PAYER" to "결제자는 뺄 수 없어요. 차수의 낸 사람을 먼저 바꿔주세요",
             "TRANSFER_ALREADY_SENT" to "이미 보낸 사람이 있어서 되돌릴 수 없어요",
             "NO_ROUNDS" to "차수를 먼저 넣어주세요",
+            "MESSAGE_NOT_ALLOWED" to "부적절한 표현이 있어요. 고쳐서 다시 보내주세요",
+            "MESSAGE_BANNED" to "신고가 확인되어 메시지를 보낼 수 없어요. 지원 페이지로 문의해주세요",
         )
 
         /** 알림 중 누르면 보낼 돈(P3)으로 가는 종류 */

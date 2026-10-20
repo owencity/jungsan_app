@@ -1,5 +1,6 @@
 package app.jeongsan.v3.ui
 
+import app.jeongsan.domain.Id
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -59,6 +60,9 @@ fun AccountScreen(
     /** 내 술자리에서 연 경우만 — 계정 메뉴(로그아웃·탈퇴)를 맨 아래에 둔다 */
     onLogout: (() -> Unit)? = null,
     onDeleteAccount: (() -> Unit)? = null,
+    /** 내가 차단한 사람(FC-024) — 내 술자리에서 연 경우만. (계정 id, 이름) */
+    blocks: List<Pair<Id, String>>? = null,
+    onUnblock: (Id) -> Unit = {},
 ) {
     var bank by remember(me.id) { mutableStateOf(me.payout?.bank.orEmpty()) }
     var accountNo by remember(me.id) { mutableStateOf(me.payout?.accountNo.orEmpty()) }
@@ -113,6 +117,7 @@ fun AccountScreen(
         Label("예금주")
         Field(holder, { if (it.length <= 20) holder = it }, "", "예금주", KeyboardType.Text, 14.sp)
 
+        if (blocks != null) BlockedList(blocks, onUnblock)
         if (onLogout != null || onDeleteAccount != null) AccountMenu(onLogout, onDeleteAccount)
     }
 }
@@ -121,6 +126,28 @@ fun AccountScreen(
  * 계정 — 로그아웃과 탈퇴. 탈퇴는 되돌릴 수 없어 두 번 눌러야 한다(차수 지우기와 같은 방식).
  * 앱 안에서 탈퇴를 시작할 수 있어야 한다(App Store 5.1.1(v)).
  */
+/** 차단한 사람(FC-024) — 웹 AccountPage 의 "차단한 사람"과 같다 */
+@Composable
+private fun BlockedList(blocks: List<Pair<Id, String>>, onUnblock: (Id) -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(top = 22.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Label("차단한 사람")
+        if (blocks.isEmpty()) {
+            Text("차단한 사람이 없어요. 정산방 메시지를 길게 누르거나 [⋯]에서 차단할 수 있어요.", color = JsColor.ink3, fontSize = 12.5.sp, lineHeight = 18.sp)
+        } else {
+            for ((uid, name) in blocks) {
+                Row(Modifier.fillMaxWidth().border(2.dp, JsColor.line).padding(horizontal = 10.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(name, Modifier.weight(1f), color = JsColor.ink, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        "차단 풀기",
+                        Modifier.border(2.dp, JsColor.line).clickable { onUnblock(uid) }.semantics { role = Role.Button }.padding(horizontal = 10.dp, vertical = 6.dp),
+                        color = JsColor.ink2, fontSize = 12.5.sp, fontWeight = FontWeight.ExtraBold,
+                    )
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun AccountMenu(onLogout: (() -> Unit)?, onDeleteAccount: (() -> Unit)?) {
     var armed by remember { mutableStateOf(false) }

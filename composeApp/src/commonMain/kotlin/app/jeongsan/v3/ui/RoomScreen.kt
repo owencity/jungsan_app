@@ -1,5 +1,9 @@
 package app.jeongsan.v3.ui
 
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import app.jeongsan.v3.ReportReason
+import app.jeongsan.v3.canModerate
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextAlign
 import app.jeongsan.v3.canSettleNow
@@ -99,8 +103,13 @@ fun RoomScreen(
     onStartNext: (List<Id>) -> Unit,
     /** 이 술자리에 내가 총무인 정산방이 이미 있으면 그리로 — 있으면 새로 만들지 않는다 */
     onOpenMyNext: (() -> Unit)? = null,
+    /** 남의 메시지 신고(FC-024). 타임라인은 이미 신고·차단이 걸러진 것을 받는다 */
+    onReport: (Id, ReportReason) -> Unit = { _, _ -> },
+    /** 그 메시지를 쓴 사람 차단(FC-024) — 메시지만 숨긴다 */
+    onBlock: (Id) -> Unit = {},
 ) {
     var managing by remember { mutableStateOf<Id?>(null) }
+    var msgMenu by remember { mutableStateOf<Id?>(null) }
     val host = g.host()
     val me = g.participantOfUser(meUserId)
     val isHost = g.hostUserId == meUserId
@@ -169,6 +178,19 @@ fun RoomScreen(
                 },
             )
         }
+        msgMenu?.let { eid ->
+            val e = g.timeline.find { it.id == eid }
+            val author = e?.authorParticipantId
+            if (e != null && author != null) {
+                MessageSheet(
+                    authorName = g.nameOf(author),
+                    body = e.body,
+                    onClose = { msgMenu = null },
+                    onReport = { reason -> onReport(e.id, reason); msgMenu = null },
+                    onBlock = { onBlock(author); msgMenu = null },
+                )
+            }
+        }
 
         if (g.rounds.isNotEmpty()) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -218,7 +240,7 @@ fun RoomScreen(
             }
         }
 
-        Timeline(g, me?.id)
+        Timeline(g, me?.id, meUserId) { msgMenu = it }
     }
 }
 
@@ -344,7 +366,7 @@ fun fmtTime(t: Instant, now: Instant = Clock.System.now()): String {
 
 /** 타임라인 — 상자 안에서만 스크롤하고, 새 소식이 오면 맨 아래로 */
 @Composable
-private fun Timeline(g: Gathering, meId: Id?) {
+private fun Timeline(g: Gathering, meId: Id?, meUserId: Id, onMenu: (Id) -> Unit) {
     val scroll = rememberScrollState()
     // 새 줄이 그려진 다음 프레임에 내린다 — 바로 내리면 아직 옛 높이(maxValue)라 마지막 한 줄이 가려졌다
     LaunchedEffect(g.timeline.size) {
@@ -359,12 +381,25 @@ private fun Timeline(g: Gathering, meId: Id?) {
         for (e in g.timeline) {
             if (e.type == TimelineType.MESSAGE) {
                 val mine = e.authorParticipantId == meId
+                // 남의 메시지는 길게 누르거나 [⋯]로 신고·차단(FC-024, App Store 1.2)
+                val other = g.canModerate(e, meUserId)
                 Column(
                     Modifier.align(if (mine) Alignment.End else Alignment.Start).widthIn(max = 280.dp)
                         .background(if (mine) JsColor.p100 else Color.White)
-                        .border(2.dp, if (mine) JsColor.p500 else JsColor.line).padding(horizontal = 10.dp, vertical = 6.dp),
+                        .border(2.dp, if (mine) JsColor.p500 else JsColor.line)
+                        .then(if (other) Modifier.pointerInput(e.id) { detectTapGestures(onLongPress = { onMenu(e.id) }) } else Modifier)
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
                 ) {
-                    if (!mine) Text(g.nameOf(e.authorParticipantId ?: -1), color = JsColor.p700, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                    if (!mine) Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(g.nameOf(e.authorParticipantId ?: -1), Modifier.weight(1f, fill = false), color = JsColor.p700, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                        if (other) Text(
+                            "⋯",
+                            Modifier.padding(start = 8.dp).clickable { onMenu(e.id) }
+                                .semantics { role = Role.Button; contentDescription = "${g.nameOf(e.authorParticipantId ?: -1)}님 메시지 신고·차단" }
+                                .padding(horizontal = 4.dp),
+                            color = JsColor.ink3, fontSize = 15.sp,
+                        )
+                    }
                     Text(e.body, color = JsColor.ink, fontSize = 14.sp, lineHeight = 20.sp)
                     Text(fmtTime(e.createdAt), Modifier.align(Alignment.End), color = JsColor.ink3, fontSize = 10.5.sp)
                 }

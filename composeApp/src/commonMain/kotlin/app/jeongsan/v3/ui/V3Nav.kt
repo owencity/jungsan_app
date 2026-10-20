@@ -1,5 +1,7 @@
 package app.jeongsan.v3.ui
 
+import app.jeongsan.v3.visibleTimeline
+import app.jeongsan.v3.myBlocks
 import app.jeongsan.v3.paymentRequestMessage
 import app.jeongsan.v3.api.entryChoiceLabel
 import app.jeongsan.v3.api.toEntryRooms
@@ -266,8 +268,16 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3G
         }
         RoomScreen(
             devBar = devBar(g.id),
-            g = g,
+            // 신고·차단한 메시지는 빼고 그린다(FC-024) — 서버도 같은 기준으로 걸러 주지만, 다시 읽기 전에도 바로 사라지게
+            g = g.copy(timeline = g.visibleTimeline(s.me.id, s.moderation)),
             meUserId = s.me.id,
+            onReport = { eid, reason ->
+                scope.launch { gateway.reportMessage(g.id, eid, reason)?.let(V3Toast::show) ?: V3Toast.show("신고했어요. 24시간 안에 확인할게요") }
+            },
+            onBlock = { pid ->
+                val name = g.participants.find { it.id == pid }?.displayName
+                scope.launch { gateway.blockParticipant(g.id, pid)?.let(V3Toast::show) ?: V3Toast.show("${name}님을 차단했어요. 내 계정에서 풀 수 있어요") }
+            },
             onBack = { nav.toHome() },
             onAction = { kind ->
                 when (kind) {
@@ -405,9 +415,13 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3G
 
     composable(V3Routes.MyAccount) {
         val scope = rememberCoroutineScope()
+        // 서버의 내 차단 목록을 읽는다(FC-024) — 다른 기기에서 차단·해제한 것도 보이게
+        LaunchedEffect(Unit) { gateway.loadBlocks() }
         AccountScreen(
             devBar = devBar(null),
             me = store.state.me,
+            blocks = store.state.moderation.myBlocks(store.state.me.id).map { it.blockedUserId to it.displayName },
+            onUnblock = { uid -> scope.launch { gateway.unblock(uid)?.let(V3Toast::show) ?: V3Toast.show("차단을 풀었어요") } },
             onBack = { nav.popBackStack() },
             // 계정 메뉴는 서버 계정이 있을 때만(목데이터에는 로그아웃할 계정이 없다)
             onLogout = if (gateway.isApiMode) ({ scope.launch { gateway.logout(); onLeave() } }) else null,

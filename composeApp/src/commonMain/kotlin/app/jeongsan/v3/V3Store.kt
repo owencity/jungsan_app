@@ -26,6 +26,8 @@ data class V3State(
     val paySeen: Set<String>,
     /** 목데이터의 사람들 — 보는 사람 전환 때 여기서 꺼낸다(등록한 계좌가 전환 뒤에도 남게) */
     val users: List<User> = MockV3.USERS,
+    /** 메시지 신고·차단(FC-024) — 목데이터는 여기서 숨김을 흉내 내고, API 모드는 서버가 걸러 준 타임라인에 같은 판정을 한 번 더 한다 */
+    val moderation: Moderation = Moderation(),
 ) {
     fun isPaySeen(roomId: Id) = seenKey(roomId, me.id) in paySeen
     fun myNotifications() = notifications.filter { it.userId == me.id }
@@ -107,6 +109,34 @@ class V3Store(
 
     fun sendMessage(roomId: Id, text: String) =
         update(roomId) { g, meId -> g.push(TimelineType.MESSAGE, text.take(500), meId) }
+
+    // ── 메시지 신고·차단(FC-024) — 웹 store 와 같다. 사유는 서버로만 간다 ──
+
+    fun reportMessage(roomId: Id, entryId: Id) {
+        val g = state.rooms[roomId] ?: return
+        val key = g.entryKey(entryId)
+        val m = state.moderation
+        if (m.reports.any { it.key == key && it.reporterUserId == me.id }) return
+        state = state.copy(moderation = m.copy(reports = m.reports + Report(key, me.id)))
+    }
+
+    fun blockParticipant(roomId: Id, participantId: Id) {
+        val p = state.rooms[roomId]?.participants?.find { it.id == participantId } ?: return
+        val m = state.moderation
+        if (p.userId == me.id || m.blocks.any { it.blockerUserId == me.id && it.blockedUserId == p.userId }) return
+        state = state.copy(moderation = m.copy(blocks = m.blocks + Block(me.id, p.userId, p.displayName)))
+    }
+
+    fun unblockUser(userId: Id) {
+        val m = state.moderation
+        state = state.copy(moderation = m.copy(blocks = m.blocks.filterNot { it.blockerUserId == me.id && it.blockedUserId == userId }))
+    }
+
+    /** API 모드 — 서버가 준 내 차단 목록으로 바꾼다 */
+    fun setMyBlocks(blocks: List<Pair<Id, String>>) {
+        val m = state.moderation
+        state = state.copy(moderation = m.copy(blocks = m.blocks.filterNot { it.blockerUserId == me.id } + blocks.map { (uid, name) -> Block(me.id, uid, name) }))
+    }
 
     fun giveSpoon(roomId: Id) = update(roomId) { g, meId ->
         val host = g.host()

@@ -115,6 +115,12 @@ class ApiClient(
     suspend fun gathering(gid: Long): ServerGathering = call(HttpMethod.Get, "/api/v1/gatherings/$gid")
     suspend fun createGathering(): ServerGathering = call(HttpMethod.Post, "/api/v1/gatherings", EmptyBody())
     suspend fun sendMessage(gid: Long, text: String) = exec(HttpMethod.Post, "/api/v1/gatherings/$gid/messages", MessageBody(text))
+    // 메시지 신고·차단(FC-024) — 신고한 메시지·차단한 사람의 메시지는 서버가 내 timeline 에서 빼고 준다. 웹 api.ts 와 같은 경로
+    suspend fun reportMessage(gid: Long, entryId: Long, reason: String) =
+        exec(HttpMethod.Post, "/api/v1/gatherings/$gid/messages/$entryId/reports", ReportBody(reason))
+    suspend fun block(gatheringId: Long, participantId: Long) = exec(HttpMethod.Post, "/api/v1/me/blocks", BlockBody(gatheringId, participantId))
+    suspend fun blocks(): List<ServerBlock> = call(HttpMethod.Get, "/api/v1/me/blocks")
+    suspend fun unblock(userId: Long) = exec(HttpMethod.Delete, "/api/v1/me/blocks/$userId")
     suspend fun joinPreview(token: String): ServerJoinPreview = call(HttpMethod.Get, "/api/v1/join/${enc(token)}")
     suspend fun join(token: String, unitId: Long, responses: List<AnswerBody>): JoinResult =
         call(HttpMethod.Post, "/api/v1/join/${enc(token)}", JoinBody(unitId, responses))
@@ -190,6 +196,9 @@ data class MeResponse(
 @Serializable data class PayoutBody(val bank: String, val accountNo: String, val holder: String)
 @Serializable class EmptyBody
 @Serializable data class MessageBody(val text: String)
+@Serializable data class ReportBody(val reason: String)
+@Serializable data class BlockBody(val gatheringId: Long, val participantId: Long)
+@Serializable data class ServerBlock(val userId: Long, val displayName: String, val blockedAt: String? = null)
 @Serializable data class AnswerBody(val roundId: Long, val type: String)
 @Serializable data class AnswersBody(val answers: List<AnswerBody>)
 @Serializable data class JoinBody(val settlementUnitId: Long, val responses: List<AnswerBody>)
