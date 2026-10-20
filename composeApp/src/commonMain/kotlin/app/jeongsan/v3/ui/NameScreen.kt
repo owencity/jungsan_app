@@ -69,12 +69,14 @@ fun NameScreen(
     // 서버가 거절한 이유(예: 이미 이름을 정함). 입력을 고치면 지운다
     var serverError by remember(me.id) { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
+    // 이용약관 동의(FC-024) — 체크해야 시작할 수 있다
+    var agreed by remember(me.id) { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val errors = serverError?.let { listOf(it) } ?: validateName(name)
     val preview = name.trim().ifEmpty { "김동규" }
     val submit = {
         tried = true
-        if (!busy && validateName(name).isEmpty()) {
+        if (!busy && agreed && validateName(name).isEmpty()) {
             busy = true
             scope.launch {
                 serverError = onConfirm(name.trim())
@@ -94,7 +96,8 @@ fun NameScreen(
                     color = JsColor.warn, fontSize = 13.5.sp, fontWeight = FontWeight.Bold,
                 )
             }
-            CtaButton(if (busy) "저장하는 중…" else "이 이름으로 시작", enabled = !busy, onClick = submit)
+            TermsAgree(agreed) { agreed = it }
+            CtaButton(if (busy) "저장하는 중…" else "이 이름으로 시작", enabled = !busy && agreed, onClick = submit)
             Text(
                 "잘못 로그인했나요? 로그아웃",
                 Modifier.fillMaxWidth().clickable(onClick = onLogout).semantics { role = Role.Button }.padding(vertical = 4.dp),

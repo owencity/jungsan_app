@@ -96,13 +96,16 @@ fun EntryScreen(
     val host = g.host()
     val answered = g.rounds.all { draft[it.id] != null }
     val nameErrors = if (askName) validateName(name) else emptyList()
-    val filled = answered && nameErrors.isEmpty()
+    // 첫 로그인이면 여기서 이용약관 동의도 받는다(FC-024, L2와 같다)
+    var agreed by remember(g.id) { mutableStateOf(false) }
+    val filled = answered && nameErrors.isEmpty() && (!askName || agreed)
     val date = g.date.toLocalDateTime(TimeZone.currentSystemDefault())
 
     V3Screen(
         devBar = devBar,
         top = { BackButton(onHome) },
         bottom = {
+            if (askName) TermsAgree(agreed) { agreed = it }
             if (!answered) Text("모든 차수를 골라야 참여할 수 있어요", Modifier.fillMaxWidth(), color = JsColor.ink3, fontSize = 12.sp, textAlign = TextAlign.Center)
             joinError?.let { Text(it, Modifier.fillMaxWidth(), color = JsColor.warn, fontSize = 13.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center) }
             CtaButton(if (g.rounds.isEmpty()) "참여하기" else "참여하고 응답 완료", enabled = filled && !busy) {

@@ -1,5 +1,13 @@
 package app.jeongsan.v3.ui
 
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.state.ToggleableState
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.style.TextDecoration
+import app.jeongsan.v3.SHARE_BASE
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -349,4 +357,36 @@ fun DevBar(
             )
         }
     }
+}
+
+/**
+ * 이용약관 동의 체크(FC-024) — 첫 로그인(L2, 링크 참여의 이름 칸)에서 받는다. 웹 `TermsAgree.tsx`와 같은 문구.
+ * [이용약관]은 웹 약관 페이지를 브라우저로 연다(입력하던 이름·응답은 그대로 남는다)
+ */
+@Composable
+fun TermsAgree(checked: Boolean, onChange: (Boolean) -> Unit) {
+    val uri = LocalUriHandler.current
+    Row(
+        Modifier.fillMaxWidth().clickable { onChange(!checked) }
+            .semantics { role = Role.Checkbox; toggleableState = ToggleableState(checked) },
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Box(
+            Modifier.padding(top = 2.dp).size(18.dp).background(if (checked) JsColor.ink else Color.White).border(2.dp, JsColor.ink),
+            contentAlignment = Alignment.Center,
+        ) { if (checked) Text("✓", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Black) }
+        Text(
+            buildAnnotatedString {
+                withStyle(SpanStyle(color = JsColor.p700, textDecoration = TextDecoration.Underline, fontWeight = FontWeight.Bold)) { append("이용약관") }
+                append("에 동의합니다. 욕설·비방·음란물 같은 부적절한 메시지는 허용되지 않으며, 신고되면 지워지고 이용이 제한될 수 있어요.")
+            },
+            Modifier.weight(1f),
+            color = JsColor.ink2, fontSize = 13.sp, lineHeight = 19.sp,
+        )
+    }
+    Text(
+        "이용약관 보기",
+        Modifier.clickable { uri.openUri("$SHARE_BASE/jungsan/terms") }.semantics { role = Role.Button }.padding(start = 26.dp, top = 2.dp, bottom = 2.dp),
+        color = JsColor.p700, fontSize = 12.5.sp, textDecoration = TextDecoration.Underline,
+    )
 }
