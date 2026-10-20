@@ -89,6 +89,15 @@ class GatewayTest {
         assertTrue(Regex(""""requestId":"[0-9a-f-]{36}"""").containsMatchIn(sent), sent)
     }
 
+    @Test fun 나_혼자_다음_차를_시작해도_목표_인원은_1이_아니라_2로_보낸다() = runTest {
+        // FC-023 — 서버는 headcount 1 을 400 으로 거절한다
+        val (gw, _) = gateway(base + ("POST /api/v1/gatherings/1/settlement-units" to (HttpStatusCode.Created to """{"id":5}""")))
+        gw.loadMine(); calls.clear()
+        assertEquals(Made.Ok(5), gw.createUnit(1, emptyList()))
+        val sent = body(calls.first { it.method == HttpMethod.Post })
+        assertTrue(sent.contains(""""headcount":2"""), sent)
+    }
+
     @Test fun 서버_오류_코드는_화면_문구로_바뀐다() = runTest {
         val (gw, _) = gateway(base + ("DELETE /api/v1/gatherings/1/settlement-units/2/participants/1" to
             (HttpStatusCode.Conflict to """{"code":"REMOVE_PAYER","message":"x"}""")))

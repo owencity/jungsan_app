@@ -2,6 +2,7 @@ package app.jeongsan.v3.api
 
 import app.jeongsan.domain.Id
 import app.jeongsan.v3.AppNotification
+import app.jeongsan.v3.nextUnitHeadcount
 import app.jeongsan.v3.Payout
 import app.jeongsan.v3.ResponseType
 import app.jeongsan.v3.RoundDraft
@@ -189,8 +190,8 @@ class V3Gateway(private val store: V3Store, private val client: ApiClient?) {
         return try {
             // requestId 는 멱등 키 — 같은 요청을 다시 보내도 단위가 둘 생기지 않는다(SETTLEMENT_UNITS §4.2)
             val ids = (listOfNotNull(me?.id) + participantIds).distinct()
-            // 다음 차 인원의 시작값은 고른 사람 + 나(FC-020) — R2에서 바꿀 수 있다
-            val u = c.createUnit(gid, Uuid.random().toString(), ids, ids.size)
+            // 다음 차 인원의 시작값은 고른 사람 + 나, 최소 2(FC-020·FC-023) — R2에서 바꿀 수 있다
+            val u = c.createUnit(gid, Uuid.random().toString(), ids, nextUnitHeadcount(ids.size))
             refresh(c, gid)
             Made.Ok(u.id)
         } catch (e: ApiError) {

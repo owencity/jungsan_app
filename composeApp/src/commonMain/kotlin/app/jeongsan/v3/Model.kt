@@ -193,6 +193,12 @@ fun Gathering.extraPayers(): List<Participant> = extraParticipants().filter { p 
 const val HEADCOUNT_MIN = 2
 const val HEADCOUNT_MAX = 50
 
+/**
+ * 다음 차 정산 단위의 시작 인원 — 고른 사람 + 나, 단 최소 2명(FC-023). [나 혼자 시작하기]도 1이 아니라 2로 보낸다 —
+ * 서버는 1명 목표를 400으로 거절한다. 웹 `nextUnitHeadcount`와 같다
+ */
+fun nextUnitHeadcount(memberCount: Int): Int = memberCount.coerceIn(HEADCOUNT_MIN, HEADCOUNT_MAX)
+
 /** 이 참여자가 결제자인 차수 */
 fun Gathering.roundsPaidBy(participantId: Id): List<Round> = rounds.filter { it.payerParticipantId == participantId }
 

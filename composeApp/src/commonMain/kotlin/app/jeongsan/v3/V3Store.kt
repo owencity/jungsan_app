@@ -437,7 +437,7 @@ class V3Store(
             rounds = emptyList(), responses = emptyList(), transfers = emptyList(), spoonGivers = emptyList(),
             firstSeq = lastSeq + 1,
             // 다음 차 인원의 시작값은 고른 사람 + 나(FC-020) — R2에서 바꿀 수 있다
-            headcount = maxOf(HEADCOUNT_MIN, picked.size),
+            headcount = nextUnitHeadcount(picked.size),
         ).push(TimelineType.SYSTEM, "${s.me.displayName}님이 추가 차수의 총무가 되었어요")
         state = s.copy(rooms = s.rooms + (id to g) + (src.id to src.copy(gatheringId = gatheringId)))
         return id
