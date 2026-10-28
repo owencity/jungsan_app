@@ -23,6 +23,9 @@ targets:
   iosApp:
     type: application
     platform: iOS
+    scheme:
+      testTargets:
+        - iosAppUITests
     sources:
       - path: iosApp
     settings:
@@ -46,3 +49,16 @@ targets:
         script: |
           cd "$SRCROOT/.."
           ./gradlew :composeApp:embedAndSignAppleFrameworkForXcode --console=plain
+
+  iosAppUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: iosAppUITests
+    dependencies:
+      - target: iosApp
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.jeongsan.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: "5.0"

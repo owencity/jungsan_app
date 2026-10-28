@@ -29,11 +29,12 @@ object AppAuth {
         set(v) = store.set(v)
 
     /** 로그인을 시작한다 — 브라우저로 열 주소를 돌려준다 */
-    fun start(client: ApiClient, provider: Provider): String {
+    fun start(client: ApiClient, provider: Provider, authSession: Boolean = false): String {
         // generateNonce 는 플랫폼 보안 난수(JVM SecureRandom 등) 16바이트의 hex — 두 번 이어 64자. RFC 7636 허용 문자 안이다
         val v = generateNonce() + generateNonce()
         verifier = v
-        return client.loginUrl(provider, Pkce.challenge(v))
+        returned = null
+        return client.loginUrl(provider, Pkce.challenge(v), authSession)
     }
 
     /** 브라우저에서 돌아온 주소. 화면(App)이 지켜보다가 [finish]로 처리한다 */
@@ -42,7 +43,12 @@ object AppAuth {
 
     /** 플랫폼(Android onNewIntent·iOS onOpenURL)이 부른다. 로그인 주소가 아니면 무시 */
     fun handle(url: String) {
-        if (ticketOf(url) != null) returned = url
+        if (ticketOf(url) != null && verifier != null && returned == null) returned = url
+    }
+
+    fun cancel() {
+        verifier = null
+        returned = null
     }
 
     /**
@@ -74,7 +80,7 @@ object AppAuth {
 
     /** `jeongsan://auth?ticket=…` 에서 티켓만 */
     fun ticketOf(url: String): String? {
-        if (!url.startsWith("jeongsan://auth")) return null
+        if (!url.startsWith("jeongsan://auth?")) return null
         return url.substringAfter('?', "").split('&')
             .firstOrNull { it.startsWith("ticket=") }?.substringAfter('=')?.takeIf { it.isNotBlank() }
     }

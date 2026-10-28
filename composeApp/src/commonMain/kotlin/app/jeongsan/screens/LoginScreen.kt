@@ -52,6 +52,8 @@ fun LoginScreen(
     showApple: Boolean = false,
     /** 로그인이 실패했을 때 문구 */
     error: String? = null,
+    busy: Boolean = false,
+    onDemo: (() -> Unit)? = null,
 ) {
     val textShadow = Shadow(color = Color.Black.copy(alpha = 0.45f), offset = Offset(0f, 2f), blurRadius = 10f)
 
@@ -93,15 +95,22 @@ fun LoginScreen(
 
                 Spacer(Modifier.height(28.dp))
 
-                PrimaryButton("카카오로 3초만에 시작하기", onClick = { onLogin(AppAuth.Provider.KAKAO) })
+                PrimaryButton(if (busy) "로그인 중이에요" else "카카오로 3초만에 시작하기", enabled = !busy,
+                    onClick = { onLogin(AppAuth.Provider.KAKAO) })
                 if (showApple) {
                     Spacer(Modifier.height(10.dp))
                     // Apple 가이드 — 검은 바탕·흰 글자·로고. 다른 로그인 버튼과 같은 크기
                     Box(
-                        Modifier.fillMaxWidth().height(52.dp).background(Color.Black).clickable { onLogin(AppAuth.Provider.APPLE) }
+                        Modifier.fillMaxWidth().height(52.dp).background(Color.Black).clickable(enabled = !busy) { onLogin(AppAuth.Provider.APPLE) }
                             .semantics { role = Role.Button },
                         contentAlignment = Alignment.Center,
                     ) { Text("\uF8FF  Apple로 계속하기", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold) }
+                }
+                if (onDemo != null) {
+                    Spacer(Modifier.height(14.dp))
+                    PrimaryButton("로그인 없이 데모 체험", enabled = !busy, onClick = onDemo)
+                    Text("가상 총무·참여자로 정산을 체험해보세요", color = Color.White,
+                        style = TextStyle(shadow = textShadow), modifier = Modifier.padding(top = 8.dp))
                 }
                 if (error != null) {
                     Text(

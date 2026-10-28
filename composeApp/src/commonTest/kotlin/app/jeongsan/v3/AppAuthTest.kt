@@ -14,6 +14,7 @@ import io.ktor.http.content.OutgoingContent
 import io.ktor.http.headersOf
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
+import kotlin.test.BeforeTest
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -21,6 +22,46 @@ import kotlin.test.assertTrue
 
 /** 앱 로그인(PKCE + 앱 스킴 복귀 + 티켓 교환) — 서버 `feat/auth-release` 계약 */
 class AppAuthTest {
+    @BeforeTest fun resetPendingLogin() {
+        AppAuth.cancel()
+        AppAuth.store = MemoryTokenStore()
+    }
+
+    @Test fun iOS세션은_양쪽제공자에_session옵션을_붙이고_취소하면_verifier를_제거한다() {
+        val client = ApiClient("https://api.test", MemoryTokenStore(), MockEngine { error("인가시작URL은HTTP를보내지않음") })
+        AppAuth.Provider.entries.forEach { provider ->
+            val url = AppAuth.start(client, provider, authSession = true)
+            assertTrue(url.contains("/auth/${provider.path}/login?client=app&codeChallenge="))
+            assertTrue(url.endsWith("&appReturn=session"))
+            assertNotNull(AppAuth.store.get())
+            AppAuth.cancel()
+            assertNull(AppAuth.store.get())
+            assertNull(AppAuth.returned)
+        }
+    }
+
+    @Test fun 완료주소_중복전달과_취소뒤_지연전달은_재교환하지않는다() = runTest {
+        var calls = 0
+        val client = ApiClient("https://api.test", MemoryTokenStore(), MockEngine {
+            calls++
+            respond("""{"token":"t","expiresAt":"2026-11-09T00:00:00Z"}""", HttpStatusCode.OK,
+                headersOf(HttpHeaders.ContentType, "application/json"))
+        })
+        AppAuth.start(client, AppAuth.Provider.APPLE, authSession = true)
+        val url = "jeongsan://auth?ticket=T1"
+        AppAuth.handle(url)
+        AppAuth.handle(url)
+        assertNull(AppAuth.finish(client, assertNotNull(AppAuth.returned)))
+        AppAuth.consumed(url)
+        AppAuth.handle(url)
+        assertNull(AppAuth.returned)
+        assertEquals(1, calls)
+        AppAuth.start(client, AppAuth.Provider.APPLE, authSession = true)
+        AppAuth.cancel()
+        AppAuth.handle("jeongsan://auth?ticket=late")
+        assertNull(AppAuth.returned)
+        assertNull(AppAuth.ticketOf("jeongsan://auth.evil?ticket=T1"))
+    }
     @Test fun SHA_256은_NIST_시험값과_같다() {
         // FIPS 180-2 부록 B.1 — "abc"
         assertEquals(

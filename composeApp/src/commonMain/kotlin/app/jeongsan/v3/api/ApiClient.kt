@@ -84,8 +84,9 @@ class ApiClient(
         call<TokenResponse>(HttpMethod.Post, "/api/v1/auth/app/exchange", TicketRequest(ticket, codeVerifier)).also { tokens.set(it.token) }
 
     /** 브라우저로 여는 로그인 주소(FC-014 1-1). 서버가 `jeongsan://auth?ticket=…`으로 돌려보낸다 — [AppAuth] */
-    fun loginUrl(provider: AppAuth.Provider, codeChallenge: String): String =
-        "$baseUrl/api/v1/auth/${provider.path}/login?client=app&codeChallenge=$codeChallenge"
+    fun loginUrl(provider: AppAuth.Provider, codeChallenge: String, authSession: Boolean = false): String =
+        "$baseUrl/api/v1/auth/${provider.path}/login?client=app&codeChallenge=$codeChallenge" +
+            if (authSession) "&appReturn=session" else ""
 
     /** 이 기기의 토큰만 버린다(서버를 부르지 않음) — 만료된 토큰 정리용 */
     fun logout() = tokens.set(null)

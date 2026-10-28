@@ -40,7 +40,8 @@ sealed interface Settled {
  *
  * 반환값 규칙: 성공이면 null(또는 결과 값), 실패면 **사용자에게 보여줄 문구**.
  */
-class V3Gateway(private val store: V3Store, private val client: ApiClient?) {
+class V3Gateway(private val store: V3Store, private val client: ApiClient?, val isDemoMode: Boolean = false) {
+    init { require(!isDemoMode || client == null) { "체험에는 실제 API 클라이언트를 연결하지 않습니다." } }
     val isApiMode get() = client != null
 
     // ── 도우미 ──
@@ -115,6 +116,10 @@ class V3Gateway(private val store: V3Store, private val client: ApiClient?) {
 
     /** 회원 탈퇴(App Store 5.1.1(v)) — 성공하면 null. 서버가 계정·연결을 지우고, 기기의 토큰·화면 데이터도 지운다 */
     suspend fun deleteAccount(): String? {
+        if (isDemoMode) {
+            store.reset(app.jeongsan.v3.V3State.empty())
+            return null
+        }
         val c = client ?: return "목데이터 모드에서는 탈퇴할 수 없어요"
         return try {
             c.deleteAccount()
@@ -307,6 +312,7 @@ class V3Gateway(private val store: V3Store, private val client: ApiClient?) {
 
     /** 타임라인 메시지 — 술자리 하나에 하나라 어느 정산방에서 써도 같은 곳에 남는다 */
     suspend fun sendMessage(roomId: Id, text: String): String? {
+        if (isDemoMode) DemoMessagePolicy.violation(text)?.let { return it }
         val c = client ?: run { store.sendMessage(roomId, text); return null }
         val (gid, _) = ctx(roomId)
         return mutate(c, gid) { c.sendMessage(gid, text) }
@@ -362,7 +368,7 @@ class V3Gateway(private val store: V3Store, private val client: ApiClient?) {
 
     /** 스푼(🥄) — 복수 총무 지급 규칙이 서버에서 미결(SETTLEMENT_UNITS §7)이라 API 모드에선 아직 열지 않는다 */
     fun giveSpoon(roomId: Id): String? {
-        if (client == null) { store.giveSpoon(roomId); return null }
+        if (client == null && !isDemoMode) { store.giveSpoon(roomId); return null }
         return "스푼은 곧 열려요"
     }
 
