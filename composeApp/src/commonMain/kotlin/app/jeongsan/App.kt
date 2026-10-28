@@ -135,8 +135,8 @@ private fun AppSession(realClient: ApiClient?, demo: Boolean, onEnterDemo: () ->
                     v3.actAs(userId)
                     navController.navigate(V3Routes.Home) { popUpTo(V3Routes.Home) { inclusive = true } }
                 }, onReset = onResetDemo, onExit = onExitDemo)
-            Box(Modifier.weight(1f)) {
-              NavHost(navController = navController, startDestination = Routes.Login) {
+            Box(Modifier.weight(1f).fillMaxSize()) {
+              NavHost(navController = navController, startDestination = Routes.Login, modifier = Modifier.fillMaxSize()) {
             composable(Routes.Login) {
                 LoginScreen(
                     showApple = platformIsIos && client != null,
