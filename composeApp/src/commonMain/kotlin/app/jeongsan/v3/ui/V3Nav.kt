@@ -133,7 +133,7 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3G
     // 개발용 바 — 지금 보는 술자리(있으면)에서 각 사람의 역할을 같이 보여준다. 릴리스 빌드·API 모드에는 없다
     val devBar: (Id?) -> @Composable () -> Unit = { roomId ->
         // 스크린샷 모드(스토어 사진)에는 개발용 바를 그리지 않는다
-        { if (isDebugBuild && LaunchOptions.screenshot == null && !gateway.isApiMode) {
+        { if (isDebugBuild && LaunchOptions.screenshot == null && !gateway.isApiMode && !gateway.isDemoMode) {
             val s = store.state
             val room = roomId?.let { s.rooms[it] }
             DevBar(
@@ -196,7 +196,7 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3G
             onOpenAlerts = { nav.navigate(V3Routes.Notifications) },
             onEditAccount = { nav.navigate(V3Routes.MyAccount) },
             // 계정 메뉴는 계좌 화면 맨 아래에 있다 — 같은 화면으로 간다
-            onOpenAccount = if (gateway.isApiMode) ({ nav.navigate(V3Routes.MyAccount) }) else null,
+            onOpenAccount = if (gateway.isApiMode || gateway.isDemoMode) ({ nav.navigate(V3Routes.MyAccount) }) else null,
         )
     }
 
@@ -260,6 +260,8 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3G
         val s = store.state
         val scope = rememberCoroutineScope()
         val share = rememberShareSheet()
+        // 가상 방의 토큰을 운영 초대 링크로 내보내면 받는 사람이 열 수 없다.
+        val demoShare = "정산어택 데모 체험 (가상 데이터, 실제 송금 없음)\nhttps://jungsan-api.devkdk.com/api/v1/review/demo\n앱에서 총무·참여자 역할을 전환해보세요."
         val loaded = rememberLoaded(gateway, id) { id?.let { gateway.loadRoom(it) } }
         val g = id?.let { s.rooms[it] } ?: return@composable Missing(loaded)
         // 같은 술자리에 내가 총무인 정산방이 이미 있으면(다음 차를 이미 맡음) 새로 만들지 않고 그리로
@@ -287,9 +289,9 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3G
                     ActionKind.RESPOND, ActionKind.EDIT_RESPONSE -> nav.navigate(V3Routes.respond(g.id))
                     ActionKind.VIEW_PAY, ActionKind.RESEND -> nav.navigate(V3Routes.pay(g.id))
                     ActionKind.REGISTER_ACCOUNT -> nav.navigate(V3Routes.account(g.id))
-                    ActionKind.SHARE -> share(shareMessage(g, shareUrl(SHARE_BASE, g.shareToken)))
+                    ActionKind.SHARE -> share(if (gateway.isDemoMode) demoShare else shareMessage(g, shareUrl(SHARE_BASE, g.shareToken)))
                     // 계산이 끝나면 단톡방에 사람별 금액·계좌(FC-020)
-                    ActionKind.REQUEST_PAYMENT -> share(paymentRequestMessage(g, shareUrl(SHARE_BASE, g.shareToken)))
+                    ActionKind.REQUEST_PAYMENT -> share(if (gateway.isDemoMode) demoShare else paymentRequestMessage(g, shareUrl(SHARE_BASE, g.shareToken)))
                     // 인원을 들어온 사람 수로 — 모두 응답했으면 이 순간 자동 정산된다
                     ActionKind.INCLUDE_EXTRA -> scope.fire { gateway.setHeadcount(g.id, g.participants.size) }
                     // 받을 돈 목록이 화면 안에 있다
@@ -304,7 +306,7 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3G
             // 면제는 서버 API 보류(SETTLEMENT_UNITS §4.2) — 화면에서도 꺼져 있다(Features.SHOW_EXEMPT)
             onExempt = { pid, rid, ex -> store.setExempt(g.id, pid, rid, ex) },
             onRemove = { pid -> scope.fire { gateway.removeParticipant(g.id, pid) } },
-            onShare = { share(shareMessage(g, shareUrl(SHARE_BASE, g.shareToken))) },
+            onShare = { share(if (gateway.isDemoMode) demoShare else shareMessage(g, shareUrl(SHARE_BASE, g.shareToken))) },
             onStartNext = { ids ->
                 // 같은 술자리 안에 내가 총무인 정산 단위 → 바로 다음 차 금액 입력(FC-015)
                 scope.launch {
@@ -424,8 +426,9 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3G
             onUnblock = { uid -> scope.launch { gateway.unblock(uid)?.let(V3Toast::show) ?: V3Toast.show("차단을 풀었어요") } },
             onBack = { nav.popBackStack() },
             // 계정 메뉴는 서버 계정이 있을 때만(목데이터에는 로그아웃할 계정이 없다)
-            onLogout = if (gateway.isApiMode) ({ scope.launch { gateway.logout(); onLeave() } }) else null,
-            onDeleteAccount = if (gateway.isApiMode) ({
+            isDemo = gateway.isDemoMode,
+            onLogout = if (gateway.isApiMode || gateway.isDemoMode) ({ scope.launch { gateway.logout(); onLeave() } }) else null,
+            onDeleteAccount = if (gateway.isApiMode || gateway.isDemoMode) ({
                 scope.launch { gateway.deleteAccount()?.let(V3Toast::show) ?: onLeave() }
             }) else null,
             onSave = { p ->

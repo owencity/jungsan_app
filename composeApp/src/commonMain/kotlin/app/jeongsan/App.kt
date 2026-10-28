@@ -8,6 +8,11 @@ import app.jeongsan.v3.api.AppAuth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.key
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -19,6 +24,12 @@ import app.jeongsan.v3.LaunchOptions
 import app.jeongsan.v3.SCREENSHOT_SCREENS
 import app.jeongsan.v3.V3State
 import app.jeongsan.v3.V3Store
+import app.jeongsan.v3.DemoFixtures
+import app.jeongsan.v3.api.AppLinks
+import app.jeongsan.v3.api.AuthBrowserResult
+import app.jeongsan.v3.api.platformAuthenticate
+import app.jeongsan.v3.api.cancelPlatformAuthentication
+import app.jeongsan.v3.ui.DemoControls
 import app.jeongsan.v3.api.ApiClient
 import app.jeongsan.v3.api.V3Gateway
 import app.jeongsan.v3.api.apiBaseUrl
@@ -37,20 +48,46 @@ import app.jeongsan.v3.ui.v3Graph
  */
 @Composable
 fun App() {
+    val realClient = remember {
+        if (apiBaseUrl.isEmpty() || LaunchOptions.screenshot != null) null
+        else ApiClient(apiBaseUrl, platformTokenStore()).also { AppAuth.store = platformVerifierStore() }
+    }
+    var demo by remember { mutableStateOf(AppLinks.demoRequest > 0) }
+    var demoGeneration by remember { mutableStateOf(0) }
+    fun enterDemo() {
+        if (platformIsIos) cancelPlatformAuthentication()
+        AppAuth.cancel()
+        demoGeneration++
+        demo = true
+    }
+    LaunchedEffect(AppLinks.demoRequest) {
+        if (AppLinks.demoRequest > 0) enterDemo()
+    }
+    key(demo, demoGeneration) {
+        AppSession(realClient, demo, onEnterDemo = { enterDemo() }, onResetDemo = { demoGeneration++ },
+            onExitDemo = { demo = false })
+    }
+}
+
+@Composable
+private fun AppSession(realClient: ApiClient?, demo: Boolean, onEnterDemo: () -> Unit,
+    onResetDemo: () -> Unit, onExitDemo: () -> Unit) {
     JeongsanTheme {
         // 서버 주소가 없으면 목데이터 모드 — 웹과 같은 스위치(`apiBaseUrl`)
         // 스크린샷 모드는 서버 주소가 있어도 목데이터로 찍는다(LaunchOptions)
         val shot = LaunchOptions.screenshot
-        val client = remember {
-            if (apiBaseUrl.isEmpty() || shot != null) null
-            else ApiClient(apiBaseUrl, platformTokenStore()).also { AppAuth.store = platformVerifierStore() }
-        }
-        val v3 = remember { V3Store(if (client == null) V3State.initial() else V3State.empty()) }
-        val gateway = remember { V3Gateway(v3, client) }
+        val client = if (demo) null else realClient
+        val v3 = remember { V3Store(if (demo) DemoFixtures.state() else if (client == null) V3State.initial() else V3State.empty(),
+            awardSpoons = !demo) }
+        val gateway = remember { V3Gateway(v3, client, isDemoMode = demo) }
         val navController = rememberNavController()
         val uri = LocalUriHandler.current
 
         LaunchedEffect(Unit) {
+            if (demo) {
+                navController.navigate(V3Routes.Home) { popUpTo(Routes.Login) { inclusive = true } }
+                return@LaunchedEffect
+            }
             // 스크린샷 모드: 이름 확인을 끝낸 상태에서 그 화면의 보는 사람으로 바꾸고 바로 띄운다
             val target = shot?.let { SCREENSHOT_SCREENS[it] }
             if (target != null) {
@@ -79,6 +116,7 @@ fun App() {
 
         // 브라우저 로그인에서 jeongsan://auth?ticket=… 으로 돌아오면 토큰으로 바꾸고 내 술자리로(AppAuth)
         var loginError by remember { mutableStateOf<String?>(null) }
+        var loginBusy by remember { mutableStateOf(false) }
         val returned = AppAuth.returned
         LaunchedEffect(returned) {
             val url = returned ?: return@LaunchedEffect
@@ -87,20 +125,50 @@ fun App() {
             if (loginError == null && !gateway.loadMe()) loginError = "로그인하지 못했어요. 다시 시도해주세요"
             // 다 끝난 뒤에 지운다 — 지우는 순간 이 효과가 다시 시작돼 진행 중인 작업이 취소되기 때문(AppAuth.finish)
             AppAuth.consumed(url)
+            loginBusy = false
             if (loginError == null) navController.navigate(V3Routes.Home) { popUpTo(Routes.Login) { inclusive = true } }
         }
 
-        NavHost(navController = navController, startDestination = Routes.Login) {
+        Column(Modifier.fillMaxSize()) {
+            if (demo) DemoControls(v3.state.users, v3.state.me.id,
+                onPick = { userId ->
+                    v3.actAs(userId)
+                    navController.navigate(V3Routes.Home) { popUpTo(V3Routes.Home) { inclusive = true } }
+                }, onReset = onResetDemo, onExit = onExitDemo)
+            Box(Modifier.weight(1f)) {
+              NavHost(navController = navController, startDestination = Routes.Login) {
             composable(Routes.Login) {
                 LoginScreen(
                     showApple = platformIsIos && client != null,
                     error = loginError,
+                    busy = loginBusy,
+                    onDemo = if (shot == null) onEnterDemo else null,
                     onLogin = { provider ->
-                        if (client != null) {
+                        if (client != null && !loginBusy) {
                             // API 모드: SDK 없이 서버 OAuth 를 브라우저로 연다(FC-014 1-1) — PKCE 로 시작해 앱 스킴으로 돌아온다
                             loginError = null
-                            uri.openUri(AppAuth.start(client, provider))
-                        } else {
+                            val address = AppAuth.start(client, provider, authSession = platformIsIos)
+                            if (platformIsIos) {
+                                loginBusy = true
+                                platformAuthenticate(address) { result ->
+                                    when (result) {
+                                        is AuthBrowserResult.Completed -> {
+                                            if (AppAuth.ticketOf(result.url) == null) {
+                                                AppAuth.cancel()
+                                                loginBusy = false
+                                                loginError = "로그인 주소가 올바르지 않아요. 다시 시도해주세요"
+                                            } else AppAuth.handle(result.url)
+                                        }
+                                        AuthBrowserResult.Cancelled -> { AppAuth.cancel(); loginBusy = false }
+                                        AuthBrowserResult.Failed -> {
+                                            AppAuth.cancel()
+                                            loginBusy = false
+                                            loginError = "로그인 화면을 열지 못했어요. 다시 시도해주세요"
+                                        }
+                                    }
+                                }
+                            } else uri.openUri(address)
+                        } else if (client == null) {
                             navController.navigate(V3Routes.Home) {
                                 popUpTo(Routes.Login) { inclusive = true }
                             }
@@ -115,11 +183,13 @@ fun App() {
                 gateway = gateway,
                 // 내 술자리(첫 화면)의 뒤로가기·로그아웃·탈퇴 뒤 — 로그인 화면으로
                 onLeave = {
-                    navController.navigate(Routes.Login) {
+                    if (demo) onExitDemo() else navController.navigate(Routes.Login) {
                         popUpTo(V3Routes.Home) { inclusive = true }
                     }
                 },
             )
+              }
+            }
         }
     }
 }

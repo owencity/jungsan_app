@@ -28,6 +28,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="jeongsan" android:host="auth" />
+                <data android:scheme="jeongsan" android:host="demo" />
             </intent-filter>
         </activity>
     </application>

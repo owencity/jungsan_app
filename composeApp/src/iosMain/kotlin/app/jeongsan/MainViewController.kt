@@ -2,6 +2,8 @@ package app.jeongsan
 
 import androidx.compose.ui.window.ComposeUIViewController
 import app.jeongsan.v3.LaunchOptions
+import app.jeongsan.v3.api.AppAuth
+import app.jeongsan.v3.api.platformVerifierStore
 import platform.Foundation.NSProcessInfo
 import platform.UIKit.UIViewController
 
@@ -12,6 +14,7 @@ import platform.UIKit.UIViewController
  * 이 파일이 있어야 commonMain 에 iOS 불가 코드가 들어왔을 때 바로 잡힌다.
  */
 fun MainViewController(): UIViewController {
+    AppAuth.store = platformVerifierStore()
     // 스토어 스크린샷: xcrun simctl launch <기기> app.jeongsan -jsScreen room — 화면을 만들기 전에 한 번 읽는다
     val args = NSProcessInfo.processInfo.arguments.map { it.toString() }
     LaunchOptions.screenshot = args.indexOf("-jsScreen").takeIf { it >= 0 }?.let { args.getOrNull(it + 1) }

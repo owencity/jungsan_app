@@ -63,6 +63,7 @@ fun AccountScreen(
     /** 내가 차단한 사람(FC-024) — 내 술자리에서 연 경우만. (계정 id, 이름) */
     blocks: List<Pair<Id, String>>? = null,
     onUnblock: (Id) -> Unit = {},
+    isDemo: Boolean = false,
 ) {
     var bank by remember(me.id) { mutableStateOf(me.payout?.bank.orEmpty()) }
     var accountNo by remember(me.id) { mutableStateOf(me.payout?.accountNo.orEmpty()) }
@@ -118,7 +119,7 @@ fun AccountScreen(
         Field(holder, { if (it.length <= 20) holder = it }, "", "예금주", KeyboardType.Text, 14.sp)
 
         if (blocks != null) BlockedList(blocks, onUnblock)
-        if (onLogout != null || onDeleteAccount != null) AccountMenu(onLogout, onDeleteAccount)
+        if (onLogout != null || onDeleteAccount != null) AccountMenu(onLogout, onDeleteAccount, isDemo)
     }
 }
 
@@ -149,20 +150,22 @@ private fun BlockedList(blocks: List<Pair<Id, String>>, onUnblock: (Id) -> Unit)
 }
 
 @Composable
-private fun AccountMenu(onLogout: (() -> Unit)?, onDeleteAccount: (() -> Unit)?) {
+private fun AccountMenu(onLogout: (() -> Unit)?, onDeleteAccount: (() -> Unit)?, isDemo: Boolean) {
     var armed by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth().padding(top = 28.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Label("계정")
-        if (onLogout != null) SubButton("로그아웃", onLogout)
+        if (onLogout != null) SubButton(if (isDemo) "체험 종료" else "로그아웃", onLogout)
         if (onDeleteAccount != null) {
             if (armed) {
                 Text(
-                    "탈퇴하면 계정과 등록한 계좌가 지워지고 되돌릴 수 없어요. 지난 정산 기록에는 ‘탈퇴한 사용자’로 남아요. 진행 중인 정산이 있으면 끝난 뒤에 탈퇴할 수 있어요.",
+                    if (isDemo) "이 기기의 체험 데이터만 지우고 체험을 종료해요. 실제 계정과 서버 데이터는 바뀌지 않아요."
+                    else "탈퇴하면 계정과 등록한 계좌가 지워지고 되돌릴 수 없어요. 지난 정산 기록에는 ‘탈퇴한 사용자’로 남아요. 진행 중인 정산이 있으면 끝난 뒤에 탈퇴할 수 있어요.",
                     color = JsColor.warn, fontSize = 13.sp, lineHeight = 19.sp,
                 )
             }
             Text(
-                if (armed) "한 번 더 누르면 탈퇴해요" else "회원 탈퇴",
+                if (isDemo) { if (armed) "한 번 더 누르면 체험 데이터를 지워요" else "체험 데이터 삭제" }
+                else if (armed) "한 번 더 누르면 탈퇴해요" else "회원 탈퇴",
                 Modifier.fillMaxWidth().clickable { if (armed) onDeleteAccount() else armed = true }
                     .semantics { role = Role.Button }.padding(vertical = 8.dp),
                 color = if (armed) JsColor.warn else JsColor.ink3, fontSize = 13.5.sp,

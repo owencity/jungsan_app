@@ -58,6 +58,7 @@ enum class SettleResult { OK, STALE, DENIED }
 class V3Store(
     initial: V3State = V3State.initial(),
     private val clock: () -> Instant = { Clock.System.now() },
+    private val awardSpoons: Boolean = true,
 ) {
     var state by mutableStateOf(initial)
         private set
@@ -75,7 +76,7 @@ class V3Store(
     private fun Gathering.completeIfDone(): Gathering {
         if (status != GatheringStatus.SETTLING || !transfers.all { it.status == TransferStatus.CONFIRMED }) return this
         val hostId = host().id
-        val bonus = if (participants.size >= 2) 1 else 0
+        val bonus = if (awardSpoons && participants.size >= 2) 1 else 0
         return copy(
             status = GatheringStatus.COMPLETED,
             completedAt = clock(),

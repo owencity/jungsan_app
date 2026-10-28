@@ -111,6 +111,11 @@ jobs:
           # 실행 직후 죽었으면 여기서 실패한다
           xcrun simctl spawn "$UDID" launchctl list | grep -q "app.jeongsan" || { echo "app not running"; exit 1; }
           mkdir -p shots && xcrun simctl io "$UDID" screenshot shots/ios-launch.png
+          # 심사 체험 진입은 실제 앱 URL 처리부터 확인한다. 데모를 열어도 프로세스가 유지돼야 한다.
+          xcrun simctl openurl "$UDID" 'jeongsan://demo'
+          sleep 5
+          xcrun simctl spawn "$UDID" launchctl list | grep -q "app.jeongsan" || { echo "demo crashed"; exit 1; }
+          xcrun simctl io "$UDID" screenshot shots/ios-demo.png
 
       - name: upload screenshot
         if: always()
