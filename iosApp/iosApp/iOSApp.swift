@@ -12,11 +12,9 @@ struct iOSApp: App {
                     let browser = authenticationBrowser
                     IosAuthSessionBridge.shared.launcher = { [weak browser] address in
                         browser?.start(address)
-                        return KotlinUnit()
                     }
                     IosAuthSessionBridge.shared.cancel = { [weak browser] in
                         browser?.cancel()
-                        return KotlinUnit()
                     }
                 }
                 // 로그인 복귀(jeongsan://auth?ticket=…) — Kotlin 쪽 AppAuth 가 티켓을 받아 토큰으로 바꾼다

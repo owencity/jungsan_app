@@ -19,7 +19,7 @@ on:
 # 같은 브랜치에 연달아 푸시하면 앞선 실행은 취소한다.
 # macOS 러너 분은 공개 저장소라도 무한정은 아니라서, 낭비를 줄인다.
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
@@ -88,6 +88,7 @@ jobs:
             -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath build/dd ARCHS=arm64 ONLY_ACTIVE_ARCH=YES \
             CODE_SIGNING_ALLOWED=NO \
+            JS_API_BASE_URL=https://jungsan-api.devkdk.com \
             build > xcodebuild.log 2>&1 || {
               # 로그는 인증 없이 못 읽는다 — 오류 줄을 annotation 으로 올려 공개 API 로 읽히게 한다
               grep -E "error:|^e: |FAILED|ld: |Undefined symbol|^ +\"_|referenced from" xcodebuild.log | head -n 40 \

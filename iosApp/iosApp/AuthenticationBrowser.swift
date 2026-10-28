@@ -1,6 +1,7 @@
 import AuthenticationServices
 import ComposeApp
 import SwiftUI
+import UIKit
 
 /// 인증 화면을 앱에 표시하고 완료 URL을 기존 PKCE 교환으로 넘긴다.
 @MainActor
