@@ -112,17 +112,33 @@ jobs:
           # 실행 직후 죽었으면 여기서 실패한다
           xcrun simctl spawn "$UDID" launchctl list | grep -q "app.jeongsan" || { echo "app not running"; exit 1; }
           mkdir -p shots && xcrun simctl io "$UDID" screenshot shots/ios-launch.png
-          # 심사 체험 진입은 실제 앱 URL 처리부터 확인한다. 데모를 열어도 프로세스가 유지돼야 한다.
-          xcrun simctl openurl "$UDID" 'jeongsan://demo'
-          sleep 5
-          xcrun simctl spawn "$UDID" launchctl list | grep -q "app.jeongsan" || { echo "demo crashed"; exit 1; }
-          xcrun simctl io "$UDID" screenshot shots/ios-demo.png
+          # openurl은 iOS의 확인창만 띄울 수도 있다. 실제 버튼·역할·초기화·종료를 조작해 확인한다.
+          xcodebuild test \
+            -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug \
+            -destination "platform=iOS Simulator,id=$UDID" \
+            -derivedDataPath build/dd -resultBundlePath build/ios-review-ui.xcresult \
+            -only-testing:iosAppUITests CODE_SIGNING_ALLOWED=NO \
+            JS_API_BASE_URL=https://jungsan-api.devkdk.com \
+            > ui-test.log 2>&1 || {
+              grep -E "error:|failed|FAILED" ui-test.log | tail -n 30 \
+                | while IFS= read -r l; do echo "::error::${l:0:900}"; done
+              tail -n 35 ui-test.log
+              exit 1
+            }
+          tail -n 20 ui-test.log
+
+      - name: export UI screenshots
+        if: always()
+        run: |
+          if [ -d build/ios-review-ui.xcresult ]; then
+            xcrun xcresulttool export attachments --path build/ios-review-ui.xcresult --output-path shots/ui
+          fi
 
       - name: upload screenshot
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ios-simulator-screenshot
-          path: shots/*.png
+          path: shots/
           if-no-files-found: ignore
           retention-days: 7
