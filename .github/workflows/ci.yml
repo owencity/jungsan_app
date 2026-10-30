@@ -101,6 +101,7 @@ jobs:
       # 실제로 뜨는지 본다 — 컴파일은 되는데 실행하자마자 죽는 경우(프레임워크 링크·초기화)를 잡는다.
       # 스크린샷은 아티팩트로 올려 사람이(그리고 Claude가) 눈으로 확인한다.
       - name: launch on simulator + screenshot
+        timeout-minutes: 15
         run: |
           UDID=$(xcrun simctl list devices available -j | jq -r '[.devices[][] | select(.name | startswith("iPhone"))][0].udid')
           echo "simulator $UDID"
@@ -128,6 +129,7 @@ jobs:
           tail -n 20 ui-test.log
 
       - name: export UI screenshots
+        timeout-minutes: 2
         if: always()
         run: |
           if [ -d build/ios-review-ui.xcresult ]; then
@@ -139,6 +141,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ios-simulator-screenshot
-          path: shots/
+          path: |
+            shots/
+            ui-test.log
+            xcodebuild.log
           if-no-files-found: ignore
           retention-days: 7

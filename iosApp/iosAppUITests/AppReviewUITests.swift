@@ -1,5 +1,4 @@
 import XCTest
-import UIKit
 
 final class AppReviewUITests: XCTestCase {
     private let application = XCUIApplication()
@@ -18,6 +17,21 @@ final class AppReviewUITests: XCTestCase {
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
+    }
+
+    private func pasteIntoMessage() -> String {
+        let message = application.textViews
+            .matching(NSPredicate(format: "label BEGINSWITH %@", "메시지"))
+            .firstMatch
+        XCTAssertTrue(message.waitForExistence(timeout: 10))
+        message.tap()
+        message.press(forDuration: 1.2)
+        let paste = application.descendants(matching: .any)
+            .matching(NSPredicate(format: "label IN %@", ["Paste", "붙여넣기"]))
+            .firstMatch
+        XCTAssertTrue(paste.waitForExistence(timeout: 10))
+        paste.tap()
+        return message.value as? String ?? message.label
     }
 
     func testPublicDemoRolesResetAndExit() {
@@ -75,18 +89,20 @@ final class AppReviewUITests: XCTestCase {
         element("링크 공유").tap()
         expect("복사되었습니다")
         expect("카카오톡 앱을 열까요?")
-        let copied = UIPasteboard.general.string
-        XCTAssertTrue(copied?.contains("https://jungsan-api.devkdk.com/api/v1/review/demo") == true)
-        XCTAssertFalse(copied?.contains("/jungsan/j/demo") == true)
         capture("ios-share-copied")
         element("나중에").tap()
         XCTAssertFalse(element("카카오톡 앱을 열까요?").exists)
-        XCTAssertEqual(UIPasteboard.general.string, copied)
+        // 별도 테스트 러너가 클립보드를 직접 읽는 대신, 앱 안에서 사용자의 붙여넣기를 검증한다.
+        let url = "https://jungsan-api.devkdk.com/api/v1/review/demo"
+        let copied = pasteIntoMessage()
+        XCTAssertTrue(copied.contains(url))
+        XCTAssertFalse(copied.contains("/jungsan/j/demo"))
         element("링크 공유").tap()
         expect("카카오톡 앱을 열까요?")
         element("카카오톡 열기").tap()
         expect("카카오톡을 열 수 없어요. 복사한 내용을 직접 붙여넣어 주세요.")
-        XCTAssertEqual(UIPasteboard.general.string, copied)
         capture("ios-share-kakao-unavailable")
+        let pastedAgain = pasteIntoMessage()
+        XCTAssertEqual(pastedAgain.components(separatedBy: url).count - 1, 2)
     }
 }
