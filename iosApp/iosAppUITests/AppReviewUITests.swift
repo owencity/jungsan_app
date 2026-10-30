@@ -58,7 +58,10 @@ final class AppReviewUITests: XCTestCase {
         expect("로그인 없이 데모 체험")
         element("로그인 없이 데모 체험").tap()
         expect("정산방에서 쓸 이름")
-        let name = application.textFields.firstMatch
+        // Compose의 단일 줄 BasicTextField도 iOS 접근성 트리에는 TextView로 노출된다.
+        let name = application.textViews
+            .matching(NSPredicate(format: "label BEGINSWITH %@", "정산방에서 쓸 이름"))
+            .firstMatch
         XCTAssertTrue(name.waitForExistence(timeout: 10))
         name.tap()
         name.typeText("ShareHost")
