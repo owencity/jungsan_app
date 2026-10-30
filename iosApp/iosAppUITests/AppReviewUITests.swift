@@ -1,5 +1,4 @@
 import XCTest
-import UIKit
 
 final class AppReviewUITests: XCTestCase {
     private let application = XCUIApplication()
@@ -50,8 +49,7 @@ final class AppReviewUITests: XCTestCase {
         XCTAssertFalse(element("데모 체험 · 가상 데이터 · 실제 송금 없음").exists)
     }
 
-    // CI의 카카오톡 미설치 시뮬레이터에서 복사·취소·실행 실패까지 실제 화면으로 검증한다.
-    func testShareCopiesBeforeOfferingKakaoAndKeepsClipboard() {
+    private func openShareDialog() {
         continueAfterFailure = false
         executionTimeAllowance = 180
         application.launch()
@@ -75,19 +73,21 @@ final class AppReviewUITests: XCTestCase {
         element("링크 공유").tap()
         expect("복사되었습니다")
         expect("카카오톡 앱을 열까요?")
-        let copied = UIPasteboard.general.string
-        let url = "https://jungsan-api.devkdk.com/api/v1/review/demo"
-        XCTAssertTrue(copied?.contains(url) == true, "공유 안내의 실제 클립보드 내용이 필요합니다")
-        XCTAssertFalse(copied?.contains("/jungsan/j/demo") == true)
         capture("ios-share-copied")
+    }
+
+    // 실제 값 대조는 각 테스트 직후 호스트의 simctl pbpaste로 독립 수행한다.
+    func testShareCancelKeepsClipboard() {
+        openShareDialog()
         element("나중에").tap()
         XCTAssertFalse(element("카카오톡 앱을 열까요?").exists)
-        XCTAssertEqual(UIPasteboard.general.string, copied)
-        element("링크 공유").tap()
-        expect("카카오톡 앱을 열까요?")
+        capture("ios-share-cancelled")
+    }
+
+    func testShareUnavailableKakaoKeepsClipboard() {
+        openShareDialog()
         element("카카오톡 열기").tap()
         expect("카카오톡을 열 수 없어요. 복사한 내용을 직접 붙여넣어 주세요.")
-        XCTAssertEqual(UIPasteboard.general.string, copied)
         capture("ios-share-kakao-unavailable")
     }
 }

@@ -89,7 +89,7 @@ jobs:
             -derivedDataPath build/dd ARCHS=arm64 ONLY_ACTIVE_ARCH=YES \
             CODE_SIGNING_ALLOWED=NO \
             JS_API_BASE_URL=https://jungsan-api.devkdk.com \
-            build > xcodebuild.log 2>&1 || {
+            build-for-testing > xcodebuild.log 2>&1 || {
               # 로그는 인증 없이 못 읽는다 — 오류 줄을 annotation 으로 올려 공개 API 로 읽히게 한다
               grep -E "error:|^e: |FAILED|ld: |Undefined symbol|^ +\"_|referenced from" xcodebuild.log | head -n 40 \
                 | while IFS= read -r l; do echo "::error::${l:0:900}"; done
@@ -120,28 +120,38 @@ jobs:
           # 실행 직후 죽었으면 여기서 실패한다
           xcrun simctl spawn "$UDID" launchctl list | grep -q "app.jeongsan" || { echo "app not running"; exit 1; }
           mkdir -p shots && xcrun simctl io "$UDID" screenshot shots/ios-launch.png
-          # openurl은 iOS의 확인창만 띄울 수도 있다. 실제 버튼·역할·초기화·종료를 조작해 확인한다.
-          xcodebuild test \
-            -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug \
-            -destination "platform=iOS Simulator,id=$UDID" \
-            -derivedDataPath build/dd -resultBundlePath build/ios-review-ui.xcresult \
-            -only-testing:iosAppUITests CODE_SIGNING_ALLOWED=NO \
-            JS_API_BASE_URL=https://jungsan-api.devkdk.com \
-            > ui-test.log 2>&1 || {
-              grep -E "error:|failed|FAILED" ui-test.log | tail -n 30 \
-                | while IFS= read -r l; do echo "::error::${l:0:900}"; done
-              tail -n 35 ui-test.log
-              exit 1
-            }
-          tail -n 20 ui-test.log
+          # XCTest는 화면 조작만 한다. 각 공유 시나리오 직후 호스트에서 실제 복사값을 대조한다.
+          XCTESTRUN=$(find build/dd/Build/Products -maxdepth 1 -name '*.xctestrun' -print -quit)
+          [ -n "$XCTESTRUN" ] || { echo "::error::UI 테스트 실행 파일을 찾지 못했습니다"; exit 1; }
+          for TEST_CASE in testPublicDemoRolesResetAndExit testShareCancelKeepsClipboard testShareUnavailableKakaoKeepsClipboard; do
+            if [ "$TEST_CASE" != "testPublicDemoRolesResetAndExit" ]; then
+              python3 .github/scripts/share_clipboard_probe.py seed "$UDID" "$TEST_CASE"
+            fi
+            xcodebuild test-without-building \
+              -xctestrun "$XCTESTRUN" -destination "platform=iOS Simulator,arch=arm64,id=$UDID" \
+              -resultBundlePath "build/ios-review-ui-$TEST_CASE.xcresult" \
+              -only-testing:"iosAppUITests/AppReviewUITests/$TEST_CASE" \
+              > "ui-test-$TEST_CASE.log" 2>&1 || {
+                grep -E "error:|failed|FAILED" "ui-test-$TEST_CASE.log" | tail -n 30 \
+                  | while IFS= read -r l; do echo "::error::${l:0:900}"; done
+                tail -n 35 "ui-test-$TEST_CASE.log"
+                exit 1
+              }
+            tail -n 15 "ui-test-$TEST_CASE.log"
+            if [ "$TEST_CASE" != "testPublicDemoRolesResetAndExit" ]; then
+              python3 .github/scripts/share_clipboard_probe.py assert "$UDID" "$TEST_CASE"
+            fi
+          done
 
       - name: export UI screenshots
         timeout-minutes: 2
         if: always()
         run: |
-          if [ -d build/ios-review-ui.xcresult ]; then
-            xcrun xcresulttool export attachments --path build/ios-review-ui.xcresult --output-path shots/ui
-          fi
+          for RESULT in build/ios-review-ui-*.xcresult; do
+            [ -d "$RESULT" ] || continue
+            CASE_NAME=$(basename "$RESULT" .xcresult)
+            xcrun xcresulttool export attachments --path "$RESULT" --output-path "shots/ui/$CASE_NAME"
+          done
 
       - name: upload screenshot
         if: always()
@@ -150,7 +160,7 @@ jobs:
           name: ios-simulator-screenshot
           path: |
             shots/
-            ui-test.log
+            ui-test-*.log
             xcodebuild.log
           if-no-files-found: ignore
           retention-days: 7
