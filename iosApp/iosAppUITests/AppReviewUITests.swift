@@ -97,12 +97,17 @@ final class AppReviewUITests: XCTestCase {
         let copied = pasteIntoMessage()
         XCTAssertTrue(copied.contains(url))
         XCTAssertFalse(copied.contains("/jungsan/j/demo"))
+        // 두 번째 붙여넣기는 빈 입력칸에서 확인해 기존 텍스트 선택·덮어쓰기의 영향을 배제한다.
+        application.buttons.matching(NSPredicate(format: "label CONTAINS %@", "뒤로가기")).firstMatch.tap()
+        expect("체험 · 입금 확인 중")
+        element("체험 · 입금 확인 중").tap()
+        expect("링크 공유")
         element("링크 공유").tap()
         expect("카카오톡 앱을 열까요?")
         element("카카오톡 열기").tap()
         expect("카카오톡을 열 수 없어요. 복사한 내용을 직접 붙여넣어 주세요.")
         capture("ios-share-kakao-unavailable")
         let pastedAgain = pasteIntoMessage()
-        XCTAssertEqual(pastedAgain.components(separatedBy: url).count - 1, 2)
+        XCTAssertEqual(pastedAgain, copied)
     }
 }
