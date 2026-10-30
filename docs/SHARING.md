@@ -17,4 +17,8 @@ Android는 카카오톡 패키지만 조회해 시작 화면을 연다. iOS는 `
 - 실제 카카오톡이 설치된 iPhone·Android에서 앱 실행·대화방 수동 붙여넣기는 별도 확인이 필요하다. 테스트에서는 실제 대화방에 메시지를 보내지 않는다.
 - 기존 TestFlight 0.1.0(9)는 이전 시스템 공유창 방식이다. 이 변경은 새 빌드의 설치·검증 후 제출한다. PR1과 학습용 diff는 보존한다.
 
+### iOS CI 환경 확인
+
+기존 시뮬레이터 선택은 JSON의 첫 iPhone을 골라 Xcode26.6에서도 iOS26.4.1을 실행했다. 실제 클립보드 읽기에서 멈춘 원본 로그와 붙여넣기 메뉴 부재를 보존했다. 설치된 iOS26.5 런타임을 사용할 수 있도록 최신 iOS 버전 순으로 선택하고 선택 결과를 출력한다. [Apple 포럼의 유사 클립보드 문제](https://developer.apple.com/forums/thread/820393)와 [해당 GitHub 이미지의 설치 런타임](https://github.com/actions/runner-images/blob/macos-26-arm64/20261013.0424/images/macos/macos-26-arm64-Readme.md)을 확인한 비교 검증이며, 같은 원인이라고 확정하지 않는다. 테스트를 건너뛰지 않고 UI15분 제한·결과 내보내기2분 제한·원본 로그 보존을 유지한다.
+
 근거: [Apple URL 실행](https://developer.apple.com/documentation/uikit/uiapplication/canopenurl(_:)), [Android 패키지 가시성](https://developer.android.com/training/package-visibility/declaring), [카카오 앱 실행 스킴 안내](https://devtalk.kakao.com/t/topic/719).
