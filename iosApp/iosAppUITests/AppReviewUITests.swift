@@ -48,4 +48,46 @@ final class AppReviewUITests: XCTestCase {
         expect("로그인 없이 데모 체험")
         XCTAssertFalse(element("데모 체험 · 가상 데이터 · 실제 송금 없음").exists)
     }
+
+    private func openShareDialog() {
+        continueAfterFailure = false
+        executionTimeAllowance = 180
+        application.launch()
+        expect("로그인 없이 데모 체험")
+        element("로그인 없이 데모 체험").tap()
+        expect("정산방에서 쓸 이름")
+        // Compose의 단일 줄 BasicTextField도 iOS 접근성 트리에는 TextView로 노출된다.
+        let name = application.textViews
+            .matching(NSPredicate(format: "label BEGINSWITH %@", "정산방에서 쓸 이름"))
+            .firstMatch
+        XCTAssertTrue(name.waitForExistence(timeout: 10))
+        name.tap()
+        name.typeText("ShareHost")
+        application.descendants(matching: .any)
+            .matching(NSPredicate(format: "label BEGINSWITH %@", "이용약관에 동의합니다"))
+            .firstMatch.tap()
+        element("이 이름으로 시작").tap()
+        expect("체험 · 응답 중")
+        element("체험 · 응답 중").tap()
+        expect("링크 공유")
+        element("링크 공유").tap()
+        expect("복사되었습니다")
+        expect("카카오톡 앱을 열까요?")
+        capture("ios-share-copied")
+    }
+
+    // 실제 값 대조는 각 테스트 직후 호스트의 simctl pbpaste로 독립 수행한다.
+    func testShareCancelKeepsClipboard() {
+        openShareDialog()
+        element("나중에").tap()
+        XCTAssertFalse(element("카카오톡 앱을 열까요?").exists)
+        capture("ios-share-cancelled")
+    }
+
+    func testShareUnavailableKakaoKeepsClipboard() {
+        openShareDialog()
+        element("카카오톡 열기").tap()
+        expect("카카오톡을 열 수 없어요. 복사한 내용을 직접 붙여넣어 주세요.")
+        capture("ios-share-kakao-unavailable")
+    }
 }
