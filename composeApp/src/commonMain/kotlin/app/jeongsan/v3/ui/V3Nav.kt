@@ -50,7 +50,6 @@ import app.jeongsan.v3.entryTarget
 import app.jeongsan.v3.participantOfUser
 import app.jeongsan.v3.roundsPaidBy
 import app.jeongsan.v3.SHARE_BASE
-import app.jeongsan.v3.rememberShareSheet
 import app.jeongsan.v3.shareMessage
 import app.jeongsan.v3.shareUrl
 
@@ -259,7 +258,7 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3G
         val id = entry.idArg()
         val s = store.state
         val scope = rememberCoroutineScope()
-        val share = rememberShareSheet()
+        val share = rememberCopyAndOfferKakao()
         // 가상 방의 토큰을 운영 초대 링크로 내보내면 받는 사람이 열 수 없다.
         val demoShare = "정산어택 데모 체험 (가상 데이터, 실제 송금 없음)\nhttps://jungsan-api.devkdk.com/api/v1/review/demo\n앱에서 총무·참여자 역할을 전환해보세요."
         val loaded = rememberLoaded(gateway, id) { id?.let { gateway.loadRoom(it) } }

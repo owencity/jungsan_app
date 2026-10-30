@@ -97,7 +97,7 @@ fun RoomScreen(
     onExempt: (Id, Id, Boolean) -> Unit,
     /** R4 — 총무가 정산 전 한 사람을 내보낸다 */
     onRemove: (Id) -> Unit,
-    /** 링크 공유(OS 공유 시트) — 총무는 위 바에서 언제든 */
+    /** 안내·링크를 즉시 복사하고 카카오톡을 열지 묻는다 — 총무는 위 바에서 언제든 */
     onShare: () -> Unit,
     /** 참여자가 "다음 차는 내가 계산했어요" — 고른 사람(나 빼고)과 이 술자리 안에 내 정산 단위를 만든다(FC-015) */
     onStartNext: (List<Id>) -> Unit,

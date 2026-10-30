@@ -37,9 +37,6 @@ fun paymentRequestMessage(g: Gathering, url: String): String {
     return (listOf("[정산어택] ${g.title} 계산 끝!") + blocks + "보냈으면 앱에서 [보냈어요]를 눌러주세요 👉 $url").joinToString("\n")
 }
 
-/**
- * OS 공유 시트를 띄우는 함수를 돌려준다 — Android는 공유 인텐트(카카오톡이 목록 맨 위에 뜬다),
- * iOS는 UIActivityViewController. 화면 코드는 이 함수 하나만 부른다.
- */
+/** 복사 뒤 사용자가 선택했을 때만 카카오톡을 연다. 성공은 앱 실행이며 메시지 전송 완료가 아니다. */
 @Composable
-expect fun rememberShareSheet(): (String) -> Unit
+expect fun rememberOpenKakaoTalk(): (onResult: (Boolean) -> Unit) -> Unit

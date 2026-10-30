@@ -4,6 +4,11 @@
     <!-- 정산 결과를 서버에서 받아온다 -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- 복사 후 카카오톡 열기를 선택했을 때 시작 화면을 찾는다. 전체 설치 앱은 조회하지 않는다. -->
+    <queries>
+        <package android:name="com.kakao.talk" />
+    </queries>
+
     <application
         android:label="정산어택"
         android:icon="@mipmap/ic_launcher"
