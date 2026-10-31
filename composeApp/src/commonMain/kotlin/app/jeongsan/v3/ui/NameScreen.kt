@@ -118,12 +118,8 @@ fun NameScreen(
         devBar = devBar,
         top = {},
         bottom = {
+            TermsAgree(agreed) { agreed = it }
             CtaButton(if (busy) "저장하는 중…" else "이 이름으로 시작", enabled = !busy && agreed, onClick = submit)
-            Text(
-                "잘못 로그인했나요? 로그아웃",
-                Modifier.fillMaxWidth().clickable(onClick = onLogout).semantics { role = Role.Button }.padding(vertical = 4.dp),
-                color = JsColor.ink3, fontSize = 12.5.sp, textAlign = TextAlign.Center, textDecoration = TextDecoration.Underline,
-            )
         },
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -137,7 +133,7 @@ fun NameScreen(
             Text("  ${nameLength(name.trim())}/$MAX_NAME", color = JsColor.ink3, fontSize = 12.sp)
         }
         NameGuide()
-        // 키보드·데모 바·오류가 동시에 떠도 고정 하단이 입력칸의 높이를 빼앗지 않게 본문에서 함께 스크롤한다.
+        // 오류가 고정 하단을 늘려 입력칸을 가리지 않도록, 이름과 오류를 본문에서 함께 스크롤한다.
         Column(Modifier.fillMaxWidth().bringIntoViewRequester(nameArea), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             NameField(name, { name = it; serverError = null }, 20.sp, onDone = submit,
                 modifier = Modifier.focusRequester(nameFocus))
@@ -149,7 +145,6 @@ fun NameScreen(
                 )
             }
         }
-        TermsAgree(agreed) { agreed = it }
 
         // 실제로 어떻게 보이는지 — 목록엔 이름(닉네임), 알림·타임라인 문장엔 이름만
         Column(
@@ -163,6 +158,12 @@ fun NameScreen(
             }
             Text("⚙ ${preview}님이 보냈대요. 입금을 확인해주세요", color = JsColor.ink2, fontSize = 12.5.sp)
         }
+        // 약관은 키보드가 떠도 바로 체크할 수 있게 하단에 두고, 부차적인 계정 변경 출구를 본문으로 옮긴다.
+        Text(
+            "잘못 로그인했나요? 로그아웃",
+            Modifier.fillMaxWidth().clickable(onClick = onLogout).semantics { role = Role.Button }.padding(vertical = 4.dp),
+            color = JsColor.ink3, fontSize = 12.5.sp, textAlign = TextAlign.Center, textDecoration = TextDecoration.Underline,
+        )
     }
 }
 
