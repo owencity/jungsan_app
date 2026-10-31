@@ -77,7 +77,7 @@ private fun TableSheet(view: ServerSettlementTable, page: TablePage, pageLabel: 
         Text("조회 ${view.generatedAt}", fontSize = 10.sp, color = JsColor.ink3)
         page.rounds.forEach { round ->
             Text("${round.seq}차 · 결제 ${name(round.payerParticipantId)} · ${won(round.total)}", fontSize = 11.sp, color = JsColor.ink2)
-            TableRow(listOf("이름", "참여", "안주·음료", "술", "차수 부담"), heading = true)
+            TableRow(listOf("이름", "참여", "안주", "술", "차수 부담"), heading = true)
             page.people.forEach { person ->
                 val cell = round.cells.find { it.participantId == person.participantId }
                 TableRow(listOf("${person.name}\n#${person.participantId}", cell?.responseLabel() ?: "—",

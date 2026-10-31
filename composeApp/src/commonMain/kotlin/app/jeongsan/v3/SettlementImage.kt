@@ -33,7 +33,7 @@ fun ServerSettlementTable.imagePlan(): SettlementImagePlan {
             add(SettlementImageRow(listOf("${round.seq}차 · 결제자 ${name(round.payerParticipantId)} · ${won(round.total)}"), true, true))
             val cells = table.lines.map { p -> round.cells.find { it.participantId == p.participantId } }
             add(SettlementImageRow(listOf("참여", "—") + cells.map { it?.responseLabel() ?: "—" }))
-            add(SettlementImageRow(listOf("안주·음료", money(round.foodTotal)) + cells.map { it?.food?.let(::money) ?: "—" }))
+            add(SettlementImageRow(listOf("안주", money(round.foodTotal)) + cells.map { it?.food?.let(::money) ?: "—" }))
             add(SettlementImageRow(listOf("술", money(round.alcoholTotal)) + cells.map { it?.alcohol?.let(::money) ?: "—" }))
             add(SettlementImageRow(listOf("차수 부담 (조정 전)", "—") + cells.map { it?.amount?.let(::money) ?: "—" }))
         }
@@ -43,7 +43,7 @@ fun ServerSettlementTable.imagePlan(): SettlementImagePlan {
         add(SettlementImageRow(listOf("송금 안내 · 확정 당시 금액"), true, true))
         table.transfers.forEach { add(SettlementImageRow(listOf("${name(it.fromParticipantId)} → ${name(it.toParticipantId)} : ${won(it.amount)}"), true)) }
         if (table.transfers.isEmpty()) add(SettlementImageRow(listOf("보낼 금액이 없습니다."), true))
-        add(SettlementImageRow(listOf("안주·음료는 함께 배분합니다. 표시 금액의 원 미만 차이는 원 단위 조정에 반영됩니다."), true))
+        add(SettlementImageRow(listOf("표시 금액의 원 미만 차이는 원 단위 조정에 반영됩니다."), true))
         add(SettlementImageRow(listOf("이 이미지는 자동 갱신되지 않습니다. 입금 확인 여부는 정산방에서 확인해주세요."), true))
     }
     return SettlementImagePlan(width, columns, rows)
