@@ -122,6 +122,11 @@ final class AppReviewUITests: XCTestCase {
         XCTAssertTrue(name.isHittable, "키보드가 열린 뒤에도 이름칸을 누를 수 있어야 한다")
         XCTAssertTrue(element("이름을 넣어주세요").isHittable, "입력칸 아래 오류 안내도 키보드 위에 보여야 한다")
         XCTAssertFalse(name.frame.intersects(element("이름을 넣어주세요").frame), "키보드가 열린 뒤에도 오류와 이름칸이 겹치지 않아야 한다")
+        let agreement = application.descendants(matching: .any)
+            .matching(NSPredicate(format: "label BEGINSWITH %@", "이용약관에 동의합니다"))
+            .firstMatch
+        XCTAssertLessThanOrEqual(name.frame.maxY, agreement.frame.minY, "약관 영역이 이름칸을 덮지 않아야 한다")
+        XCTAssertLessThanOrEqual(element("이름을 넣어주세요").frame.maxY, agreement.frame.minY, "오류 안내가 약관 뒤로 잘리지 않아야 한다")
         XCTAssertLessThanOrEqual(name.frame.maxY, element("이 이름으로 시작").frame.minY, "고정 시작 버튼이 이름칸을 덮지 않아야 한다")
         XCTAssertLessThanOrEqual(element("이름을 넣어주세요").frame.maxY, element("이 이름으로 시작").frame.minY, "고정 시작 버튼이 오류 안내를 덮지 않아야 한다")
         name.typeText("RetryHost")
