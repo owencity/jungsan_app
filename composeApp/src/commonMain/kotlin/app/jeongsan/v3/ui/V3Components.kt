@@ -80,7 +80,7 @@ import kotlinx.coroutines.delay
 @Composable
 fun V3Screen(
     devBar: @Composable () -> Unit,
-    top: @Composable RowScope.() -> Unit,
+    top: (@Composable RowScope.() -> Unit)?,
     bottom: (@Composable ColumnScope.() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
@@ -90,7 +90,7 @@ fun V3Screen(
         Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).imePadding()) {
             devBar()
             Column(Modifier.fillMaxWidth().weight(1f).background(JsColor.surface)) {
-                Row(
+                if (top != null) Row(
                     Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp),

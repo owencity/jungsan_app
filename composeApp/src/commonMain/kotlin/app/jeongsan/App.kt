@@ -12,6 +12,11 @@ import androidx.compose.runtime.key
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.navigation.compose.NavHost
@@ -129,7 +134,9 @@ private fun AppSession(realClient: ApiClient?, demo: Boolean, onEnterDemo: () ->
             if (loginError == null) navController.navigate(V3Routes.Home) { popUpTo(Routes.Login) { inclusive = true } }
         }
 
-        Column(Modifier.fillMaxSize()) {
+        // 데모 바와 본문이 각각 상태바 여백을 쓰면 작은 호환 화면의 입력 공간을 두 번 줄인다.
+        Column(Modifier.fillMaxSize().then(if (demo)
+            Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top)) else Modifier)) {
             if (demo) DemoControls(v3.state.users, v3.state.me.id,
                 onPick = { userId ->
                     v3.actAs(userId)

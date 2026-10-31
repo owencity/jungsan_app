@@ -82,6 +82,7 @@ jobs:
       # 서명 없이 시뮬레이터용 앱을 만든다. Apple 개발자 계정(2026-10-06~)이 생기면 서명·업로드는
       # 별도 릴리스 워크플로가 맡는다. 러너가 Apple Silicon 이라 arm64 하나만 빌드한다.
       - name: build app (simulator, unsigned)
+        id: build_ios_simulator
         run: |
           xcodebuild \
             -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug \
@@ -101,7 +102,7 @@ jobs:
       # 실제로 뜨는지 본다 — 컴파일은 되는데 실행하자마자 죽는 경우(프레임워크 링크·초기화)를 잡는다.
       # 스크린샷은 아티팩트로 올려 사람이(그리고 Claude가) 눈으로 확인한다.
       - name: launch on simulator + screenshot
-        timeout-minutes: 15
+        timeout-minutes: 20
         run: |
           # JSON의 첫 기기는 이전 런타임일 수 있다. 실제 SDK와 가까운 최신 설치 iOS에서 검사한다.
           SIMULATOR_CHOICE=$(xcrun simctl list devices available -j | jq -c '
@@ -111,6 +112,7 @@ jobs:
             | sort_by(.version) | last')
           [ "$SIMULATOR_CHOICE" != "null" ] || { echo "::error::사용 가능한 iPhone 시뮬레이터가 없습니다"; exit 1; }
           UDID=$(echo "$SIMULATOR_CHOICE" | jq -r '.udid')
+          echo "IOS_TEST_PHONE_UDID=$UDID" >> "$GITHUB_ENV"
           echo "simulator $SIMULATOR_CHOICE"
           xcrun simctl boot "$UDID"
           xcrun simctl bootstatus "$UDID" -b
@@ -123,12 +125,14 @@ jobs:
           # XCTest는 화면 조작만 한다. 각 공유 시나리오 직후 호스트에서 실제 복사값을 대조한다.
           XCTESTRUN=$(find build/dd/Build/Products -maxdepth 1 -name '*.xctestrun' -print -quit)
           [ -n "$XCTESTRUN" ] || { echo "::error::UI 테스트 실행 파일을 찾지 못했습니다"; exit 1; }
-          for TEST_CASE in testPublicDemoRolesResetAndExit testShareCancelKeepsClipboard testShareUnavailableKakaoKeepsClipboard; do
-            if [ "$TEST_CASE" != "testPublicDemoRolesResetAndExit" ]; then
+          for TEST_CASE in testEmptyNameCanBeCorrected testEmptyNameCanBeCorrectedWithKeyboard testPublicDemoRolesResetAndExit testShareCancelKeepsClipboard testShareUnavailableKakaoKeepsClipboard; do
+            if [[ "$TEST_CASE" == testShare* ]]; then
+              xcrun simctl bootstatus "$UDID" -b
               python3 .github/scripts/share_clipboard_probe.py seed "$UDID" "$TEST_CASE"
             fi
             xcodebuild test-without-building \
               -xctestrun "$XCTESTRUN" -destination "platform=iOS Simulator,arch=arm64,id=$UDID" \
+              -parallel-testing-enabled NO \
               -resultBundlePath "build/ios-review-ui-$TEST_CASE.xcresult" \
               -only-testing:"iosAppUITests/AppReviewUITests/$TEST_CASE" \
               > "ui-test-$TEST_CASE.log" 2>&1 || {
@@ -138,13 +142,59 @@ jobs:
                 exit 1
               }
             tail -n 15 "ui-test-$TEST_CASE.log"
-            if [ "$TEST_CASE" != "testPublicDemoRolesResetAndExit" ]; then
+            if [[ "$TEST_CASE" == testShare* ]]; then
+              xcrun simctl bootstatus "$UDID" -b
               python3 .github/scripts/share_clipboard_probe.py assert "$UDID" "$TEST_CASE"
             fi
           done
 
-      - name: export UI screenshots
+      # 두 기기의 앱을 동시에 실행하면 다음 기기의 테스트 시작이 지연될 수 있어, 종료는 별도 제한 안에서 시도한다.
+      - name: release iPhone simulator before iPad
+        if: ${{ !cancelled() && env.IOS_TEST_PHONE_UDID != '' }}
         timeout-minutes: 2
+        shell: python3 {0}
+        run: |
+          import os
+          import subprocess
+
+          device = os.environ["IOS_TEST_PHONE_UDID"]
+          for command, limit in [(["terminate", device, "app.jeongsan"], 10), (["shutdown", device], 45)]:
+              try:
+                  result = subprocess.run(["xcrun", "simctl", *command], capture_output=True, text=True, timeout=limit)
+                  print(f"Simulator cleanup {command[0]}: exit={result.returncode}")
+              except subprocess.TimeoutExpired:
+                  print(f"::warning::Simulator cleanup {command[0]} exceeded {limit}s; continuing independent iPad checks")
+
+      # iPhone 전용 앱도 iPad의 호환 화면으로 실행되므로 실제 제보 기종 계열에서 같은 회귀를 검사한다.
+      - name: name retry on iPad compatibility screen
+        if: ${{ !cancelled() && steps.build_ios_simulator.outcome == 'success' }}
+        timeout-minutes: 12
+        run: |
+          IPAD_CHOICE=$(xcrun simctl list devices available -j | jq -c '
+            [.devices | to_entries[] | select(.key | contains(".iOS-")) |
+              .key as $runtime | .value[] | select(.name | startswith("iPad")) |
+              {udid, name, runtime: $runtime, version: ($runtime | split("iOS-")[1] | split("-") | map(tonumber))}]
+            | sort_by(.version) | last')
+          [ "$IPAD_CHOICE" != "null" ] || { echo "::error::사용 가능한 iPad 시뮬레이터가 없습니다"; exit 1; }
+          UDID=$(echo "$IPAD_CHOICE" | jq -r '.udid')
+          echo "name retry iPad $IPAD_CHOICE"
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl install "$UDID" build/dd/Build/Products/Debug-iphonesimulator/Jeongsan.app
+          XCTESTRUN=$(find build/dd/Build/Products -maxdepth 1 -name '*.xctestrun' -print -quit)
+          [ -n "$XCTESTRUN" ] || { echo "::error::UI 테스트 실행 파일을 찾지 못했습니다"; exit 1; }
+          for TEST_CASE in testEmptyNameCanBeCorrected testEmptyNameCanBeCorrectedWithKeyboard; do
+            xcodebuild test-without-building \
+              -xctestrun "$XCTESTRUN" -destination "platform=iOS Simulator,arch=arm64,id=$UDID" \
+              -parallel-testing-enabled NO \
+              -resultBundlePath "build/ios-review-ui-ipad-$TEST_CASE.xcresult" \
+              -only-testing:"iosAppUITests/AppReviewUITests/$TEST_CASE" \
+              > "ui-test-ipad-$TEST_CASE.log" 2>&1 || { tail -n 50 "ui-test-ipad-$TEST_CASE.log"; exit 1; }
+            tail -n 15 "ui-test-ipad-$TEST_CASE.log"
+          done
+
+      - name: export UI screenshots
+        timeout-minutes: 5
         if: always()
         run: |
           for RESULT in build/ios-review-ui-*.xcresult; do
