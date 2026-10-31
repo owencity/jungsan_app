@@ -3,6 +3,20 @@ import XCTest
 final class AppReviewUITests: XCTestCase {
     private let application = XCUIApplication()
 
+    func testSettlementImageSaveSheet() {
+        continueAfterFailure = false
+        executionTimeAllowance = 180
+        application.launchArguments = ["-jsScreen", "settlement-image"]
+        application.launch()
+        expect("가상 데이터 · 이미지 저장 검증")
+        element("전체 정산표 이미지 저장").tap()
+        XCTAssertTrue(application.descendants(matching: .any)
+            .matching(identifier: "settlement-image-save-sheet").firstMatch.waitForExistence(timeout: 30))
+        capture("ios-settlement-image-save-sheet")
+        // 사용자 저장/전송 선택 없이 창이 열리고 앱이 살아 있는지만 확인한다.
+        application.terminate()
+    }
+
     private func element(_ label: String) -> XCUIElement {
         application.descendants(matching: .any)
             .matching(NSPredicate(format: "label == %@", label)).firstMatch

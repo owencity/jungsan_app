@@ -48,6 +48,7 @@ fun SettlementTableScreen(roomId: Long, gateway: V3Gateway, onBack: () -> Unit) 
         if (loading) Text("정산표를 불러오는 중이에요", color = JsColor.ink2)
         error?.let { Text(it, color = JsColor.ink2) }
         view?.let { current ->
+            key(current) { SettlementImageButton(current) }
             val pages = remember(current, capture) { current.table.capturePages(if (capture) 8 else Int.MAX_VALUE) }
             if (pages.isEmpty()) Text("표에 표시할 참여자가 없어요", color = JsColor.ink2)
             else {
