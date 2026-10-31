@@ -36,7 +36,7 @@ object DemoFixtures {
         store.settle(103, 0)
         store.state.rooms.getValue(103).transfers.forEach { transfer ->
             val sender = store.state.rooms.getValue(103).participants.first { it.id == transfer.fromParticipantId }
-            store.actAs(sender.userId)
+            store.actAs(checkNotNull(sender.userId) { "체험 송금자는 회원 fixture여야 한다" })
             store.markSent(103, transfer.id)
             store.actAs(1)
             store.confirmIncoming(103, transfer.id)

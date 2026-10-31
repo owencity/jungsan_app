@@ -124,7 +124,7 @@ class V3Store(
     fun blockParticipant(roomId: Id, participantId: Id) {
         val p = state.rooms[roomId]?.participants?.find { it.id == participantId } ?: return
         val m = state.moderation
-        if (p.userId == me.id || m.blocks.any { it.blockerUserId == me.id && it.blockedUserId == p.userId }) return
+        if (p.userId == null || p.userId == me.id || m.blocks.any { it.blockerUserId == me.id && it.blockedUserId == p.userId }) return
         state = state.copy(moderation = m.copy(blocks = m.blocks + Block(me.id, p.userId, p.displayName)))
     }
 

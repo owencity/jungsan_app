@@ -38,7 +38,8 @@ data class User(
 
 data class Participant(
     val id: Id,
-    val userId: Id,
+    /** 비회원·탈퇴 좌석은 계정이 없다. 참여자 신원은 id로 구분한다. */
+    val userId: Id?,
     val displayName: String,
     val spoonCount: Int,
     /** 결제자일 때 받을 계좌. 없으면 "계좌 등록을 기다리는 중" */

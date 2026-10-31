@@ -35,7 +35,7 @@ class DemoReviewTest {
         assertEquals(listOf(10_000L, 10_000L), settled.transfers.map { it.amount })
         for (transfer in settled.transfers) {
             val sender = settled.participants.first { it.id == transfer.fromParticipantId }
-            store.actAs(sender.userId)
+            store.actAs(checkNotNull(sender.userId))
             assertNull(gateway.markSent(101, transfer.id))
             store.actAs(1)
             assertNull(gateway.confirmIncoming(101, transfer.id))
