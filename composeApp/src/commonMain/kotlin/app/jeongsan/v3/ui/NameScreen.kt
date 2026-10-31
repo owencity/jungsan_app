@@ -116,7 +116,7 @@ fun NameScreen(
 
     V3Screen(
         devBar = devBar,
-        top = {},
+        top = null,
         bottom = {
             TermsAgree(agreed) { agreed = it }
             CtaButton(if (busy) "저장하는 중…" else "이 이름으로 시작", enabled = !busy && agreed, onClick = submit)

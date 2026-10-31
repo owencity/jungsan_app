@@ -13,7 +13,8 @@ final class AppReviewUITests: XCTestCase {
     }
 
     private func capture(_ name: String) {
-        let attachment = XCTAttachment(screenshot: application.screenshot())
+        // iPad 호환 창·키보드·오류 안내를 같은 좌표계에서 확인하려고 기기 전체를 남긴다.
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
