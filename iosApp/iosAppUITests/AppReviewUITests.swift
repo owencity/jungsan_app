@@ -76,6 +76,45 @@ final class AppReviewUITests: XCTestCase {
         capture("ios-share-copied")
     }
 
+    private func retryEmptyName(keyboardFirst: Bool) {
+        continueAfterFailure = false
+        executionTimeAllowance = 180
+        application.launch()
+        expect("로그인 없이 데모 체험")
+        element("로그인 없이 데모 체험").tap()
+        let name = application.textViews
+            .matching(NSPredicate(format: "label BEGINSWITH %@", "정산방에서 쓸 이름"))
+            .firstMatch
+        XCTAssertTrue(name.waitForExistence(timeout: 10))
+        if keyboardFirst {
+            name.tap()
+            XCTAssertTrue(application.keyboards.firstMatch.waitForExistence(timeout: 10))
+        }
+        application.descendants(matching: .any)
+            .matching(NSPredicate(format: "label BEGINSWITH %@", "이용약관에 동의합니다"))
+            .firstMatch.tap()
+        element("이 이름으로 시작").tap()
+        expect("이름을 넣어주세요")
+        capture(keyboardFirst ? "ios-name-empty-keyboard" : "ios-name-empty")
+        print("Name retry: name=\(name.frame), hittable=\(name.isHittable), keyboard=\(application.keyboards.firstMatch.frame)")
+        XCTAssertTrue(name.isHittable, "빈 이름 검증 뒤 이름칸을 다시 누를 수 있어야 한다")
+        name.tap()
+        name.typeText("RetryHost")
+        XCTAssertFalse(element("이름을 넣어주세요").exists)
+        capture("ios-name-corrected")
+        element("이 이름으로 시작").tap()
+        expect("내 술자리")
+        expect("체험 · 응답 중")
+    }
+
+    func testEmptyNameCanBeCorrected() {
+        retryEmptyName(keyboardFirst: false)
+    }
+
+    func testEmptyNameCanBeCorrectedWithKeyboard() {
+        retryEmptyName(keyboardFirst: true)
+    }
+
     // 실제 값 대조는 각 테스트 직후 호스트의 simctl pbpaste로 독립 수행한다.
     func testShareCancelKeepsClipboard() {
         openShareDialog()

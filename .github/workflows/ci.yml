@@ -123,8 +123,8 @@ jobs:
           # XCTest는 화면 조작만 한다. 각 공유 시나리오 직후 호스트에서 실제 복사값을 대조한다.
           XCTESTRUN=$(find build/dd/Build/Products -maxdepth 1 -name '*.xctestrun' -print -quit)
           [ -n "$XCTESTRUN" ] || { echo "::error::UI 테스트 실행 파일을 찾지 못했습니다"; exit 1; }
-          for TEST_CASE in testPublicDemoRolesResetAndExit testShareCancelKeepsClipboard testShareUnavailableKakaoKeepsClipboard; do
-            if [ "$TEST_CASE" != "testPublicDemoRolesResetAndExit" ]; then
+          for TEST_CASE in testEmptyNameCanBeCorrected testEmptyNameCanBeCorrectedWithKeyboard testPublicDemoRolesResetAndExit testShareCancelKeepsClipboard testShareUnavailableKakaoKeepsClipboard; do
+            if [[ "$TEST_CASE" == testShare* ]]; then
               python3 .github/scripts/share_clipboard_probe.py seed "$UDID" "$TEST_CASE"
             fi
             xcodebuild test-without-building \
@@ -138,7 +138,7 @@ jobs:
                 exit 1
               }
             tail -n 15 "ui-test-$TEST_CASE.log"
-            if [ "$TEST_CASE" != "testPublicDemoRolesResetAndExit" ]; then
+            if [[ "$TEST_CASE" == testShare* ]]; then
               python3 .github/scripts/share_clipboard_probe.py assert "$UDID" "$TEST_CASE"
             fi
           done
