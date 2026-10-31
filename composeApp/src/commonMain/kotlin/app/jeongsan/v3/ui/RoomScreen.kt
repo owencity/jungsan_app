@@ -154,7 +154,7 @@ fun RoomScreen(
         // 인원을 넣어 자동 정산을 기다리는 중 — 끝까지 안 들어오는 사람이 있으면 총무가 직접 마무리(FC-020)
         if (canSettleNow(g, meUserId) && act.action?.kind != ActionKind.SETTLE) {
             Text(
-                "안 들어온 사람이 있나요? 지금 계산하기",
+                "명단 확인 · 정산 확정",
                 Modifier.fillMaxWidth().clickable { onAction(ActionKind.SETTLE) }.semantics { role = Role.Button }.padding(vertical = 4.dp),
                 color = JsColor.ink3, fontSize = 13.sp, textAlign = TextAlign.End, textDecoration = TextDecoration.Underline,
             )

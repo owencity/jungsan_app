@@ -129,7 +129,7 @@ class ApiClient(
     // 정산 단위 — 다음 차 총무(FC-015)
     suspend fun createUnit(gid: Long, requestId: String, participantIds: List<Long>, headcount: Int? = null): IdBody =
         call(HttpMethod.Post, "/api/v1/gatherings/$gid/settlement-units", UnitBody(requestId, participantIds, headcount))
-    /** 인원(FC-020) — 총무·정산 전. 바꾼 뒤 서버가 자동 정산 판정을 한 번 돈다 */
+    /** 인원(FC-020) — 총무·정산 전. 목표 인원을 바꿔도 확정하지 않는다 */
     suspend fun putHeadcount(gid: Long, uid: Long, headcount: Int) = exec(HttpMethod.Put, "${u(gid, uid)}/headcount", HeadcountBody(headcount))
     suspend fun removeMember(gid: Long, uid: Long, pid: Long) = exec(HttpMethod.Delete, "${u(gid, uid)}/participants/$pid")
     suspend fun addRound(gid: Long, uid: Long, body: RoundBody): IdBody = call(HttpMethod.Post, "${u(gid, uid)}/rounds", body)

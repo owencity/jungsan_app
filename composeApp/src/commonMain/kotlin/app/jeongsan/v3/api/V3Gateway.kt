@@ -358,7 +358,7 @@ class V3Gateway(private val store: V3Store, private val client: ApiClient?, val 
         }
     }
 
-    /** 인원(FC-020) — R1 [포함하기]. 서버는 바꾼 뒤 자동 정산 판정을 한 번 돈다 */
+    /** 인원(FC-020) — R1 [포함하기]. 서버는 목표 인원을 바꿔도 확정하지 않는다 */
     suspend fun setHeadcount(roomId: Id, headcount: Int): String? {
         val c = client ?: run { store.setHeadcount(roomId, headcount); return null }
         val (gid, uid) = ctx(roomId)

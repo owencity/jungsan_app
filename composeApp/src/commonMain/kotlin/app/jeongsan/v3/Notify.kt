@@ -67,7 +67,7 @@ fun notificationsFor(prev: Gathering, next: Gathering): List<NewNotification> {
         prev.participants.size <= (prev.headcount ?: Int.MAX_VALUE)) {
         out += NotificationCandidate(
             next.host().userId, next.id, "현재 ${next.participants.size}명이 참여했어요. 인원이 맞는지 확인해주세요",
-            "그대로면 ${hc}명으로 계산되고 마지막에 들어온 사람은 빠져요", Target.Room(next.id),
+            "명단에서 잘못된 응답자를 제외한 뒤 정산을 확정해주세요", Target.Room(next.id),
         )
     }
 

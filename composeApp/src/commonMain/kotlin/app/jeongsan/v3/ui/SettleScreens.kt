@@ -84,7 +84,7 @@ fun SettleScreen(
         devBar = devBar,
         top = {
             BackButton(onBack)
-            TopTitle("지금 계산하기")
+            TopTitle("정산 확정")
         },
         bottom = {
             error?.let {
@@ -94,7 +94,7 @@ fun SettleScreen(
                     color = JsColor.warn, fontSize = 13.5.sp, fontWeight = FontWeight.Bold,
                 )
             }
-            CtaButton(if (busy) "계산하는 중…" else "지금 계산하기", enabled = !busy) {
+            CtaButton(if (busy) "확정하는 중…" else "정산 확정", enabled = !busy) {
                 busy = true
                 scope.launch {
                     error = when (val r = onSettle(preview)) {

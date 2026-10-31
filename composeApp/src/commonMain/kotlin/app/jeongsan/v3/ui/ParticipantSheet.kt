@@ -48,7 +48,7 @@ import app.jeongsan.v3.responseOf
 /**
  * R4 참여자 관리 시트(총무) — 웹 `ParticipantSheet.tsx`.
  *
- * 차수별 응답을 보고 [면제]를 켜고 끄고, 정산 전이면 [이 술자리에서 내보내기].
+ * 차수별 응답을 보고 [면제]를 켜고 끄고, 정산 전이면 [정산 대상에서 제외].
  * 면제를 끄면 그 칸은 빈칸(응답 전)으로 돌아간다 — flow-changes FC-010.
  *
  * 앱다운 조작: Material 바텀시트 — 아래로 끌어내리거나 시스템 뒤로가기로 닫힌다. 모서리는 레트로 규칙대로 각지게.
@@ -118,7 +118,7 @@ fun ParticipantSheet(
                     Text(blocked, Modifier.fillMaxWidth(), color = JsColor.ink3, fontSize = 12.sp, textAlign = TextAlign.Center)
                 } else {
                     Text(
-                        if (confirm) "한 번 더 누르면 ${p.displayName}님을 내보내요" else "이 술자리에서 내보내기",
+                        if (confirm) "한 번 더 누르면 ${p.displayName}님을 내보내요" else "정산 대상에서 제외",
                         Modifier.align(Alignment.CenterHorizontally).clickable { if (confirm) onRemove() else confirm = true }
                             .semantics { role = Role.Button }.padding(8.dp),
                         color = if (confirm) JsColor.warn else JsColor.ink3, fontSize = 13.sp,

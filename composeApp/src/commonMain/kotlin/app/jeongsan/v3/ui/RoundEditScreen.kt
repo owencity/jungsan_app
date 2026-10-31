@@ -94,7 +94,7 @@ fun RoundEditScreen(
     var mine by remember {
         mutableStateOf(round?.let { g.responseOf(host.id, it.id)?.type }?.takeIf { it != ResponseType.EXEMPT } ?: ResponseType.DRANK)
     }
-    // 인원(FC-020) — 이만큼 모두 응답하면 자동 정산. 처음엔 지금 들어온 사람 수(최소 2)에서 시작한다
+    // 인원(FC-020) — 예상 인원 안내용. 처음엔 지금 들어온 사람 수(최소 2)에서 시작한다
     var headcount by remember { mutableStateOf(g.headcount ?: maxOf(HEADCOUNT_MIN, g.participants.size)) }
 
     val total = parseAmount(amountText)
@@ -214,7 +214,7 @@ fun RoundEditScreen(
             Text("술 합계 ${won(drinksTotal(drinks))}", Modifier.fillMaxWidth(), color = JsColor.ink2, fontSize = 13.sp, textAlign = TextAlign.End)
         }
 
-        Label("몇 명이서 마셨나요? (나 포함 · 다 응답하면 자동으로 계산돼요)")
+        Label("몇 명이서 마셨나요? (나 포함 · 예상 인원)")
         Row(
             Modifier.border(2.dp, JsColor.ink).semantics { contentDescription = "인원 ${headcount}명" },
             verticalAlignment = Alignment.CenterVertically,
