@@ -142,6 +142,33 @@ jobs:
               python3 .github/scripts/share_clipboard_probe.py assert "$UDID" "$TEST_CASE"
             fi
           done
+          xcrun simctl shutdown "$UDID"
+
+      # iPhone 전용 앱도 iPad의 호환 화면으로 실행되므로 실제 제보 기종 계열에서 같은 회귀를 검사한다.
+      - name: name retry on iPad compatibility screen
+        timeout-minutes: 8
+        run: |
+          IPAD_CHOICE=$(xcrun simctl list devices available -j | jq -c '
+            [.devices | to_entries[] | select(.key | contains(".iOS-")) |
+              .key as $runtime | .value[] | select(.name | startswith("iPad")) |
+              {udid, name, runtime: $runtime, version: ($runtime | split("iOS-")[1] | split("-") | map(tonumber))}]
+            | sort_by(.version) | last')
+          [ "$IPAD_CHOICE" != "null" ] || { echo "::error::사용 가능한 iPad 시뮬레이터가 없습니다"; exit 1; }
+          UDID=$(echo "$IPAD_CHOICE" | jq -r '.udid')
+          echo "name retry iPad $IPAD_CHOICE"
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl install "$UDID" build/dd/Build/Products/Debug-iphonesimulator/Jeongsan.app
+          XCTESTRUN=$(find build/dd/Build/Products -maxdepth 1 -name '*.xctestrun' -print -quit)
+          [ -n "$XCTESTRUN" ] || { echo "::error::UI 테스트 실행 파일을 찾지 못했습니다"; exit 1; }
+          for TEST_CASE in testEmptyNameCanBeCorrected testEmptyNameCanBeCorrectedWithKeyboard; do
+            xcodebuild test-without-building \
+              -xctestrun "$XCTESTRUN" -destination "platform=iOS Simulator,arch=arm64,id=$UDID" \
+              -resultBundlePath "build/ios-review-ui-ipad-$TEST_CASE.xcresult" \
+              -only-testing:"iosAppUITests/AppReviewUITests/$TEST_CASE" \
+              > "ui-test-ipad-$TEST_CASE.log" 2>&1 || { tail -n 50 "ui-test-ipad-$TEST_CASE.log"; exit 1; }
+            tail -n 15 "ui-test-ipad-$TEST_CASE.log"
+          done
 
       - name: export UI screenshots
         timeout-minutes: 2
