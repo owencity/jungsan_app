@@ -139,6 +139,8 @@ class ApiClient(
     suspend fun respondFor(gid: Long, uid: Long, pid: Long, answers: List<AnswerBody>) =
         exec(HttpMethod.Put, "${u(gid, uid)}/participants/$pid/responses", AnswersBody(answers))
     suspend fun preview(gid: Long, uid: Long): ServerPreview = call(HttpMethod.Get, "${u(gid, uid)}/settlement/preview")
+    suspend fun settlementTable(gid: Long, uid: Long): ServerSettlementTable =
+        call(HttpMethod.Get, "${u(gid, uid)}/settlement/table")
     suspend fun settle(gid: Long, uid: Long, inputRevision: Int, inputHash: String): ServerGathering =
         call(HttpMethod.Post, "${u(gid, uid)}/settlement", SettleBody(inputRevision, inputHash))
     suspend fun markViewed(gid: Long, uid: Long) = exec(HttpMethod.Post, "${u(gid, uid)}/settlement/viewed")

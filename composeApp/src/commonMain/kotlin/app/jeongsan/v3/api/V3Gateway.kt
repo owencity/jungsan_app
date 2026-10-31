@@ -44,6 +44,12 @@ class V3Gateway(private val store: V3Store, private val client: ApiClient?, val 
     init { require(!isDemoMode || client == null) { "체험에는 실제 API 클라이언트를 연결하지 않습니다." } }
     val isApiMode get() = client != null
 
+    suspend fun settlementTable(roomId: Id): ServerSettlementTable {
+        val c = checkNotNull(client) { "정산표는 서버 연결이 필요합니다." }
+        val (gid, uid) = ctx(roomId)
+        return c.settlementTable(gid, uid)
+    }
+
     // ── 도우미 ──
 
     /** 정산방 → 서버 경로에 쓰는 (술자리 id, 정산 단위 id) */

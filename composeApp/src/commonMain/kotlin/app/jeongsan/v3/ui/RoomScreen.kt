@@ -107,6 +107,7 @@ fun RoomScreen(
     onReport: (Id, ReportReason) -> Unit = { _, _ -> },
     /** 그 메시지를 쓴 사람 차단(FC-024) — 메시지만 숨긴다 */
     onBlock: (Id) -> Unit = {},
+    onTable: (() -> Unit)? = null,
 ) {
     var managing by remember { mutableStateOf<Id?>(null) }
     var msgMenu by remember { mutableStateOf<Id?>(null) }
@@ -149,6 +150,7 @@ fun RoomScreen(
         }
 
         Banner(act.banner, act.tone, act.note)
+        if (isHost && onTable != null) SubButton("정산표 보기 · 캡처", onTable)
         // 인원을 넣어 자동 정산을 기다리는 중 — 끝까지 안 들어오는 사람이 있으면 총무가 직접 마무리(FC-020)
         if (canSettleNow(g, meUserId) && act.action?.kind != ActionKind.SETTLE) {
             Text(

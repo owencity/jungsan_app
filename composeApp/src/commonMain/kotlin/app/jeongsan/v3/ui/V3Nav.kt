@@ -68,6 +68,7 @@ object V3Routes {
     const val Settle = "v3/r/{id}/settle"
     const val Respond = "v3/r/{id}/respond"
     const val Pay = "v3/r/{id}/pay"
+    const val Table = "v3/r/{id}/table"
     /** A1 — 계좌는 사람 단위지만, 저장 뒤 왔던 정산방으로 돌아가도록 정산방 아래에 둔다 */
     const val Account = "v3/r/{id}/account"
     /** 내 술자리에서 여는 계좌 화면 — 저장하면 내 술자리로 */
@@ -84,6 +85,7 @@ object V3Routes {
     fun settle(id: Id) = "v3/r/$id/settle"
     fun respond(id: Id) = "v3/r/$id/respond"
     fun pay(id: Id) = "v3/r/$id/pay"
+    fun table(id: Id) = "v3/r/$id/table"
     fun account(id: Id) = "v3/r/$id/account"
 }
 
@@ -280,6 +282,7 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3G
                 scope.launch { gateway.blockParticipant(g.id, pid)?.let(V3Toast::show) ?: V3Toast.show("${name}님을 차단했어요. 내 계정에서 풀 수 있어요") }
             },
             onBack = { nav.toHome() },
+            onTable = if (gateway.isApiMode && g.hostUserId == s.me.id) ({ nav.navigate(V3Routes.table(g.id)) }) else null,
             onAction = { kind ->
                 when (kind) {
                     ActionKind.GIVE_SPOON -> gateway.giveSpoon(g.id)?.let(V3Toast::show)
@@ -451,6 +454,17 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3G
                 onBack = { nav.toRoom(g.id) },
                 onSave = { p -> scope.launch { gateway.registerPayout(p)?.let(V3Toast::show) ?: nav.toRoom(g.id) } },
             )
+        }
+    }
+
+    composable(V3Routes.Table) { entry ->
+        val id = entry.idArg() ?: return@composable Missing(true)
+        val loaded = rememberLoaded(gateway, id) { gateway.loadRoom(id) }
+        val g = store.state.rooms[id] ?: return@composable Missing(loaded)
+        if (!gateway.isApiMode || g.hostUserId != store.state.me.id) {
+            Soon(devBar(id), "총무만 정산표를 볼 수 있어요") { nav.toRoom(id) }
+        } else {
+            SettlementTableScreen(id, gateway, onBack = { nav.popBackStack() })
         }
     }
 
