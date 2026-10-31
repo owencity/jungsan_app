@@ -112,6 +112,7 @@ jobs:
             | sort_by(.version) | last')
           [ "$SIMULATOR_CHOICE" != "null" ] || { echo "::error::사용 가능한 iPhone 시뮬레이터가 없습니다"; exit 1; }
           UDID=$(echo "$SIMULATOR_CHOICE" | jq -r '.udid')
+          echo "IOS_TEST_PHONE_UDID=$UDID" >> "$GITHUB_ENV"
           echo "simulator $SIMULATOR_CHOICE"
           xcrun simctl boot "$UDID"
           xcrun simctl bootstatus "$UDID" -b
@@ -147,10 +148,27 @@ jobs:
             fi
           done
 
+      # 두 기기의 앱을 동시에 실행하면 다음 기기의 테스트 시작이 지연될 수 있어, 종료는 별도 제한 안에서 시도한다.
+      - name: release iPhone simulator before iPad
+        if: ${{ !cancelled() && env.IOS_TEST_PHONE_UDID != '' }}
+        timeout-minutes: 2
+        shell: python3 {0}
+        run: |
+          import os
+          import subprocess
+
+          device = os.environ["IOS_TEST_PHONE_UDID"]
+          for command, limit in [(["terminate", device, "app.jeongsan"], 10), (["shutdown", device], 45)]:
+              try:
+                  result = subprocess.run(["xcrun", "simctl", *command], capture_output=True, text=True, timeout=limit)
+                  print(f"Simulator cleanup {command[0]}: exit={result.returncode}")
+              except subprocess.TimeoutExpired:
+                  print(f"::warning::Simulator cleanup {command[0]} exceeded {limit}s; continuing independent iPad checks")
+
       # iPhone 전용 앱도 iPad의 호환 화면으로 실행되므로 실제 제보 기종 계열에서 같은 회귀를 검사한다.
       - name: name retry on iPad compatibility screen
         if: ${{ !cancelled() && steps.build_ios_simulator.outcome == 'success' }}
-        timeout-minutes: 8
+        timeout-minutes: 12
         run: |
           IPAD_CHOICE=$(xcrun simctl list devices available -j | jq -c '
             [.devices | to_entries[] | select(.key | contains(".iOS-")) |
@@ -176,7 +194,7 @@ jobs:
           done
 
       - name: export UI screenshots
-        timeout-minutes: 2
+        timeout-minutes: 5
         if: always()
         run: |
           for RESULT in build/ios-review-ui-*.xcresult; do
