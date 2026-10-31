@@ -26,6 +26,16 @@ class SettlementImageTest {
         assertEquals(listOf("-1", "1", "0"), adjustment.values.drop(2).take(3))
         assertEquals("25,000", plan.rows.first { it.values.first() == "이미 결제한 금액" }.values[2])
     }
+    @Test fun 최종송금은_상세차수보다_먼저_보이고_여러_수취인도_구분한다() {
+        val original = view()
+        val result = original.copy(table = original.table.copy(transfers = listOf(TableTransfer(2, 1, 700), TableTransfer(2, 3, 300))))
+        val rows = result.imagePlan().rows
+        val summaryIndex = rows.indexOfFirst { it.values.first().startsWith("최종 보낼 금액") }
+        val roundIndex = rows.indexOfFirst { it.values.first().startsWith("1차") }
+        assertTrue(summaryIndex < roundIndex)
+        assertEquals("보낼 돈 없음", rows[summaryIndex].values[2])
+        assertEquals("→ 김하나 #1\n700원\n\n→ 김하나 #3\n300원", rows[summaryIndex].values[3])
+    }
     @Test fun 금액확정과_입금완료를_구분하고_예상표는_저장하지_않는다() {
         assertTrue(view().canExportImage())
         assertTrue(view().copy(status = "COMPLETED").canExportImage())

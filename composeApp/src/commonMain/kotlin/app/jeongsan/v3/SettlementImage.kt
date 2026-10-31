@@ -23,6 +23,12 @@ fun ServerSettlementTable.imagePlan(): SettlementImagePlan {
         add(SettlementImageRow(listOf("정산어택 · $title"), true, true))
         add(SettlementImageRow(listOf("금액 확정 · 정산방 #$settlementUnitId · $generatedAt 기준 · 단위: 원"), true))
         add(SettlementImageRow(listOf("차수·항목", "결제액") + table.lines.map { "${it.name}\n#${it.participantId}" }, highlighted = true))
+        add(SettlementImageRow(listOf("최종 보낼 금액\n(받는 사람별 송금)", "—") + table.lines.map { person ->
+            table.transfers.filter { it.fromParticipantId == person.participantId }
+                .joinToString("\n\n") { "→ ${name(it.toParticipantId)}\n${won(it.amount)}" }
+                .ifEmpty { "보낼 돈 없음" }
+        }, highlighted = true))
+        add(SettlementImageRow(listOf("아래는 계산 근거입니다 · 송금은 위 '최종 보낼 금액'을 확인해주세요"), true))
         table.rounds.forEach { round ->
             add(SettlementImageRow(listOf("${round.seq}차 · 결제자 ${name(round.payerParticipantId)} · ${won(round.total)}"), true, true))
             val cells = table.lines.map { p -> round.cells.find { it.participantId == p.participantId } }

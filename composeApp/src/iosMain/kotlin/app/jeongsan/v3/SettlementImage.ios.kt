@@ -13,8 +13,12 @@ import org.jetbrains.skia.Image
 import platform.Foundation.*
 import platform.UIKit.*
 
-actual fun encodeSettlementPng(bitmap: ImageBitmap): ByteArray = Image.makeFromBitmap(bitmap.asSkiaBitmap()).use { image ->
-    checkNotNull(image.encodeToData(EncodedImageFormat.PNG)).use { it.bytes }
+actual fun encodeSettlementPng(bitmap: ImageBitmap): ByteArray {
+    val image = Image.makeFromBitmap(bitmap.asSkiaBitmap())
+    try {
+        val data = checkNotNull(image.encodeToData(EncodedImageFormat.PNG))
+        try { return data.bytes } finally { data.close() }
+    } finally { image.close() }
 }
 
 /** 파일 저장/공유는 시스템 창에서 사용자가 결정한다. iPad에서는 팝오버 기준 뷰가 필수다. */
@@ -31,7 +35,7 @@ actual fun rememberSaveSettlementImage(): (ByteArray, String, (SettlementImageSa
             if (!data.writeToFile(path, atomically = true)) callback(SettlementImageSaveResult.FAILED)
             else {
                 val activity = UIActivityViewController(activityItems = listOf(NSURL.fileURLWithPath(path)), applicationActivities = null)
-                activity.view.accessibilityIdentifier = "settlement-image-save-sheet"
+                activity.view.setAccessibilityIdentifier("settlement-image-save-sheet")
                 activity.popoverPresentationController?.sourceView = presenter.view
                 activity.popoverPresentationController?.sourceRect = presenter.view.bounds
                 activity.completionWithItemsHandler = { _, completed, _, error ->
