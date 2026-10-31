@@ -142,8 +142,11 @@ class V3Gateway(private val store: V3Store, private val client: ApiClient?, val 
     suspend fun loadMine(): String? {
         val c = client ?: return null
         return try {
+            // 참석 보상은 다른 브라우저에서 늘어난다. 로그인 당시 숫자를 홈에 계속 남기지 않는다.
+            val me = c.me().toUser(store.state.me)
             val list = c.myGatherings()
             val notes = c.notifications()
+            store.setMe(me)
             store.replaceAllRooms(list.flatMap { it.toRooms() }, list.flatMap { it.viewedUnitIds() })
             store.setNotifications(notes.map { toNotification(it) })
             null

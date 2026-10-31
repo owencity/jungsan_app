@@ -103,6 +103,7 @@ fun HomeScreen(
                 Column(Modifier.padding(start = 14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                     Text(me.displayName, color = JsColor.ink, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold)
                     SpoonChip(me.spoonCount)
+                    if (hostOnly) Text("참석자 한 명마다 +10스푼 · 받은 스푼은 유지돼요", color = JsColor.ink3, fontSize = 11.sp)
                     if (neverHosted) Text("첫 정산을 만들어보세요. 총무를 할수록 캐릭터가 자라요", color = JsColor.ink2, fontSize = 12.sp)
                     // 받을 계좌 — 결제자가 됐을 때 매번 묻지 않게 여기서 미리 넣고 바꾼다
                     val payout = me.payout

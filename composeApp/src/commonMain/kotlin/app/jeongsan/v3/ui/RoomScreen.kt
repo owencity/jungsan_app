@@ -110,6 +110,7 @@ fun RoomScreen(
     onBlock: (Id) -> Unit = {},
     onTable: (() -> Unit)? = null,
     hostOnly: Boolean = false,
+    onRefresh: (() -> Unit)? = null,
 ) {
     var managing by remember { mutableStateOf<Id?>(null) }
     var msgMenu by remember { mutableStateOf<Id?>(null) }
@@ -157,6 +158,7 @@ fun RoomScreen(
             Banner(if (g.status == GatheringStatus.COMPLETED) "입금 확인까지 완료했어요" else "정산 금액이 확정됐어요",
                 app.jeongsan.v3.Tone.DONE, "보낼 대상과 금액이 담긴 이미지를 저장해 단톡방에 공유하세요.")
         } else Banner(act.banner, act.tone, act.note)
+        if (hostOnly && onRefresh != null && g.status == GatheringStatus.OPEN) SubButton("응답 현황 새로고침", onRefresh)
         if (isHost && onTable != null && saveImage == null) SubButton("예상 정산표 보기", onTable)
         // 계좌 안내 등 다른 할 일이 먼저 나와도 총무가 명단을 검토하고 확정할 수 있게 한다.
         if (canSettleNow(g, meUserId) && act.action?.kind != ActionKind.SETTLE) {

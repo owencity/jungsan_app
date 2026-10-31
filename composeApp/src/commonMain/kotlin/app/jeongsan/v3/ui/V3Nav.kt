@@ -280,6 +280,7 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3G
         RoomScreen(
             devBar = devBar(g.id),
             hostOnly = hostOnly,
+            onRefresh = if (hostOnly) ({ scope.fire { gateway.loadRoom(g.id) } }) else null,
             // 신고·차단한 메시지는 빼고 그린다(FC-024) — 서버도 같은 기준으로 걸러 주지만, 다시 읽기 전에도 바로 사라지게
             g = g.copy(timeline = g.visibleTimeline(s.me.id, s.moderation)),
             meUserId = s.me.id,
