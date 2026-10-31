@@ -24,26 +24,39 @@ class SettlementTableTest {
     @Test fun 모든_사람과_차수_조정_송금을_페이지에서_누락하지_않는다() {
         val original = data()
         val table = original.copy(
-            lines = (1L..7L).map { TablePerson(it, "김하나", 100, 0) },
+            lines = (1L..25L).map { TablePerson(it, "김하나", 100, 0) },
             rounds = (1L..5L).map { original.rounds.single().copy(roundId = it) },
             adjustments = (1L..5L).map { TableAdjustment(it, mapOf("1" to -1)) },
             transfers = (1L..7L).flatMap { from -> (8L..12L).map { TableTransfer(from, it, 10) } },
         )
         val pages = table.capturePages()
-        assertTrue(pages.all { it.people.size <= 2 && it.rounds.size <= 2 && it.adjustments.size <= 4 && it.transfers.size <= 4 })
+        assertTrue(pages.all { it.people.size <= 8 && it.rounds.size <= 1 && it.adjustments.size <= 1 && it.transfers.size <= 8 })
         table.lines.forEach { person ->
             val mine = pages.filter { page -> page.people.any { it.participantId == person.participantId } }
             assertEquals(table.rounds, mine.flatMap { it.rounds })
             assertEquals(table.adjustments, mine.flatMap { it.adjustments })
         }
         assertEquals(table.transfers, pages.flatMap { it.transfers })
+        assertEquals(table.lines, pages.filter { it.kind == TablePageKind.SUMMARY }.flatMap { it.people })
+        table.rounds.forEach { round ->
+            assertEquals(table.lines, pages.filter { it.rounds.contains(round) }.flatMap { it.people })
+        }
+        assertEquals(25, table.capturePages(Int.MAX_VALUE).first().people.size)
     }
 
-    @Test fun 긴_금액은_한사람씩_보이고_빈_차수도_최종금액은_보인다() {
+    @Test fun 금액이_길어도_사람을_열로_나누지_않고_빈_차수도_최종금액은_보인다() {
         val table = data().copy(grandTotal = 100_000_000, rounds = emptyList(), adjustments = emptyList(), transfers = emptyList())
         val pages = table.capturePages()
-        assertEquals(2, pages.size)
-        assertTrue(pages.all { it.people.size == 1 })
+        assertEquals(1, pages.size)
+        assertEquals(TablePageKind.SUMMARY, pages.single().kind)
+        assertEquals(table.lines, pages.single().people)
+    }
+
+    @Test fun 열명은_차수별로_8행과_2행으로_나누고_마지막에_전체정산을_둔다() {
+        val table = data().copy(lines = (1L..10L).map { TablePerson(it, "김하나", 100, 0) }, adjustments = emptyList(), transfers = emptyList())
+        val pages = table.capturePages()
+        assertEquals(listOf(8, 2, 8, 2), pages.map { it.people.size })
+        assertEquals(listOf(TablePageKind.ROUND, TablePageKind.ROUND, TablePageKind.SUMMARY, TablePageKind.SUMMARY), pages.map { it.kind })
     }
 
     @Test fun 미응답과_자동응답을_본인_응답처럼_보이지_않는다() {

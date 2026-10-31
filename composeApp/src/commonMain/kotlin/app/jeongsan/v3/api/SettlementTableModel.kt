@@ -25,22 +25,20 @@ import kotlinx.serialization.Serializable
 @Serializable data class TableTransfer(val fromParticipantId: Long, val toParticipantId: Long, val amount: Long)
 
 data class TablePage(
-    val people: List<TablePerson>, val rounds: List<TableRound> = emptyList(),
+    val kind: TablePageKind, val people: List<TablePerson> = emptyList(), val rounds: List<TableRound> = emptyList(),
     val adjustments: List<TableAdjustment> = emptyList(), val transfers: List<TableTransfer> = emptyList(),
 )
 
-/** 좁은 휴대폰에서도 각 금액을 읽도록 사람과 세로 행을 함께 나눈다. 전체 금액은 페이지 합계가 아니다. */
-fun TableData.capturePages(): List<TablePage> = buildList {
-    val peoplePerPage = if (grandTotal >= 100_000_000) 1 else 2
-    lines.chunked(peoplePerPage).forEach { people ->
-        rounds.chunked(2).forEach { add(TablePage(people, rounds = it)) }
-        adjustments.chunked(4).forEach { add(TablePage(people, adjustments = it)) }
-        transfers.filter { t -> people.any { it.participantId == t.fromParticipantId } }
-            .chunked(4).forEach { add(TablePage(people, transfers = it)) }
-        if (rounds.isEmpty() && adjustments.isEmpty() && transfers.none { t -> people.any { it.participantId == t.fromParticipantId } }) {
-            add(TablePage(people))
-        }
-    }
+enum class TablePageKind { ROUND, ADJUSTMENT, SUMMARY, TRANSFER }
+
+/** 인원은 세로로 늘리고 긴 캡처만 행으로 나눈다. 전체 화면은 Int.MAX_VALUE로 분할 없이 표시한다. */
+fun TableData.capturePages(rowsPerPage: Int = 8): List<TablePage> = buildList {
+    require(rowsPerPage > 0)
+    val groups = lines.chunked(rowsPerPage)
+    rounds.forEach { round -> groups.forEach { add(TablePage(TablePageKind.ROUND, it, rounds = listOf(round))) } }
+    adjustments.forEach { adjustment -> groups.forEach { add(TablePage(TablePageKind.ADJUSTMENT, it, adjustments = listOf(adjustment))) } }
+    groups.forEach { add(TablePage(TablePageKind.SUMMARY, it)) }
+    transfers.chunked(rowsPerPage).forEach { add(TablePage(TablePageKind.TRANSFER, transfers = it)) }
 }
 
 fun TableCell.responseLabel(): String {
