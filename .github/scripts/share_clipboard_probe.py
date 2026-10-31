@@ -26,7 +26,11 @@ def main():
             input=f"before-share:{args.case}" if args.mode == "seed" else None,
             capture_output=True, text=True, encoding="utf-8", check=True, timeout=20,
         )
-    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
+    except subprocess.CalledProcessError as error:
+        # 원문 클립보드(stdout)는 출력하지 않고, 기기 상태 등 도구 실패 원인만 보존한다.
+        print(f"::error::Simulator clipboard {command} failed: exit={error.returncode}, stderr={error.stderr[:500]}")
+        return 1
+    except subprocess.TimeoutExpired as error:
         print(f"::error::Simulator clipboard {command} failed: {type(error).__name__}")
         return 1
     if args.mode == "assert":

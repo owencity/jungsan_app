@@ -82,6 +82,7 @@ jobs:
       # 서명 없이 시뮬레이터용 앱을 만든다. Apple 개발자 계정(2026-10-06~)이 생기면 서명·업로드는
       # 별도 릴리스 워크플로가 맡는다. 러너가 Apple Silicon 이라 arm64 하나만 빌드한다.
       - name: build app (simulator, unsigned)
+        id: build_ios_simulator
         run: |
           xcodebuild \
             -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug \
@@ -125,10 +126,12 @@ jobs:
           [ -n "$XCTESTRUN" ] || { echo "::error::UI 테스트 실행 파일을 찾지 못했습니다"; exit 1; }
           for TEST_CASE in testEmptyNameCanBeCorrected testEmptyNameCanBeCorrectedWithKeyboard testPublicDemoRolesResetAndExit testShareCancelKeepsClipboard testShareUnavailableKakaoKeepsClipboard; do
             if [[ "$TEST_CASE" == testShare* ]]; then
+              xcrun simctl bootstatus "$UDID" -b
               python3 .github/scripts/share_clipboard_probe.py seed "$UDID" "$TEST_CASE"
             fi
             xcodebuild test-without-building \
               -xctestrun "$XCTESTRUN" -destination "platform=iOS Simulator,arch=arm64,id=$UDID" \
+              -parallel-testing-enabled NO \
               -resultBundlePath "build/ios-review-ui-$TEST_CASE.xcresult" \
               -only-testing:"iosAppUITests/AppReviewUITests/$TEST_CASE" \
               > "ui-test-$TEST_CASE.log" 2>&1 || {
@@ -139,6 +142,7 @@ jobs:
               }
             tail -n 15 "ui-test-$TEST_CASE.log"
             if [[ "$TEST_CASE" == testShare* ]]; then
+              xcrun simctl bootstatus "$UDID" -b
               python3 .github/scripts/share_clipboard_probe.py assert "$UDID" "$TEST_CASE"
             fi
           done
@@ -146,6 +150,7 @@ jobs:
 
       # iPhone 전용 앱도 iPad의 호환 화면으로 실행되므로 실제 제보 기종 계열에서 같은 회귀를 검사한다.
       - name: name retry on iPad compatibility screen
+        if: ${{ !cancelled() && steps.build_ios_simulator.outcome == 'success' }}
         timeout-minutes: 8
         run: |
           IPAD_CHOICE=$(xcrun simctl list devices available -j | jq -c '
@@ -164,6 +169,7 @@ jobs:
           for TEST_CASE in testEmptyNameCanBeCorrected testEmptyNameCanBeCorrectedWithKeyboard; do
             xcodebuild test-without-building \
               -xctestrun "$XCTESTRUN" -destination "platform=iOS Simulator,arch=arm64,id=$UDID" \
+              -parallel-testing-enabled NO \
               -resultBundlePath "build/ios-review-ui-ipad-$TEST_CASE.xcresult" \
               -only-testing:"iosAppUITests/AppReviewUITests/$TEST_CASE" \
               > "ui-test-ipad-$TEST_CASE.log" 2>&1 || { tail -n 50 "ui-test-ipad-$TEST_CASE.log"; exit 1; }
