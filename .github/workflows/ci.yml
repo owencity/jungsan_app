@@ -102,7 +102,7 @@ jobs:
       # 실제로 뜨는지 본다 — 컴파일은 되는데 실행하자마자 죽는 경우(프레임워크 링크·초기화)를 잡는다.
       # 스크린샷은 아티팩트로 올려 사람이(그리고 Claude가) 눈으로 확인한다.
       - name: launch on simulator + screenshot
-        timeout-minutes: 15
+        timeout-minutes: 20
         run: |
           # JSON의 첫 기기는 이전 런타임일 수 있다. 실제 SDK와 가까운 최신 설치 iOS에서 검사한다.
           SIMULATOR_CHOICE=$(xcrun simctl list devices available -j | jq -c '
@@ -146,7 +146,6 @@ jobs:
               python3 .github/scripts/share_clipboard_probe.py assert "$UDID" "$TEST_CASE"
             fi
           done
-          xcrun simctl shutdown "$UDID"
 
       # iPhone 전용 앱도 iPad의 호환 화면으로 실행되므로 실제 제보 기종 계열에서 같은 회귀를 검사한다.
       - name: name retry on iPad compatibility screen
