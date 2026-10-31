@@ -44,7 +44,7 @@ fun ServerSettlementTable.imagePlan(): SettlementImagePlan {
         table.transfers.forEach { add(SettlementImageRow(listOf("${name(it.fromParticipantId)} → ${name(it.toParticipantId)} : ${won(it.amount)}"), true)) }
         if (table.transfers.isEmpty()) add(SettlementImageRow(listOf("보낼 금액이 없습니다."), true))
         add(SettlementImageRow(listOf("표시 금액의 원 미만 차이는 원 단위 조정에 반영됩니다."), true))
-        add(SettlementImageRow(listOf("이 이미지는 자동 갱신되지 않습니다. 입금 확인 여부는 정산방에서 확인해주세요."), true))
+        add(SettlementImageRow(listOf("이 이미지는 확정 당시 금액입니다. 입금 확인과 문의는 총무에게 해주세요."), true))
     }
     return SettlementImagePlan(width, columns, rows)
 }

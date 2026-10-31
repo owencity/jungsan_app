@@ -13,13 +13,13 @@ class ShareTest {
         assertEquals("https://jungsan.devkdk.com/jungsan/j/k7Qx2", shareUrl("https://jungsan.devkdk.com/", "k7Qx2"))
     }
 
-    @Test fun 응답_받는_중이면_차수마다_마셨는지만_눌러달라고_한다() {
-        assertEquals("[정산어택] 김동규님의 9/28 술자리\n차수마다 마셨는지만 눌러주세요 👉 $url", shareMessage(room(101), url))
+    @Test fun 응답_링크는_가입_없이_이름과_참석_음주만_요청한다() {
+        assertEquals("[정산어택] 김동규님의 9/28 술자리\n가입 없이 이름과 차수별 참석·음주만 알려주세요 👉 $url", shareMessage(room(101), url))
     }
 
-    @Test fun 차수가_없으면_먼저_들어오라고_하고_정산_뒤면_금액_확인을_권한다() {
-        assertTrue(shareMessage(room(101).copy(rounds = emptyList()), url).contains("먼저 들어와 있으면 금액이 나올 때 알려드려요"))
-        assertTrue(shareMessage(room(102), url).contains("정산 금액을 확인하고 보내주세요"))
+    @Test fun 차수_입력_전은_응답을_기다리고_확정_뒤는_이미지로_안내한다() {
+        assertTrue(shareMessage(room(101).copy(rounds = emptyList()), url).contains("총무가 차수를 입력하면"))
+        assertTrue(shareMessage(room(102), url).contains("총무가 공유한 이미지"))
     }
 
     @Test fun 문구에_금액을_넣지_않는다() {
@@ -30,5 +30,12 @@ class ShareTest {
     @Test fun 금액_복사도_숫자만_복사한다() {
         assertEquals("41000", copyableAmount(41_000))
         assertEquals("1234567", copyableAmount(1_234_567))
+    }
+
+    @Test fun 송금_안내는_참여자의_앱_사용을_요구하지_않는다() {
+        val message = paymentRequestMessage(room(102))
+        assertFalse(message.contains("앱에서"))
+        assertFalse(message.contains("보냈어요"))
+        assertTrue(message.contains("총무에게 알려주세요"))
     }
 }

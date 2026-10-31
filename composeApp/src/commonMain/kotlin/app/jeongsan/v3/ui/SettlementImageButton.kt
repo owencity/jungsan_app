@@ -35,7 +35,7 @@ fun SettlementImageButton(view: ServerSettlementTable) {
     var busy by remember(view) { mutableStateOf(false) }
     var message by remember(view) { mutableStateOf<String?>(null) }
     Text("정산 금액이 확정되었습니다!", color = JsColor.ink, fontWeight = FontWeight.Bold)
-    Text("전원이 가로로 들어간 이미지를 저장해 단톡방에 공유하세요. 입금 완료 여부는 정산방에서 확인해주세요.", color = JsColor.ink2, fontSize = 12.sp)
+    Text("전원이 가로로 들어간 이미지를 저장해 단톡방에 공유하세요. 참여자는 앱 없이 보낼 대상과 금액을 확인할 수 있어요.", color = JsColor.ink2, fontSize = 12.sp)
     SubButton(if (busy) "이미지 준비 중…" else "전체 정산표 이미지 저장") {
         if (!busy) {
             busy = true; message = null

@@ -46,6 +46,8 @@ import app.jeongsan.v3.Tone
 import app.jeongsan.v3.User
 import app.jeongsan.v3.daysUntilDelete
 import app.jeongsan.v3.host
+import app.jeongsan.v3.hostedRooms
+import app.jeongsan.v3.showConfirmedImageAction
 import app.jeongsan.v3.initialTab
 import app.jeongsan.v3.myRoomTabs
 import app.jeongsan.v3.nextAction
@@ -76,10 +78,11 @@ fun HomeScreen(
     onEditAccount: () -> Unit,
     /** 계정 메뉴(로그아웃·탈퇴) — 서버 계정이 있을 때만. 탈퇴를 찾기 쉽게 따로 보인다(App Store 5.1.1(v)) */
     onOpenAccount: (() -> Unit)? = null,
+    hostOnly: Boolean = false,
 ) {
-    val tabs = myRoomTabs(rooms, me.id)
+    val tabs = myRoomTabs(if (hostOnly) hostedRooms(rooms, me.id) else rooms, me.id)
     // 보는 사람이 바뀌면 처음 열 탭도 그 사람 기준으로 다시 고른다
-    var tab by remember(me.id) { mutableStateOf(initialTab(tabs, me.id)) }
+    var tab by remember(me.id, hostOnly) { mutableStateOf(initialTab(tabs, me.id)) }
     val neverHosted = me.spoonCount == 0 && rooms.none { it.hostUserId == me.id }
     val list = tabs.getValue(tab)
 
@@ -120,9 +123,9 @@ fun HomeScreen(
             }
         }
 
-        // 탭 — 세 칸을 똑같이 나눈 각진 버튼. 고른 탭은 진하게
+        // 운영 앱은 총무의 진행 중/완료만, 가상 체험은 역할 전환 검증을 유지한다.
         Row(Modifier.fillMaxWidth().border(2.dp, JsColor.ink, RectangleShape)) {
-            HomeTab.entries.forEachIndexed { i, t ->
+            HomeTab.entries.filter { !hostOnly || it != HomeTab.JOINED }.forEachIndexed { i, t ->
                 val on = tab == t
                 val todo = t != HomeTab.DONE && tabHasTodo(tabs.getValue(t), me.id)
                 if (i > 0) Box(Modifier.width(2.dp).height(44.dp).background(JsColor.ink))
@@ -153,7 +156,7 @@ fun HomeScreen(
                 Text(EMPTY.getValue(tab), color = JsColor.ink2, fontSize = 13.5.sp)
             }
         } else {
-            for (g in list) RoomRow(g, me.id, tab, paySeen(g.id)) { onOpen(g.id) }
+            for (g in list) RoomRow(g, me.id, tab, paySeen(g.id), hostOnly) { onOpen(g.id) }
         }
     }
 }
@@ -176,11 +179,12 @@ private fun Bell(unread: Int, onClick: () -> Unit) {
 }
 
 @Composable
-private fun RoomRow(g: Gathering, meId: Id, tab: HomeTab, seen: Boolean, onClick: () -> Unit) {
+private fun RoomRow(g: Gathering, meId: Id, tab: HomeTab, seen: Boolean, hostOnly: Boolean, onClick: () -> Unit) {
     val isHost = g.hostUserId == meId
     val act = nextAction(g, meId)
     val days = g.daysUntilDelete(Clock.System.now())
-    val badge = rowBadge(g, meId, seen)
+    val imageReady = hostOnly && g.showConfirmedImageAction(meId)
+    val badge = if (imageReady) "이미지 저장" else rowBadge(g, meId, seen)
     // 왼쪽 굵은 선 색 = 내가 지금 손대야 하는 방인가
     val edge = when (act.tone) {
         Tone.TODO -> JsColor.p600
@@ -208,7 +212,7 @@ private fun RoomRow(g: Gathering, meId: Id, tab: HomeTab, seen: Boolean, onClick
                     if (g.status == GatheringStatus.COMPLETED) Chip("완료", ChipTone.DONE)
                 }
                 Text(
-                    if (days != null) "${days}일 뒤 사라져요" else act.banner,
+                    if (days != null) "${days}일 뒤 사라져요" else if (imageReady) "정산 금액 확정 · 이미지를 저장해 공유하세요" else act.banner,
                     color = if (act.tone == Tone.TODO) JsColor.p700 else JsColor.ink2,
                     fontSize = 13.sp, fontWeight = if (act.tone == Tone.TODO) FontWeight.Bold else FontWeight.Normal,
                 )

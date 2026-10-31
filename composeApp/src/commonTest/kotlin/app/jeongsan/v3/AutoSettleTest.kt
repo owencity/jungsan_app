@@ -106,14 +106,14 @@ class AutoSettleTest {
         s.actAs(1)
         assertEquals(SettleResult.OK, s.settle(open, g().inputRevision))
         val room = g()
-        val text = paymentRequestMessage(room, "https://x/jungsan/j/k7Qx2")
+        val text = paymentRequestMessage(room)
         assertTrue(text.startsWith("[정산어택] ${room.title} 계산 끝!"))
         for (t in room.transfers) assertTrue(text.contains("${room.nameOf(t.fromParticipantId)} "))
         assertTrue(text.contains(room.host().payout!!.accountNo))
 
         val first = room.transfers.first()
         val done = room.copy(transfers = room.transfers.map { if (it.id == first.id) it.copy(status = TransferStatus.CONFIRMED) else it })
-        assertFalse(paymentRequestMessage(done, "u").contains("· ${room.nameOf(first.fromParticipantId)} "))
+        assertFalse(paymentRequestMessage(done).contains("· ${room.nameOf(first.fromParticipantId)} "))
     }
 }
 

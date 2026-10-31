@@ -241,7 +241,7 @@ fun RoundEditScreen(
             }
         } else {
         Label("누가 냈나요?")
-        Text("다음 장소를 다른 사람이 계산했다면, 그 사람이 정산방에서 [다음 차는 내가 계산했어요]로 새 술자리를 만들면 돼요", color = JsColor.ink3, fontSize = 12.sp, lineHeight = 18.sp)
+        Text("다음 장소를 다른 사람이 계산했다면, 그 사람이 총무로 새 술자리를 만들어 정산할 수 있어요", color = JsColor.ink3, fontSize = 12.sp, lineHeight = 18.sp)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             for (p in g.participants) {
                 val on = payer == p.id
