@@ -35,7 +35,8 @@ actual fun rememberSaveSettlementImage(): (ByteArray, String, (SettlementImageSa
             if (!data.writeToFile(path, atomically = true)) callback(SettlementImageSaveResult.FAILED)
             else {
                 val activity = UIActivityViewController(activityItems = listOf(NSURL.fileURLWithPath(path)), applicationActivities = null)
-                activity.view.setAccessibilityIdentifier("settlement-image-save-sheet")
+                // UIKit 접근성 카테고리의 setter는 Kotlin 바인딩에 없어 NSObject KVC로 지정한다.
+                activity.view.setValue("settlement-image-save-sheet", forKey = "accessibilityIdentifier")
                 activity.popoverPresentationController?.sourceView = presenter.view
                 activity.popoverPresentationController?.sourceRect = presenter.view.bounds
                 activity.completionWithItemsHandler = { _, completed, _, error ->
