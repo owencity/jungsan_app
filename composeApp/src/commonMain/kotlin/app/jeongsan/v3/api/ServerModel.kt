@@ -38,7 +38,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable data class SPayout(val bank: String, val accountNo: String, val holder: String)
 @Serializable data class SParticipant(
-    val id: Long, val userId: Long, val displayName: String, val nickname: String? = null, val spoonCount: Int = 0,
+    val id: Long, val userId: Long?, val displayName: String, val nickname: String? = null, val spoonCount: Int = 0,
     val payout: SPayout? = null,
 )
 @Serializable data class SUnitMe(val included: Boolean = false, val settlementViewed: Boolean = false)

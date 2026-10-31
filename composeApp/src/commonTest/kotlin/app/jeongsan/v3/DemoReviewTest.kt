@@ -30,12 +30,15 @@ class DemoReviewTest {
         assertFalse(store.state.me.needsName)
         store.actAs(3)
         assertNull(gateway.respond(101, mapOf(1010L to ResponseType.SOBER)))
+        assertEquals(GatheringStatus.OPEN, store.state.rooms.getValue(101).status)
+        store.actAs(1)
+        assertEquals(SettleResult.OK, store.settle(101, store.state.rooms.getValue(101).inputRevision))
         val settled = store.state.rooms.getValue(101)
         assertEquals(GatheringStatus.SETTLING, settled.status)
         assertEquals(listOf(10_000L, 10_000L), settled.transfers.map { it.amount })
         for (transfer in settled.transfers) {
             val sender = settled.participants.first { it.id == transfer.fromParticipantId }
-            store.actAs(sender.userId)
+            store.actAs(checkNotNull(sender.userId))
             assertNull(gateway.markSent(101, transfer.id))
             store.actAs(1)
             assertNull(gateway.confirmIncoming(101, transfer.id))

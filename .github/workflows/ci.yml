@@ -125,7 +125,7 @@ jobs:
           # XCTest는 화면 조작만 한다. 각 공유 시나리오 직후 호스트에서 실제 복사값을 대조한다.
           XCTESTRUN=$(find build/dd/Build/Products -maxdepth 1 -name '*.xctestrun' -print -quit)
           [ -n "$XCTESTRUN" ] || { echo "::error::UI 테스트 실행 파일을 찾지 못했습니다"; exit 1; }
-          for TEST_CASE in testEmptyNameCanBeCorrected testEmptyNameCanBeCorrectedWithKeyboard testPublicDemoRolesResetAndExit testShareCancelKeepsClipboard testShareUnavailableKakaoKeepsClipboard; do
+          for TEST_CASE in testEmptyNameCanBeCorrected testEmptyNameCanBeCorrectedWithKeyboard testPublicDemoRolesResetAndExit testShareCancelKeepsClipboard testShareUnavailableKakaoKeepsClipboard testSettlementImageSaveSheet; do
             if [[ "$TEST_CASE" == testShare* ]]; then
               xcrun simctl bootstatus "$UDID" -b
               python3 .github/scripts/share_clipboard_probe.py seed "$UDID" "$TEST_CASE"
@@ -183,7 +183,7 @@ jobs:
           xcrun simctl install "$UDID" build/dd/Build/Products/Debug-iphonesimulator/Jeongsan.app
           XCTESTRUN=$(find build/dd/Build/Products -maxdepth 1 -name '*.xctestrun' -print -quit)
           [ -n "$XCTESTRUN" ] || { echo "::error::UI 테스트 실행 파일을 찾지 못했습니다"; exit 1; }
-          for TEST_CASE in testEmptyNameCanBeCorrected testEmptyNameCanBeCorrectedWithKeyboard; do
+          for TEST_CASE in testEmptyNameCanBeCorrected testEmptyNameCanBeCorrectedWithKeyboard testSettlementImageSaveSheet; do
             xcodebuild test-without-building \
               -xctestrun "$XCTESTRUN" -destination "platform=iOS Simulator,arch=arm64,id=$UDID" \
               -parallel-testing-enabled NO \

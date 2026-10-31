@@ -53,6 +53,10 @@ import app.jeongsan.v3.ui.v3Graph
  */
 @Composable
 fun App() {
+    if (app.jeongsan.v3.isDebugBuild && LaunchOptions.screenshot == "settlement-image") {
+        JeongsanTheme { app.jeongsan.v3.ui.SettlementImagePreview() }
+        return
+    }
     val realClient = remember {
         if (apiBaseUrl.isEmpty() || LaunchOptions.screenshot != null) null
         else ApiClient(apiBaseUrl, platformTokenStore()).also { AppAuth.store = platformVerifierStore() }

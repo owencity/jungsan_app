@@ -70,6 +70,7 @@ import app.jeongsan.v3.initialOf
 import app.jeongsan.v3.host
 import app.jeongsan.v3.nameOf
 import app.jeongsan.v3.nextAction
+import app.jeongsan.v3.showConfirmedImageAction
 import app.jeongsan.v3.participantOfUser
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
@@ -107,6 +108,9 @@ fun RoomScreen(
     onReport: (Id, ReportReason) -> Unit = { _, _ -> },
     /** 그 메시지를 쓴 사람 차단(FC-024) — 메시지만 숨긴다 */
     onBlock: (Id) -> Unit = {},
+    onTable: (() -> Unit)? = null,
+    hostOnly: Boolean = false,
+    onRefresh: (() -> Unit)? = null,
 ) {
     var managing by remember { mutableStateOf<Id?>(null) }
     var msgMenu by remember { mutableStateOf<Id?>(null) }
@@ -116,6 +120,7 @@ fun RoomScreen(
     // 정산하기 이후엔 계산 입력이 고정이라 차수를 고칠 수 없다
     val canEditRounds = isHost && g.status == GatheringStatus.OPEN
     val act = nextAction(g, meUserId)
+    val saveImage = onTable?.takeIf { hostOnly && g.showConfirmedImageAction(meUserId) }
     val incoming = if (me == null) emptyList() else g.transfers.filter { it.toParticipantId == me.id && it.status != TransferStatus.CONFIRMED }
 
     V3Screen(
@@ -125,11 +130,12 @@ fun RoomScreen(
             TopTitle(g.title)
             if (g.status == GatheringStatus.COMPLETED) Chip("완료", ChipTone.DONE)
             // 총무는 하단 버튼이 다른 일이어도 언제든 링크를 다시 보낼 수 있게(웹의 ⋯ 자리)
-            if (isHost && g.status != GatheringStatus.COMPLETED) MiniButton("링크 공유", onClick = onShare)
+            if (isHost && (if (hostOnly) g.status == GatheringStatus.OPEN else g.status != GatheringStatus.COMPLETED)) MiniButton("링크 공유", onClick = onShare)
         },
         bottom = {
-            if (me != null) ChatInput(onSend)
-            act.action?.let { a -> CtaButton(a.label, accent = a.kind == ActionKind.GIVE_SPOON) { onAction(a.kind) } }
+            if (me != null && !hostOnly) ChatInput(onSend)
+            if (saveImage != null) CtaButton("정산표 보기 · 이미지 저장", onClick = saveImage)
+            else act.action?.let { a -> CtaButton(a.label, accent = a.kind == ActionKind.GIVE_SPOON) { onAction(a.kind) } }
         },
     ) {
         // 총무 카드
@@ -148,11 +154,16 @@ fun RoomScreen(
             }
         }
 
-        Banner(act.banner, act.tone, act.note)
-        // 인원을 넣어 자동 정산을 기다리는 중 — 끝까지 안 들어오는 사람이 있으면 총무가 직접 마무리(FC-020)
+        if (saveImage != null) {
+            Banner(if (g.status == GatheringStatus.COMPLETED) "입금 확인까지 완료했어요" else "정산 금액이 확정됐어요",
+                app.jeongsan.v3.Tone.DONE, "보낼 대상과 금액이 담긴 이미지를 저장해 단톡방에 공유하세요.")
+        } else Banner(act.banner, act.tone, act.note)
+        if (hostOnly && onRefresh != null && g.status == GatheringStatus.OPEN) SubButton("응답 현황 새로고침", onRefresh)
+        if (isHost && onTable != null && saveImage == null) SubButton("예상 정산표 보기", onTable)
+        // 계좌 안내 등 다른 할 일이 먼저 나와도 총무가 명단을 검토하고 확정할 수 있게 한다.
         if (canSettleNow(g, meUserId) && act.action?.kind != ActionKind.SETTLE) {
             Text(
-                "안 들어온 사람이 있나요? 지금 계산하기",
+                "명단 확인 · 정산 확정",
                 Modifier.fillMaxWidth().clickable { onAction(ActionKind.SETTLE) }.semantics { role = Role.Button }.padding(vertical = 4.dp),
                 color = JsColor.ink3, fontSize = 13.sp, textAlign = TextAlign.End, textDecoration = TextDecoration.Underline,
             )
@@ -240,7 +251,7 @@ fun RoomScreen(
             }
         }
 
-        Timeline(g, me?.id, meUserId) { msgMenu = it }
+        if (!hostOnly) Timeline(g, me?.id, meUserId) { msgMenu = it }
     }
 }
 

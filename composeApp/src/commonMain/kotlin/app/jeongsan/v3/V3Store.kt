@@ -87,10 +87,10 @@ class V3Store(
     /** 술자리를 바꾸고, 바뀐 만큼 알림을 쌓는다(행동한 본인은 빼고) — 서버의 이벤트 → 알림 흉내 */
     private fun commit(prev: Gathering, after: Gathering) {
         if (after == prev) return
-        // 자동 정산(FC-020) — 어떤 동작이든(응답·참여·대리 응답·인원 변경·차수 삭제) "모두 모였다"로 바뀐 순간 정산한다.
+        // FC-029: 입력은 저장하되 확정하지 않는다.
         // 알림 규칙처럼 전·후만 보고 정해서, 경로마다 정산 코드를 흩뿌리지 않는다. 웹 store commit 과 같다
-        // 보류 중(autoSettlementError)이면 변경마다 다시 판정한다 — 서버도 차수 수정·인원 변경 뒤 다시 판정한다
-        val next = if (after.allIn() && (!prev.allIn() || prev.autoSettlementError != null)) autoSettle(after) else after
+        // FC-029: 응답·명단 변경만으로 확정하지 않는다.
+        val next = after
         val s = state
         val startId = (s.notifications.maxOfOrNull { it.id } ?: 0) + 1
         val fresh = notificationsFor(prev, next)
@@ -124,7 +124,7 @@ class V3Store(
     fun blockParticipant(roomId: Id, participantId: Id) {
         val p = state.rooms[roomId]?.participants?.find { it.id == participantId } ?: return
         val m = state.moderation
-        if (p.userId == me.id || m.blocks.any { it.blockerUserId == me.id && it.blockedUserId == p.userId }) return
+        if (p.userId == null || p.userId == me.id || m.blocks.any { it.blockerUserId == me.id && it.blockedUserId == p.userId }) return
         state = state.copy(moderation = m.copy(blocks = m.blocks + Block(me.id, p.userId, p.displayName)))
     }
 
@@ -282,34 +282,18 @@ class V3Store(
             return SettleResult.DENIED
         }
         if (g.inputRevision != inputRevision) return SettleResult.STALE
-        commit(g, settleNow(g, auto = false))
+        commit(g, settleNow(g))
         return SettleResult.OK
     }
 
     /**
-     * 정산(서버 흉내) — 미리보기대로 송금을 만들고 금액을 고정한다. 수동([지금 계산하기])과 자동(FC-020)이 같이 쓴다.
+     * 정산(서버 흉내) — 미리보기대로 송금을 만들고 금액을 고정한다. 총무의 명시적 확정에서만 호출한다(FC-029).
      * 응답 없는 칸은 전 차수 참석·알코올(AUTO)로 채운다. 보낼 돈이 하나도 없으면 바로 완료
      */
-    /**
-     * 자동 계산(FC-020) — 인원 밖 사람이 결제자면 빼면 그 차수의 돈을 받을 사람이 사라져서 확정하지 않고 사유만 남긴다
-     * (서버 AUTO_SETTLEMENT REMOVE_PAYER, CTO 승인 2026-10-10). 웹 store autoSettle 과 같다
-     */
-    private fun autoSettle(g: Gathering): Gathering =
-        if (g.extraPayers().isNotEmpty()) g.copy(autoSettlementError = "REMOVE_PAYER")
-        else settleNow(g.copy(autoSettlementError = null), auto = true)
-
-    private fun settleNow(source: Gathering, auto: Boolean): Gathering {
-        // 자동 정산은 인원 안의 사람만 — 인원 밖에 들어온 사람은 이번 정산에서 빠진다(총무가 [포함하기]를 안 눌렀다).
-        // 수동([지금 계산하기])은 총무가 명단을 보고 직접 누른 것이라 그대로 둔다(빼려면 [내보내기]). 웹 settleNow 와 같다
-        val extras = if (auto) source.extraParticipants() else emptyList()
-        val out = extras.map { it.id }.toSet()
-        val g = if (extras.isEmpty()) source else source.copy(
-            participants = source.participants.filter { it.id !in out },
-            responses = source.responses.filter { it.participantId !in out },
-        ).push(TimelineType.SYSTEM, "${extras.joinToString("·") { it.displayName }}님은 인원(${source.headcount}명) 밖이라 이번 정산에서 빠졌어요")
+    private fun settleNow(g: Gathering): Gathering {
         val preview = mockPreview(g)
         val autoNames = preview.lines.filter { it.auto }.map { g.nameOf(it.participantId) }
-        val who = if (auto) "모두 응답해서 자동으로 계산했어요" else "${g.host().displayName}님이 정산했어요"
+        val who = "${g.host().displayName}님이 정산했어요"
         val body = if (autoNames.isNotEmpty()) "$who · ${autoNames.joinToString("·")}님은 응답이 없어 전 차수 참석·알코올로 계산됐어요" else who
         val settled = g.copy(
             status = GatheringStatus.SETTLING,
@@ -321,7 +305,7 @@ class V3Store(
         return settled.push(TimelineType.SYSTEM, body).completeIfDone()
     }
 
-    /** 인원(총무 포함, FC-020) — 총무·정산 전. 2~50으로 맞춘다. 이 인원이 모두 응답하면 자동 정산 */
+    /** 인원(총무 포함, FC-020) — 총무·정산 전. 2~50으로 맞춘다. 예상 인원 안내용이며 확정은 총무가 별도로 한다 */
     fun setHeadcount(roomId: Id, headcount: Int) = update(roomId) { g, _ ->
         if (g.hostUserId != me.id || g.status != GatheringStatus.OPEN) return@update g
         val n = headcount.coerceIn(HEADCOUNT_MIN, HEADCOUNT_MAX)

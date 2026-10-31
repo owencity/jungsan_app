@@ -40,6 +40,7 @@ class GatewayTest {
     }
 
     private val base = mapOf(
+        "GET /api/v1/auth/me" to (HttpStatusCode.OK to """{"id":2,"nickname":"민지","displayName":"이민지","needsName":false,"spoonCount":30}"""),
         "GET /api/v1/me/gatherings" to (HttpStatusCode.OK to "[${Fixtures.DETAIL_B}]"),
         "GET /api/v1/me/notifications" to (HttpStatusCode.OK to "[]"),
         "GET /api/v1/gatherings/1" to (HttpStatusCode.OK to Fixtures.DETAIL_B),
@@ -52,6 +53,14 @@ class GatewayTest {
         gw.loadMine()
         assertEquals(setOf(1L, 2L), store.state.rooms.keys)
         assertEquals(1L, store.state.rooms[2]?.gatheringId)
+        assertEquals(30, store.state.me.spoonCount)
+    }
+
+    @Test fun 방이_만료되어_목록이_비어도_서버_누적_스푼은_홈에_갱신된다() = runTest {
+        val (gateway, store) = gateway(base + ("GET /api/v1/me/gatherings" to (HttpStatusCode.OK to "[]")))
+        gateway.loadMine()
+        assertTrue(store.state.rooms.isEmpty())
+        assertEquals(30, store.state.me.spoonCount)
     }
 
     @Test fun 정산_단위_경로는_술자리_id와_단위_id를_같이_쓰고_바꾼_뒤에는_술자리를_다시_읽는다() = runTest {

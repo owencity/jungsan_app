@@ -27,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -47,6 +48,8 @@ import app.jeongsan.v3.SettleResult
 import app.jeongsan.v3.Target
 import app.jeongsan.v3.V3Store
 import app.jeongsan.v3.entryTarget
+import app.jeongsan.v3.hostAppTarget
+import app.jeongsan.v3.hostNotifications
 import app.jeongsan.v3.participantOfUser
 import app.jeongsan.v3.roundsPaidBy
 import app.jeongsan.v3.SHARE_BASE
@@ -68,6 +71,7 @@ object V3Routes {
     const val Settle = "v3/r/{id}/settle"
     const val Respond = "v3/r/{id}/respond"
     const val Pay = "v3/r/{id}/pay"
+    const val Table = "v3/r/{id}/table"
     /** A1 — 계좌는 사람 단위지만, 저장 뒤 왔던 정산방으로 돌아가도록 정산방 아래에 둔다 */
     const val Account = "v3/r/{id}/account"
     /** 내 술자리에서 여는 계좌 화면 — 저장하면 내 술자리로 */
@@ -84,6 +88,7 @@ object V3Routes {
     fun settle(id: Id) = "v3/r/$id/settle"
     fun respond(id: Id) = "v3/r/$id/respond"
     fun pay(id: Id) = "v3/r/$id/pay"
+    fun table(id: Id) = "v3/r/$id/table"
     fun account(id: Id) = "v3/r/$id/account"
 }
 
@@ -129,6 +134,8 @@ private fun rememberLoaded(gateway: V3Gateway, key: Any?, load: suspend () -> St
 private fun CoroutineScope.fire(block: suspend () -> String?) = launch { block()?.let(V3Toast::show) }
 
 fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3Gateway, onLeave: () -> Unit) {
+    // 가상 체험의 역할 전환과 달리 실제 계정은 총무 기능만 사용한다(FC-030).
+    val hostOnly = gateway.isApiMode
     // 개발용 바 — 지금 보는 술자리(있으면)에서 각 사람의 역할을 같이 보여준다. 릴리스 빌드·API 모드에는 없다
     val devBar: (Id?) -> @Composable () -> Unit = { roomId ->
         // 스크린샷 모드(스토어 사진)에는 개발용 바를 그리지 않는다
@@ -179,7 +186,7 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3G
             me = s.me,
             rooms = s.rooms.values,
             paySeen = { s.isPaySeen(it) },
-            unread = s.myNotifications().count { !it.read },
+            unread = (if (hostOnly) hostNotifications(s.myNotifications(), s.rooms.values, s.me.id) else s.myNotifications()).count { !it.read },
             onBack = onLeave,
             // 참여자는 정산방보다 할 일 화면(응답하기·내 금액)을 먼저
             onOpen = { id -> nav.toTarget(entryTarget(s.rooms.getValue(id), s.me.id, s.isPaySeen(id))) },
@@ -196,11 +203,13 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3G
             onEditAccount = { nav.navigate(V3Routes.MyAccount) },
             // 계정 메뉴는 계좌 화면 맨 아래에 있다 — 같은 화면으로 간다
             onOpenAccount = if (gateway.isApiMode || gateway.isDemoMode) ({ nav.navigate(V3Routes.MyAccount) }) else null,
+            hostOnly = hostOnly,
         )
     }
 
     composable(V3Routes.Join) { entry ->
         val token = entry.strArg("token").orEmpty()
+        if (hostOnly) return@composable ParticipantWeb(token) { nav.toHome() }
         val s = store.state
         // 이미 들어가 있는 정산방이 있으면 입구 대신 그리로 안내한다(EntryScreen 이 "이미 참여 중"을 띄운다)
         val mineHere = s.rooms.values.find { it.shareToken == token && it.participantOfUser(s.me.id) != null }
@@ -244,12 +253,12 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3G
         rememberLoaded(gateway, Unit) { gateway.loadMine() }
         NotificationsScreen(
             devBar = devBar(null),
-            items = store.state.myNotifications(),
+            items = if (hostOnly) hostNotifications(store.state.myNotifications(), store.state.rooms.values, store.state.me.id) else store.state.myNotifications(),
             onBack = { nav.popBackStack() },
             onReadAll = { scope.launch { gateway.markAllRead() } },
             onOpen = { n ->
                 scope.launch { gateway.markRead(n.id) }
-                nav.toTarget(n.target)
+                nav.toTarget(if (hostOnly) hostAppTarget(n.target, store.state.rooms.values, store.state.me.id) else n.target)
             },
         )
     }
@@ -263,12 +272,15 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3G
         val demoShare = "정산어택 데모 체험 (가상 데이터, 실제 송금 없음)\nhttps://jungsan-api.devkdk.com/api/v1/review/demo\n앱에서 총무·참여자 역할을 전환해보세요."
         val loaded = rememberLoaded(gateway, id) { id?.let { gateway.loadRoom(it) } }
         val g = id?.let { s.rooms[it] } ?: return@composable Missing(loaded)
+        if (hostOnly && g.hostUserId != s.me.id) return@composable ParticipantWeb(g.shareToken) { nav.toHome() }
         // 같은 술자리에 내가 총무인 정산방이 이미 있으면(다음 차를 이미 맡음) 새로 만들지 않고 그리로
         val myNext = s.rooms.values.find {
             it.id != g.id && it.hostUserId == s.me.id && it.gatheringId != null && it.gatheringId == g.gatheringId
         }
         RoomScreen(
             devBar = devBar(g.id),
+            hostOnly = hostOnly,
+            onRefresh = if (hostOnly) ({ scope.fire { gateway.loadRoom(g.id) } }) else null,
             // 신고·차단한 메시지는 빼고 그린다(FC-024) — 서버도 같은 기준으로 걸러 주지만, 다시 읽기 전에도 바로 사라지게
             g = g.copy(timeline = g.visibleTimeline(s.me.id, s.moderation)),
             meUserId = s.me.id,
@@ -280,6 +292,7 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3G
                 scope.launch { gateway.blockParticipant(g.id, pid)?.let(V3Toast::show) ?: V3Toast.show("${name}님을 차단했어요. 내 계정에서 풀 수 있어요") }
             },
             onBack = { nav.toHome() },
+            onTable = if (gateway.isApiMode && g.hostUserId == s.me.id) ({ nav.navigate(V3Routes.table(g.id)) }) else null,
             onAction = { kind ->
                 when (kind) {
                     ActionKind.GIVE_SPOON -> gateway.giveSpoon(g.id)?.let(V3Toast::show)
@@ -290,8 +303,8 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3G
                     ActionKind.REGISTER_ACCOUNT -> nav.navigate(V3Routes.account(g.id))
                     ActionKind.SHARE -> share(if (gateway.isDemoMode) demoShare else shareMessage(g, shareUrl(SHARE_BASE, g.shareToken)))
                     // 계산이 끝나면 단톡방에 사람별 금액·계좌(FC-020)
-                    ActionKind.REQUEST_PAYMENT -> share(if (gateway.isDemoMode) demoShare else paymentRequestMessage(g, shareUrl(SHARE_BASE, g.shareToken)))
-                    // 인원을 들어온 사람 수로 — 모두 응답했으면 이 순간 자동 정산된다
+                    ActionKind.REQUEST_PAYMENT -> share(if (gateway.isDemoMode) demoShare else paymentRequestMessage(g))
+                    // 인원을 들어온 사람 수로 — 목표 인원 안내만 수정하며 확정하지 않는다
                     ActionKind.INCLUDE_EXTRA -> scope.fire { gateway.setHeadcount(g.id, g.participants.size) }
                     // 받을 돈 목록이 화면 안에 있다
                     ActionKind.CONFIRM_INCOMING -> Unit
@@ -401,6 +414,8 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3G
         val mine = g?.participantOfUser(s.me.id)
         when {
             g == null -> Missing(loaded)
+            hostOnly && g.hostUserId != s.me.id -> ParticipantWeb(g.shareToken) { nav.toHome() }
+            hostOnly -> Soon(devBar(g.id), "내 참석·음주 선택은 차수 입력에서 바꿀 수 있어요") { nav.toRoom(g.id) }
             mine == null -> Soon(devBar(null), "이 술자리에 참여하지 않았어요") { nav.toHome() }
             g.status != GatheringStatus.OPEN -> Soon(devBar(g.id), "정산된 뒤에는 응답을 고칠 수 없어요") { nav.toRoom(g.id) }
             g.rounds.isEmpty() -> Soon(devBar(g.id), "아직 차수가 없어요") { nav.toRoom(g.id) }
@@ -444,6 +459,8 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3G
         val g = entry.idArg()?.let { s.rooms[it] }
         if (g == null || g.participantOfUser(s.me.id) == null) {
             Soon(devBar(null), "이 술자리에 참여하지 않았어요") { nav.toHome() }
+        } else if (hostOnly && g.hostUserId != s.me.id) {
+            ParticipantWeb(g.shareToken) { nav.toHome() }
         } else {
             AccountScreen(
                 devBar = devBar(g.id),
@@ -451,6 +468,17 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3G
                 onBack = { nav.toRoom(g.id) },
                 onSave = { p -> scope.launch { gateway.registerPayout(p)?.let(V3Toast::show) ?: nav.toRoom(g.id) } },
             )
+        }
+    }
+
+    composable(V3Routes.Table) { entry ->
+        val id = entry.idArg() ?: return@composable Missing(true)
+        val loaded = rememberLoaded(gateway, id) { gateway.loadRoom(id) }
+        val g = store.state.rooms[id] ?: return@composable Missing(loaded)
+        if (!gateway.isApiMode || g.hostUserId != store.state.me.id) {
+            Soon(devBar(id), "총무만 정산표를 볼 수 있어요") { nav.toRoom(id) }
+        } else {
+            SettlementTableScreen(id, gateway, onBack = { nav.popBackStack() })
         }
     }
 
@@ -463,6 +491,10 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3G
         val mine = g?.participantOfUser(s.me.id)
         when {
             g == null -> Missing(loaded)
+            hostOnly && g.hostUserId != s.me.id -> ParticipantWeb(g.shareToken) { nav.toHome() }
+            hostOnly -> {
+                LaunchedEffect(g.id) { nav.toRoom(g.id) }
+            }
             mine == null -> Soon(devBar(null), "이 술자리에 참여하지 않았어요") { nav.toHome() }
             g.status == GatheringStatus.OPEN -> Soon(devBar(g.id), "아직 정산 전이에요") { nav.toRoom(g.id) }
             else -> PayScreen(
@@ -474,6 +506,21 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3G
                 onSent = { tid -> scope.fire { gateway.markSent(g.id, tid) } },
             )
         }
+    }
+}
+
+/** 예전 앱 경로를 열어도 가입/방 입장 대신 응답 웹으로 안내한다. */
+@Composable
+private fun ParticipantWeb(token: String, onHome: () -> Unit) {
+    val uriHandler = LocalUriHandler.current
+    V3Screen(devBar = {}, top = { BackButton(onHome) }) {
+        Text("참여 응답은 웹에서 간단하게", color = JsColor.ink, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Text("가입 없이 이름과 차수별 참석·음주만 알려주세요. 정산 결과는 총무가 이미지로 보내드려요.", color = JsColor.ink2)
+        if (token.isNotBlank()) SubButton("웹에서 응답하기") {
+            try { uriHandler.openUri(shareUrl(SHARE_BASE, token)) }
+            catch (_: Exception) { V3Toast.show("웹을 열지 못했어요. 총무가 보낸 링크를 브라우저에서 열어주세요") }
+        }
+        SubButton("내가 총무인 술자리 보기", onHome)
     }
 }
 

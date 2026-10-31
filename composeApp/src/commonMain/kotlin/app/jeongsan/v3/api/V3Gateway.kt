@@ -44,6 +44,12 @@ class V3Gateway(private val store: V3Store, private val client: ApiClient?, val 
     init { require(!isDemoMode || client == null) { "체험에는 실제 API 클라이언트를 연결하지 않습니다." } }
     val isApiMode get() = client != null
 
+    suspend fun settlementTable(roomId: Id): ServerSettlementTable {
+        val c = checkNotNull(client) { "정산표는 서버 연결이 필요합니다." }
+        val (gid, uid) = ctx(roomId)
+        return c.settlementTable(gid, uid)
+    }
+
     // ── 도우미 ──
 
     /** 정산방 → 서버 경로에 쓰는 (술자리 id, 정산 단위 id) */
@@ -136,8 +142,11 @@ class V3Gateway(private val store: V3Store, private val client: ApiClient?, val 
     suspend fun loadMine(): String? {
         val c = client ?: return null
         return try {
+            // 참석 보상은 다른 브라우저에서 늘어난다. 로그인 당시 숫자를 홈에 계속 남기지 않는다.
+            val me = c.me().toUser(store.state.me)
             val list = c.myGatherings()
             val notes = c.notifications()
+            store.setMe(me)
             store.replaceAllRooms(list.flatMap { it.toRooms() }, list.flatMap { it.viewedUnitIds() })
             store.setNotifications(notes.map { toNotification(it) })
             null
@@ -352,7 +361,7 @@ class V3Gateway(private val store: V3Store, private val client: ApiClient?, val 
         }
     }
 
-    /** 인원(FC-020) — R1 [포함하기]. 서버는 바꾼 뒤 자동 정산 판정을 한 번 돈다 */
+    /** 인원(FC-020) — R1 [포함하기]. 서버는 목표 인원을 바꿔도 확정하지 않는다 */
     suspend fun setHeadcount(roomId: Id, headcount: Int): String? {
         val c = client ?: run { store.setHeadcount(roomId, headcount); return null }
         val (gid, uid) = ctx(roomId)

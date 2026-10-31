@@ -3,6 +3,20 @@ import XCTest
 final class AppReviewUITests: XCTestCase {
     private let application = XCUIApplication()
 
+    func testSettlementImageSaveSheet() {
+        continueAfterFailure = false
+        executionTimeAllowance = 180
+        application.launchArguments = ["-jsScreen", "settlement-image"]
+        application.launch()
+        expect("가상 데이터 · 이미지 저장 검증")
+        element("전체 정산표 이미지 저장").tap()
+        XCTAssertTrue(application.descendants(matching: .any)
+            .matching(identifier: "settlement-image-save-sheet").firstMatch.waitForExistence(timeout: 30))
+        capture("ios-settlement-image-save-sheet")
+        // 사용자 저장/전송 선택 없이 창이 열리고 앱이 살아 있는지만 확인한다.
+        application.terminate()
+    }
+
     private func element(_ label: String) -> XCUIElement {
         application.descendants(matching: .any)
             .matching(NSPredicate(format: "label == %@", label)).firstMatch
@@ -22,14 +36,34 @@ final class AppReviewUITests: XCTestCase {
 
     private func expectValue(_ value: String, in field: XCUIElement) {
         let entered = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", value), object: field)
-        XCTAssertEqual(XCTWaiter.wait(for: [entered], timeout: 10), .completed, "입력한 전체 이름이 반영되어야 한다")
+        let result = XCTWaiter.wait(for: [entered], timeout: 10)
+        if result != .completed {
+            capture("ios-name-input-mismatch")
+            print("Name input mismatch: expected=\(value), actual=\(String(describing: field.value))")
+        }
+        XCTAssertEqual(result, .completed, "입력한 전체 이름이 반영되어야 한다")
     }
 
     private func dismissKeyboardIntroduction() {
-        // 새 시뮬레이터의 첫 영문 입력에서 뜨는 iOS 안내를 닫는다. 앱 검증을 대신하는 처리는 아니다.
-        let introduction = application.staticTexts["Speed up your typing by sliding your finger across the letters to compose a word."]
-        if introduction.exists {
-            application.buttons["Continue"].tap()
+        // 첫 키보드 안내는 키보드가 보인 뒤 늦게 나타날 수 있다. 즉시 exists 검사만 하면
+        // 입력 이벤트가 안내 화면에 소모된다(CI 41218722488 iPhone 녹화). 이름 입력 재시도는 하지 않는다.
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let message = "Speed up your typing by sliding your finger across the letters to compose a word."
+        let appIntroduction = application.staticTexts[message]
+        let systemIntroduction = springboard.staticTexts[message]
+        let appeared = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            appIntroduction.exists || systemIntroduction.exists
+        }, object: nil)
+        if XCTWaiter.wait(for: [appeared], timeout: 10) == .completed {
+            let owner = appIntroduction.exists ? application : springboard
+            let next = owner.buttons["Continue"]
+            XCTAssertTrue(next.waitForExistence(timeout: 5))
+            next.tap()
+            let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                !appIntroduction.exists && !systemIntroduction.exists
+            }, object: nil)
+            XCTAssertEqual(XCTWaiter.wait(for: [dismissed], timeout: 5), .completed,
+                           "시스템 키보드 안내를 닫은 후 입력해야 한다")
         }
     }
 
@@ -76,8 +110,9 @@ final class AppReviewUITests: XCTestCase {
             .firstMatch
         XCTAssertTrue(name.waitForExistence(timeout: 10))
         name.tap()
-        name.typeText("ShareHost")
+        XCTAssertTrue(application.keyboards.firstMatch.waitForExistence(timeout: 10))
         dismissKeyboardIntroduction()
+        name.typeText("ShareHost")
         expectValue("ShareHost", in: name)
         application.descendants(matching: .any)
             .matching(NSPredicate(format: "label BEGINSWITH %@", "이용약관에 동의합니다"))
@@ -130,7 +165,6 @@ final class AppReviewUITests: XCTestCase {
         XCTAssertLessThanOrEqual(name.frame.maxY, element("이 이름으로 시작").frame.minY, "고정 시작 버튼이 이름칸을 덮지 않아야 한다")
         XCTAssertLessThanOrEqual(element("이름을 넣어주세요").frame.maxY, element("이 이름으로 시작").frame.minY, "고정 시작 버튼이 오류 안내를 덮지 않아야 한다")
         name.typeText("RetryHost")
-        dismissKeyboardIntroduction()
         expectValue("RetryHost", in: name)
         XCTAssertFalse(element("이름을 넣어주세요").exists)
         capture("ios-name-corrected")
