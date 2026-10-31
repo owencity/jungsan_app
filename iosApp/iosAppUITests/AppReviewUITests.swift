@@ -19,6 +19,19 @@ final class AppReviewUITests: XCTestCase {
         add(attachment)
     }
 
+    private func expectValue(_ value: String, in field: XCUIElement) {
+        let entered = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", value), object: field)
+        XCTAssertEqual(XCTWaiter.wait(for: [entered], timeout: 10), .completed, "입력한 전체 이름이 반영되어야 한다")
+    }
+
+    private func dismissKeyboardIntroduction() {
+        // 새 시뮬레이터의 첫 영문 입력에서 뜨는 iOS 안내를 닫는다. 앱 검증을 대신하는 처리는 아니다.
+        let introduction = application.staticTexts["Speed up your typing by sliding your finger across the letters to compose a word."]
+        if introduction.exists {
+            application.buttons["Continue"].tap()
+        }
+    }
+
     func testPublicDemoRolesResetAndExit() {
         continueAfterFailure = false
         executionTimeAllowance = 180
@@ -63,6 +76,8 @@ final class AppReviewUITests: XCTestCase {
         XCTAssertTrue(name.waitForExistence(timeout: 10))
         name.tap()
         name.typeText("ShareHost")
+        dismissKeyboardIntroduction()
+        expectValue("ShareHost", in: name)
         application.descendants(matching: .any)
             .matching(NSPredicate(format: "label BEGINSWITH %@", "이용약관에 동의합니다"))
             .firstMatch.tap()
@@ -89,6 +104,7 @@ final class AppReviewUITests: XCTestCase {
         if keyboardFirst {
             name.tap()
             XCTAssertTrue(application.keyboards.firstMatch.waitForExistence(timeout: 10))
+            dismissKeyboardIntroduction()
         }
         application.descendants(matching: .any)
             .matching(NSPredicate(format: "label BEGINSWITH %@", "이용약관에 동의합니다"))
@@ -101,9 +117,15 @@ final class AppReviewUITests: XCTestCase {
         XCTAssertTrue(name.isHittable, "빈 이름 검증 뒤 이름칸을 다시 누를 수 있어야 한다")
         name.tap()
         XCTAssertTrue(application.keyboards.firstMatch.waitForExistence(timeout: 10))
+        dismissKeyboardIntroduction()
         XCTAssertTrue(name.isHittable, "키보드가 열린 뒤에도 이름칸을 누를 수 있어야 한다")
+        XCTAssertTrue(element("이름을 넣어주세요").isHittable, "입력칸 아래 오류 안내도 키보드 위에 보여야 한다")
         XCTAssertFalse(name.frame.intersects(element("이름을 넣어주세요").frame), "키보드가 열린 뒤에도 오류와 이름칸이 겹치지 않아야 한다")
+        XCTAssertLessThanOrEqual(name.frame.maxY, element("이 이름으로 시작").frame.minY, "고정 시작 버튼이 이름칸을 덮지 않아야 한다")
+        XCTAssertLessThanOrEqual(element("이름을 넣어주세요").frame.maxY, element("이 이름으로 시작").frame.minY, "고정 시작 버튼이 오류 안내를 덮지 않아야 한다")
         name.typeText("RetryHost")
+        dismissKeyboardIntroduction()
+        expectValue("RetryHost", in: name)
         XCTAssertFalse(element("이름을 넣어주세요").exists)
         capture("ios-name-corrected")
         element("이 이름으로 시작").tap()

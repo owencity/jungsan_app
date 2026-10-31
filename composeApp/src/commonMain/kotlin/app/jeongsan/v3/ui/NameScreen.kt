@@ -6,8 +6,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -19,6 +23,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.semantics.Role
@@ -32,6 +37,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
@@ -76,7 +82,9 @@ fun NameScreen(
     // 이용약관 동의(FC-024) — 체크해야 시작할 수 있다
     var agreed by remember(me.id) { mutableStateOf(false) }
     val nameFocus = remember(me.id) { FocusRequester() }
+    val nameArea = remember(me.id) { BringIntoViewRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
+    val keyboardHeight = WindowInsets.ime.getBottom(LocalDensity.current)
     var invalidAttempts by remember(me.id) { mutableStateOf(0) }
     val scope = rememberCoroutineScope()
     val errors = serverError?.let { listOf(it) } ?: validateName(name)
@@ -96,6 +104,13 @@ fun NameScreen(
         if (invalidAttempts > 0) {
             nameFocus.requestFocus()
             keyboard?.show()
+        }
+    }
+    LaunchedEffect(invalidAttempts, keyboardHeight) {
+        if (invalidAttempts > 0) {
+            // 포커스를 준 직후에는 아직 키보드 전 높이일 수 있어, 새 배치에서 오류까지 함께 보이게 한다.
+            withFrameNanos { }
+            nameArea.bringIntoView()
         }
     }
 
@@ -122,15 +137,17 @@ fun NameScreen(
             Text("  ${nameLength(name.trim())}/$MAX_NAME", color = JsColor.ink3, fontSize = 12.sp)
         }
         NameGuide()
-        NameField(name, { name = it; serverError = null }, 20.sp, onDone = submit,
-            modifier = Modifier.focusRequester(nameFocus))
         // 키보드·데모 바·오류가 동시에 떠도 고정 하단이 입력칸의 높이를 빼앗지 않게 본문에서 함께 스크롤한다.
-        if (tried && errors.isNotEmpty()) {
-            Text(
-                errors.first(), Modifier.fillMaxWidth().background(JsColor.warnBg).border(2.dp, JsColor.warn).padding(10.dp)
-                    .semantics { liveRegion = LiveRegionMode.Polite },
-                color = JsColor.warn, fontSize = 13.5.sp, fontWeight = FontWeight.Bold,
-            )
+        Column(Modifier.fillMaxWidth().bringIntoViewRequester(nameArea), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            NameField(name, { name = it; serverError = null }, 20.sp, onDone = submit,
+                modifier = Modifier.focusRequester(nameFocus))
+            if (tried && errors.isNotEmpty()) {
+                Text(
+                    errors.first(), Modifier.fillMaxWidth().background(JsColor.warnBg).border(2.dp, JsColor.warn).padding(10.dp)
+                        .semantics { liveRegion = LiveRegionMode.Polite },
+                    color = JsColor.warn, fontSize = 13.5.sp, fontWeight = FontWeight.Bold,
+                )
+            }
         }
         TermsAgree(agreed) { agreed = it }
 
