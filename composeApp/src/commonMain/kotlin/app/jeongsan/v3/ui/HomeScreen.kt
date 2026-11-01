@@ -79,6 +79,7 @@ fun HomeScreen(
     /** 계정 메뉴(로그아웃·탈퇴) — 서버 계정이 있을 때만. 탈퇴를 찾기 쉽게 따로 보인다(App Store 5.1.1(v)) */
     onOpenAccount: (() -> Unit)? = null,
     hostOnly: Boolean = false,
+    onDemoImage: (() -> Unit)? = null,
 ) {
     val tabs = myRoomTabs(if (hostOnly) hostedRooms(rooms, me.id) else rooms, me.id)
     // 보는 사람이 바뀌면 처음 열 탭도 그 사람 기준으로 다시 고른다
@@ -123,6 +124,8 @@ fun HomeScreen(
                 }
             }
         }
+
+        onDemoImage?.let { SubButton("샘플 정산표 보기·저장", it) }
 
         // 운영 앱은 총무의 진행 중/완료만, 가상 체험은 역할 전환 검증을 유지한다.
         Row(Modifier.fillMaxWidth().border(2.dp, JsColor.ink, RectangleShape)) {

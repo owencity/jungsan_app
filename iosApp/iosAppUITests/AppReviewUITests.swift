@@ -6,9 +6,17 @@ final class AppReviewUITests: XCTestCase {
     func testSettlementImageSaveSheet() {
         continueAfterFailure = false
         executionTimeAllowance = 180
-        application.launchArguments = ["-jsScreen", "settlement-image"]
+        // FC-033: 심사자가 실제 배포 앱에서 따라갈 수 있는 공개 진입점을 검사한다.
         application.launch()
-        expect("가상 데이터 · 이미지 저장 검증")
+        expect("로그인 없이 데모 체험")
+        element("로그인 없이 데모 체험").tap()
+        expect("참여자A")
+        element("참여자A").tap()
+        expect("내 술자리")
+        expect("샘플 정산표 보기·저장")
+        element("샘플 정산표 보기·저장").tap()
+        expect("체험용 정산표")
+        expect("가상 25명 · 총 25,000원 예시예요. 편집 중인 술자리와 무관하며 실제 송금에 사용하지 마세요.")
         element("전체 정산표 이미지 저장").tap()
         // CI 41290804914의 iPhone은 실제 PNG와 저장 메뉴가 열렸지만 UIKit의 원격
         // 공유 화면으로 바뀌며 루트 식별자가 사라졌다. 사용자에게 보이는 내용으로 검증한다.
