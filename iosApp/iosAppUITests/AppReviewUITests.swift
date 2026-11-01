@@ -10,9 +10,19 @@ final class AppReviewUITests: XCTestCase {
         application.launch()
         expect("가상 데이터 · 이미지 저장 검증")
         element("전체 정산표 이미지 저장").tap()
-        XCTAssertTrue(application.descendants(matching: .any)
-            .matching(identifier: "settlement-image-save-sheet").firstMatch.waitForExistence(timeout: 30))
+        // CI 41290804914의 iPhone은 실제 PNG와 저장 메뉴가 열렸지만 UIKit의 원격
+        // 공유 화면으로 바뀌며 루트 식별자가 사라졌다. 사용자에게 보이는 내용으로 검증한다.
+        let exportedFile = application.descendants(matching: .any)
+            .matching(NSPredicate(format: "label CONTAINS %@", "jeongsan-2-v1")).firstMatch
+        let saveImage = application.descendants(matching: .any)
+            .matching(NSPredicate(format: "label IN %@", ["이미지 저장", "Save Image"])).firstMatch
+        let ready = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            exportedFile.exists && saveImage.exists && saveImage.isHittable
+        }, object: nil)
+        let result = XCTWaiter.wait(for: [ready], timeout: 30)
         capture("ios-settlement-image-save-sheet")
+        if result != .completed { print(application.debugDescription) }
+        XCTAssertEqual(result, .completed, "생성된 정산표 파일과 선택 가능한 이미지 저장 메뉴가 보여야 한다")
         // 사용자 저장/전송 선택 없이 창이 열리고 앱이 살아 있는지만 확인한다.
         application.terminate()
     }
