@@ -132,6 +132,8 @@ class ApiClient(
     /** 인원(FC-020) — 총무·정산 전. 목표 인원을 바꿔도 확정하지 않는다 */
     suspend fun putHeadcount(gid: Long, uid: Long, headcount: Int) = exec(HttpMethod.Put, "${u(gid, uid)}/headcount", HeadcountBody(headcount))
     suspend fun removeMember(gid: Long, uid: Long, pid: Long) = exec(HttpMethod.Delete, "${u(gid, uid)}/participants/$pid")
+    suspend fun renameGuest(gid: Long, uid: Long, pid: Long, name: String, expected: String) =
+        exec(HttpMethod.Put, "${u(gid, uid)}/participants/$pid/name", GuestNameBody(name, expected))
     suspend fun addRound(gid: Long, uid: Long, body: RoundBody): IdBody = call(HttpMethod.Post, "${u(gid, uid)}/rounds", body)
     suspend fun putRound(gid: Long, uid: Long, rid: Long, body: RoundBody): IdBody = call(HttpMethod.Put, "${u(gid, uid)}/rounds/$rid", body)
     suspend fun deleteRound(gid: Long, uid: Long, rid: Long) = exec(HttpMethod.Delete, "${u(gid, uid)}/rounds/$rid")
@@ -213,6 +215,7 @@ data class MeResponse(
 @Serializable data class SettleBody(val inputRevision: Int, val inputHash: String)
 
 @Serializable data class DisplayNameRequest(val displayName: String)
+@Serializable data class GuestNameBody(val displayName: String, val expectedDisplayName: String)
 @Serializable data class TicketRequest(val ticket: String, val codeVerifier: String)
 @Serializable data class TokenResponse(val token: String, val expiresAt: String)
 @Serializable internal data class ErrorBody(val code: String? = null, val message: String? = null)

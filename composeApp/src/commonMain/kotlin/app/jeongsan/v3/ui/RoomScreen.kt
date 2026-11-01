@@ -98,6 +98,7 @@ fun RoomScreen(
     onExempt: (Id, Id, Boolean) -> Unit,
     /** R4 — 총무가 정산 전 한 사람을 내보낸다 */
     onRemove: (Id) -> Unit,
+    onRename: suspend (Id, String, String) -> String? = { _, _, _ -> "이름 정정을 사용할 수 없어요." },
     /** 안내·링크를 즉시 복사하고 카카오톡을 열지 묻는다 — 총무는 위 바에서 언제든 */
     onShare: () -> Unit,
     /** 참여자가 "다음 차는 내가 계산했어요" — 고른 사람(나 빼고)과 이 술자리 안에 내 정산 단위를 만든다(FC-015) */
@@ -181,6 +182,7 @@ fun RoomScreen(
             ParticipantSheet(
                 g = g,
                 participantId = pid,
+                onRename = { name, expected -> onRename(pid, name, expected) },
                 onClose = { managing = null },
                 onExempt = { rid, ex -> onExempt(pid, rid, ex) },
                 onRemove = {

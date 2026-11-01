@@ -42,6 +42,21 @@ class ApiTest {
 
     private fun bodyText(req: HttpRequestData) = (req.body as OutgoingContent.ByteArrayContent).bytes().decodeToString()
 
+    @Test fun 총무_이름_정정은_신원과_기존_이름을_명시하고_204를_받는다() = runTest {
+        val (engine, calls) = server(HttpStatusCode.NoContent to "")
+        ApiClient("https://api.test", MemoryTokenStore("host"), engine).renameGuest(1, 2, 3, "김정정", "김오타")
+        assertEquals(HttpMethod.Put, calls.single().method)
+        assertEquals("https://api.test/api/v1/gatherings/1/settlement-units/2/participants/3/name", calls.single().url.toString())
+        assertEquals("""{"displayName":"김정정","expectedDisplayName":"김오타"}""", bodyText(calls.single()))
+        assertEquals("Bearer host", calls.single().headers[HttpHeaders.Authorization])
+    }
+
+    @Test fun 확정된_이름의_정정_거절을_성공으로_취급하지_않는다() = runTest {
+        val (engine, _) = server(HttpStatusCode.Conflict to """{"code":"GUEST_NAME_LOCKED","message":"이미 확정된 정산이 있어 이름을 바꿀 수 없어요."}""")
+        val error = assertFailsWith<ApiError> { ApiClient("https://api.test", MemoryTokenStore("host"), engine).renameGuest(1, 2, 3, "김정정", "김오타") }
+        assertEquals("GUEST_NAME_LOCKED", error.code)
+    }
+
     @Test fun 앱은_쿠키_대신_Bearer_토큰으로_인증한다() = runTest {
         val (engine, calls) = server(HttpStatusCode.OK to me)
         ApiClient("https://api.test", MemoryTokenStore("tok-1"), engine).me()
