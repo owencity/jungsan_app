@@ -72,6 +72,7 @@ object V3Routes {
     const val Respond = "v3/r/{id}/respond"
     const val Pay = "v3/r/{id}/pay"
     const val Table = "v3/r/{id}/table"
+    const val DemoImage = "v3/demo/settlement-image"
     /** A1 — 계좌는 사람 단위지만, 저장 뒤 왔던 정산방으로 돌아가도록 정산방 아래에 둔다 */
     const val Account = "v3/r/{id}/account"
     /** 내 술자리에서 여는 계좌 화면 — 저장하면 내 술자리로 */
@@ -204,7 +205,13 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3G
             // 계정 메뉴는 계좌 화면 맨 아래에 있다 — 같은 화면으로 간다
             onOpenAccount = if (gateway.isApiMode || gateway.isDemoMode) ({ nav.navigate(V3Routes.MyAccount) }) else null,
             hostOnly = hostOnly,
+            onDemoImage = if (gateway.isDemoMode) ({ nav.navigate(V3Routes.DemoImage) }) else null,
         )
+    }
+
+    // 공개 체험에만 등록한다. 실제 계정의 표 조회와 가상 샘플을 섞지 않는다.
+    if (gateway.isDemoMode) {
+        composable(V3Routes.DemoImage) { SettlementImagePreview(onBack = { nav.popBackStack() }) }
     }
 
     composable(V3Routes.Join) { entry ->
