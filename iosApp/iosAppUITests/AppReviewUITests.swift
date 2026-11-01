@@ -55,15 +55,27 @@ final class AppReviewUITests: XCTestCase {
             appIntroduction.exists || systemIntroduction.exists
         }, object: nil)
         if XCTWaiter.wait(for: [appeared], timeout: 10) == .completed {
-            let owner = appIntroduction.exists ? application : springboard
-            let next = owner.buttons["Continue"]
-            XCTAssertTrue(next.waitForExistence(timeout: 5))
-            next.tap()
-            let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
-                !appIntroduction.exists && !systemIntroduction.exists
-            }, object: nil)
-            XCTAssertEqual(XCTWaiter.wait(for: [dismissed], timeout: 5), .completed,
-                           "시스템 키보드 안내를 닫은 후 입력해야 한다")
+            // CI 41289412850에서 Continue 탭 뒤에도 시스템 안내가 남았다. 표시 직후
+            // 버튼의 터치 준비를 기다리고, 안내가 실제로 남은 경우에만 한 번 더 닫는다.
+            // 앱의 이름 입력·저장 자체는 재시도하지 않아 기존 회귀 검증을 유지한다.
+            capture("ios-keyboard-introduction")
+            for attempt in 1...2 {
+                if !appIntroduction.exists && !systemIntroduction.exists { return }
+                let owner = appIntroduction.exists ? application : springboard
+                let next = owner.buttons["Continue"]
+                let hittable = XCTNSPredicateExpectation(
+                    predicate: NSPredicate(format: "exists == true AND hittable == true"), object: next)
+                XCTAssertEqual(XCTWaiter.wait(for: [hittable], timeout: 10), .completed,
+                               "시스템 안내 버튼이 실제로 눌릴 수 있어야 한다")
+                next.tap()
+                let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                    !appIntroduction.exists && !systemIntroduction.exists
+                }, object: nil)
+                if XCTWaiter.wait(for: [dismissed], timeout: 15) == .completed { return }
+                capture("ios-keyboard-introduction-after-tap-\(attempt)")
+                print("Keyboard introduction remained after tap \(attempt): app=\(appIntroduction.exists), system=\(systemIntroduction.exists)")
+            }
+            XCTFail("시스템 키보드 안내를 닫은 후 입력해야 한다")
         }
     }
 
