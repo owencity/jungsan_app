@@ -375,6 +375,13 @@ class V3Gateway(private val store: V3Store, private val client: ApiClient?, val 
         return mutate(c, gid) { c.removeMember(gid, uid, participantId) }
     }
 
+    suspend fun renameGuest(roomId: Id, participantId: Id, name: String, expected: String): String? {
+        validateName(name).firstOrNull()?.let { return it }
+        val client = client ?: return "이름 정정은 실제 비회원 참여자에게 사용할 수 있어요."
+        val (gatheringId, unitId) = ctx(roomId)
+        return mutate(client, gatheringId) { client.renameGuest(gatheringId, unitId, participantId, name.trim(), expected) }
+    }
+
     /** 스푼(🥄) — 복수 총무 지급 규칙이 서버에서 미결(SETTLEMENT_UNITS §7)이라 API 모드에선 아직 열지 않는다 */
     fun giveSpoon(roomId: Id): String? {
         if (client == null && !isDemoMode) { store.giveSpoon(roomId); return null }

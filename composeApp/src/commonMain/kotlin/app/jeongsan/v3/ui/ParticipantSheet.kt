@@ -3,6 +3,8 @@ package app.jeongsan.v3.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,11 +16,13 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,6 +48,9 @@ import app.jeongsan.v3.label
 import app.jeongsan.v3.nameWithNick
 import app.jeongsan.v3.removeBlockedReason
 import app.jeongsan.v3.responseOf
+import app.jeongsan.v3.validateName
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 
 /**
  * R4 참여자 관리 시트(총무) — 웹 `ParticipantSheet.tsx`.
@@ -61,6 +68,7 @@ fun ParticipantSheet(
     onClose: () -> Unit,
     onExempt: (Id, Boolean) -> Unit,
     onRemove: () -> Unit,
+    onRename: suspend (String, String) -> String?,
 ) {
     val p = g.participants.find { it.id == participantId } ?: return
     val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -68,10 +76,15 @@ fun ParticipantSheet(
     val open = g.status == GatheringStatus.OPEN
     val blocked = removeBlockedReason(g, participantId)
     val paid = g.rounds.filter { it.payerParticipantId == participantId }
+    var name by remember(participantId) { mutableStateOf(p.displayName) }
+    val expectedName = remember(participantId) { p.displayName }
+    var nameError by remember(participantId) { mutableStateOf<String?>(null) }
+    var savingName by remember(participantId) { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     ModalBottomSheet(onDismissRequest = onClose, sheetState = state, shape = RectangleShape, containerColor = Color.White) {
         Column(
-            Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 18.dp).navigationBarsPadding(),
+            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 18.dp).navigationBarsPadding(),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -84,6 +97,29 @@ fun ParticipantSheet(
                     if (Features.SHOW_EXEMPT) "정산한 뒤에는 면제·내보내기를 바꿀 수 없어요." else "정산한 뒤에는 내보낼 수 없어요.",
                     color = JsColor.ink3, fontSize = 12.5.sp,
                 )
+            }
+
+            if (open && p.userId == null) {
+                OutlinedTextField(value = name, onValueChange = { name = it; nameError = null },
+                    label = { Text("참여자 이름 정정") }, singleLine = true, enabled = !savingName,
+                    shape = RectangleShape, modifier = Modifier.fillMaxWidth())
+                Text("같은 술자리의 이름이 함께 바뀌어요. 이미 확정된 정산이 있으면 변경할 수 없어요.", color = JsColor.ink3, fontSize = 12.sp)
+                nameError?.let { Text(it, color = JsColor.warn, fontSize = 13.sp) }
+                CtaButton(if (savingName) "저장 중…" else "이름 저장", enabled = !savingName) {
+                    val invalid = validateName(name).firstOrNull()
+                    if (invalid != null) nameError = invalid
+                    else if (!savingName) {
+                        savingName = true
+                        scope.launch {
+                            try {
+                                nameError = onRename(name.trim(), expectedName)
+                                if (nameError == null) onClose()
+                            } catch (cancelled: CancellationException) { throw cancelled }
+                            catch (_: Exception) { nameError = "저장하지 못했어요. 연결을 확인하고 다시 시도해주세요." }
+                            finally { savingName = false }
+                        }
+                    }
+                }
             }
 
             Column(Modifier.fillMaxWidth().border(2.dp, JsColor.line)) {

@@ -10,9 +10,19 @@ final class AppReviewUITests: XCTestCase {
         application.launch()
         expect("가상 데이터 · 이미지 저장 검증")
         element("전체 정산표 이미지 저장").tap()
-        XCTAssertTrue(application.descendants(matching: .any)
-            .matching(identifier: "settlement-image-save-sheet").firstMatch.waitForExistence(timeout: 30))
+        // CI 41290804914의 iPhone은 실제 PNG와 저장 메뉴가 열렸지만 UIKit의 원격
+        // 공유 화면으로 바뀌며 루트 식별자가 사라졌다. 사용자에게 보이는 내용으로 검증한다.
+        let exportedFile = application.descendants(matching: .any)
+            .matching(NSPredicate(format: "label CONTAINS %@", "jeongsan-2-v1")).firstMatch
+        let saveImage = application.descendants(matching: .any)
+            .matching(NSPredicate(format: "label IN %@", ["이미지 저장", "Save Image"])).firstMatch
+        let ready = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            exportedFile.exists && saveImage.exists && saveImage.isHittable
+        }, object: nil)
+        let result = XCTWaiter.wait(for: [ready], timeout: 30)
         capture("ios-settlement-image-save-sheet")
+        if result != .completed { print(application.debugDescription) }
+        XCTAssertEqual(result, .completed, "생성된 정산표 파일과 선택 가능한 이미지 저장 메뉴가 보여야 한다")
         // 사용자 저장/전송 선택 없이 창이 열리고 앱이 살아 있는지만 확인한다.
         application.terminate()
     }
@@ -55,15 +65,27 @@ final class AppReviewUITests: XCTestCase {
             appIntroduction.exists || systemIntroduction.exists
         }, object: nil)
         if XCTWaiter.wait(for: [appeared], timeout: 10) == .completed {
-            let owner = appIntroduction.exists ? application : springboard
-            let next = owner.buttons["Continue"]
-            XCTAssertTrue(next.waitForExistence(timeout: 5))
-            next.tap()
-            let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
-                !appIntroduction.exists && !systemIntroduction.exists
-            }, object: nil)
-            XCTAssertEqual(XCTWaiter.wait(for: [dismissed], timeout: 5), .completed,
-                           "시스템 키보드 안내를 닫은 후 입력해야 한다")
+            // CI 41289412850에서 Continue 탭 뒤에도 시스템 안내가 남았다. 표시 직후
+            // 버튼의 터치 준비를 기다리고, 안내가 실제로 남은 경우에만 한 번 더 닫는다.
+            // 앱의 이름 입력·저장 자체는 재시도하지 않아 기존 회귀 검증을 유지한다.
+            capture("ios-keyboard-introduction")
+            for attempt in 1...2 {
+                if !appIntroduction.exists && !systemIntroduction.exists { return }
+                let owner = appIntroduction.exists ? application : springboard
+                let next = owner.buttons["Continue"]
+                let hittable = XCTNSPredicateExpectation(
+                    predicate: NSPredicate(format: "exists == true AND hittable == true"), object: next)
+                XCTAssertEqual(XCTWaiter.wait(for: [hittable], timeout: 10), .completed,
+                               "시스템 안내 버튼이 실제로 눌릴 수 있어야 한다")
+                next.tap()
+                let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                    !appIntroduction.exists && !systemIntroduction.exists
+                }, object: nil)
+                if XCTWaiter.wait(for: [dismissed], timeout: 15) == .completed { return }
+                capture("ios-keyboard-introduction-after-tap-\(attempt)")
+                print("Keyboard introduction remained after tap \(attempt): app=\(appIntroduction.exists), system=\(systemIntroduction.exists)")
+            }
+            XCTFail("시스템 키보드 안내를 닫은 후 입력해야 한다")
         }
     }
 
