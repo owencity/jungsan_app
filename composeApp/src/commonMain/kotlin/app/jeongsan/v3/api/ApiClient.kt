@@ -5,6 +5,9 @@ import app.jeongsan.v3.User
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.plugins.HttpRequestTimeoutException
+import io.ktor.client.plugins.timeout
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.request
 import io.ktor.client.request.setBody
@@ -36,24 +39,28 @@ class ApiClient(
 
     private fun io.ktor.client.HttpClientConfig<*>.setup() {
         install(ContentNegotiation) { json(json) }
+        install(HttpTimeout)
         expectSuccess = false
     }
 
     /** 오류면 [ApiError]를 던진다. 서버에 닿지 못하면 status 0 · `NETWORK_ERROR` */
     @PublishedApi
-    internal suspend fun send(method: HttpMethod, path: String, body: Any? = null): HttpResponse {
+    internal suspend fun send(method: HttpMethod, path: String, body: Any? = null,
+        bodyType: ContentType = ContentType.Application.Json, timeoutMillis: Long? = null): HttpResponse {
         val res = try {
             http.request("$baseUrl$path") {
                 this.method = method
                 tokens.get()?.let { bearerAuth(it) }
                 if (body != null) {
-                    contentType(ContentType.Application.Json)
+                    contentType(bodyType)
                     setBody(body)
                 }
+                if (timeoutMillis != null) timeout { requestTimeoutMillis = timeoutMillis; connectTimeoutMillis = 5_000; socketTimeoutMillis = 55_000 }
             }
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e // 화면이 요청을 취소한 것 — 네트워크 오류로 바꾸면 취소가 안 퍼지고 엉뚱한 문구가 뜬다
         } catch (e: Exception) {
+            if (timeoutMillis != null && e is HttpRequestTimeoutException) throw ApiError(504, "OCR_TIMEOUT", "영수증 읽기가 오래 걸려요.")
             // 원인을 남긴다 — 화면에는 한 문구로 보이지만 디버그 빌드 로그(logcat·Xcode)로 진짜 이유를 본다
             if (app.jeongsan.v3.isDebugBuild) println("ApiClient ${method.value} $path 실패: $e")
             throw ApiError(0, NETWORK_ERROR, "연결이 불안정해요. 잠시 뒤 다시 시도해주세요", e)
@@ -61,7 +68,8 @@ class ApiClient(
         if (!res.status.isSuccess()) {
             val text = res.bodyAsText()
             val err = runCatching { json.decodeFromString(ErrorBody.serializer(), text) }.getOrNull()
-            throw ApiError(res.status.value, err?.code ?: "HTTP_${res.status.value}", err?.message ?: "잠시 뒤 다시 시도해주세요")
+            throw ApiError(res.status.value, err?.code ?: "HTTP_${res.status.value}", err?.message ?: "잠시 뒤 다시 시도해주세요",
+                retryAfterSeconds = res.headers["Retry-After"]?.toIntOrNull()?.takeIf { it in 1..3600 })
         }
         return res
     }
@@ -163,7 +171,7 @@ class ApiClient(
 }
 
 /** API.md §1.2 오류. `code`로 화면 문구를 고르고, 없으면 서버 `message`를 그대로 보여준다 */
-class ApiError(val status: Int, val code: String, message: String, cause: Throwable? = null) : Exception(message, cause)
+class ApiError(val status: Int, val code: String, message: String, cause: Throwable? = null, val retryAfterSeconds: Int? = null) : Exception(message, cause)
 
 /** Bearer 토큰 보관소 — Android SharedPreferences, iOS UserDefaults([platformTokenStore]) */
 interface TokenStore {

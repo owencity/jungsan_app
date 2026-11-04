@@ -5,10 +5,14 @@ import ComposeApp
 @main
 struct iOSApp: App {
     @StateObject private var authenticationBrowser = AuthenticationBrowser()
+    @StateObject private var receiptPhotoPicker = ReceiptPhotoPicker()
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .onAppear {
+                    let photos = receiptPhotoPicker
+                    IosReceiptPhotoBridge.shared.launcher = { [weak photos] source in photos?.start(source) }
+                    IosReceiptPhotoBridge.shared.cancel = { [weak photos] in photos?.cancel() }
                     let browser = authenticationBrowser
                     IosAuthSessionBridge.shared.launcher = { [weak browser] address in
                         browser?.start(address)

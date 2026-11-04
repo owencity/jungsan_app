@@ -37,6 +37,8 @@
 	</array>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>선택한 정산표 이미지를 사진에 저장합니다.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>영수증을 촬영해 결제 금액과 술 항목을 입력합니다.</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<!-- Compose 가 120Hz(ProMotion)로 그리게 한다 -->
