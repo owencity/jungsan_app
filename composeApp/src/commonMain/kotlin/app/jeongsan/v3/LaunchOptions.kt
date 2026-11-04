@@ -25,6 +25,7 @@ val SCREENSHOT_SCREENS: Map<String, Pair<Long, Long?>> = linkedMapOf(
     "name" to (1L to null),          // L2 이름 확인 — 처음 로그인한 사람
     "round-new" to (1L to 101L),     // R2 새 차수 — 금액·인원·결제자
     "round-edit" to (1L to 101L),    // R2 차수 수정 — 술 항목이 채워진 1차
+    "receipt-review" to (1L to 101L), // 개발용 예시임을 표시한 영수증 확인 화면
     "join" to (6L to 101L),          // P1 링크로 들어온 사람(한서연) — 정산 단위 고르기·응답
     "settled-room" to (2L to 102L),  // R1 정산이 나온 정산방 — 총무(이민지) 시점
     "done-room" to (3L to 103L),     // R1 끝난 정산방 — 7일 뒤 삭제 안내

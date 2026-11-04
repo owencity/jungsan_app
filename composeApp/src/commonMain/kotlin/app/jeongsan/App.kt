@@ -110,7 +110,7 @@ private fun AppSession(realClient: ApiClient?, demo: Boolean, onEnterDemo: () ->
                     "settle" -> roomId?.let(V3Routes::settle)
                     "pay" -> roomId?.let(V3Routes::pay)
                     "round-new" -> roomId?.let { V3Routes.round(it, null) }
-                    "round-edit" -> roomId?.let { id -> V3Routes.round(id, v3.state.rooms.getValue(id).rounds.first().id) }
+                    "round-edit", "receipt-review" -> roomId?.let { id -> V3Routes.round(id, v3.state.rooms.getValue(id).rounds.first().id) }
                     "join" -> roomId?.let { V3Routes.join(v3.state.rooms.getValue(it).shareToken) }
                     "payout" -> V3Routes.MyAccount
                     "notifications" -> V3Routes.Notifications

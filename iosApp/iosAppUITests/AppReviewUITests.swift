@@ -3,6 +3,39 @@ import XCTest
 final class AppReviewUITests: XCTestCase {
     private let application = XCUIApplication()
 
+    func testReceiptReviewConfirmationAndCancel() {
+        continueAfterFailure = false
+        application.launchArguments = ["-jsScreen", "receipt-review"]
+        application.launch()
+        expect("영수증 인식 결과")
+        expect("개발용 예시 · 실제 영수증 인식 결과가 아닙니다")
+        capture("ios-receipt-review-top")
+        let confirm = element("총액·술 단가·병 수를 확인했어요")
+        for _ in 0..<6 { if confirm.isHittable { break }; application.swipeUp() }
+        XCTAssertTrue(confirm.isHittable)
+        let apply = element("확인한 내용으로 1차에 반영")
+        XCTAssertFalse(apply.isEnabled, "확인 전에는 차수에 반영할 수 없어야 한다")
+        confirm.tap()
+        for _ in 0..<4 { if apply.isHittable { break }; application.swipeUp() }
+        capture("ios-receipt-review-confirm")
+        apply.tap()
+        expect("얼마 나왔나요?")
+        let total = application.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "1차 금액")).firstMatch
+        expectValue("50,000", in: total)
+        // 반영은 입력칸만 바꾼다. 기존 저장 버튼을 별도로 눌러야 한다.
+        application.terminate()
+        application.launch()
+        expect("영수증 인식 결과")
+        let cancel = element("취소하고 기존 입력 유지")
+        for _ in 0..<8 { if cancel.isHittable { break }; application.swipeUp() }
+        XCTAssertTrue(cancel.isHittable)
+        cancel.tap()
+        expect("얼마 나왔나요?")
+        expectValue("184,000", in: total)
+        capture("ios-receipt-cancel-keeps-input")
+        application.terminate()
+    }
+
     func testSettlementImageSaveSheet() {
         continueAfterFailure = false
         executionTimeAllowance = 180

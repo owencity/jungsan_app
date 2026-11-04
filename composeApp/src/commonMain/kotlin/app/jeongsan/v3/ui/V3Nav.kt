@@ -360,6 +360,8 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3G
                     devBar = devBar(g.id),
                     g = g,
                     round = round,
+                    extractReceipt = { jpeg -> gateway.extractReceipt(g.id, jpeg) },
+                    receiptExample = if (isDebugBuild && LaunchOptions.screenshot == "receipt-review") app.jeongsan.v3.receipt.receiptScreenExample() else null,
                     onBack = back,
                     onSave = { draft, andNext, mine, headcount ->
                         scope.launch {

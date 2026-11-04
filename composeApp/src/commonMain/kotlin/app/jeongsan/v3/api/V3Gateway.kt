@@ -44,6 +44,12 @@ class V3Gateway(private val store: V3Store, private val client: ApiClient?, val 
     init { require(!isDemoMode || client == null) { "체험에는 실제 API 클라이언트를 연결하지 않습니다." } }
     val isApiMode get() = client != null
 
+    suspend fun extractReceipt(roomId: Id, jpeg: ByteArray): app.jeongsan.v3.receipt.ReceiptCandidate {
+        val c = client ?: throw ApiError(503, "OCR_UNAVAILABLE", "영수증 읽기는 서버 연결이 필요해요. 직접 입력해 주세요.")
+        val (gid, uid) = ctx(roomId)
+        return c.extractReceipt(gid, uid, jpeg)
+    }
+
     suspend fun settlementTable(roomId: Id): ServerSettlementTable {
         val c = checkNotNull(client) { "정산표는 서버 연결이 필요합니다." }
         val (gid, uid) = ctx(roomId)

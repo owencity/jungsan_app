@@ -60,6 +60,7 @@ import app.jeongsan.v3.nextRoundLabel
 import app.jeongsan.v3.parseAmount
 import app.jeongsan.v3.responseOf
 import app.jeongsan.v3.validateRound
+import app.jeongsan.v3.receipt.ReceiptCandidate
 
 /**
  * R2 차수 편집(총무) — 웹 `RoundEditPage.tsx`.
@@ -79,6 +80,8 @@ fun RoundEditScreen(
     /** (차수, 저장 뒤 다음 차수, 총무 본인의 이 차수 응답 — FC-019, 나 포함 인원 — FC-020) */
     onSave: (RoundDraft, Boolean, ResponseType, Int) -> Unit,
     onDelete: (() -> Unit)?,
+    extractReceipt: suspend (ByteArray) -> ReceiptCandidate,
+    receiptExample: ReceiptCandidate? = null,
 ) {
     val host = g.host()
     var amountText by remember { mutableStateOf(round?.let { commas(it.total) } ?: "") }
@@ -89,6 +92,7 @@ fun RoundEditScreen(
     var editingPrice by remember { mutableStateOf<Int?>(null) }
     var tried by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var receiptOpen by remember { mutableStateOf(receiptExample != null) }
     // 총무 본인 응답(FC-019 A) — 대부분 마시니 알코올이 눌린 채 보이고, 안 마신 날은 여기서 한 번 바꾼다.
     // 숨은 기본값이 아니라 화면에 보이는 기본값이다. 고치는 중이면 이미 넣은 응답을 보여준다
     var mine by remember {
@@ -101,6 +105,18 @@ fun RoundEditScreen(
     val draft = RoundDraft(round?.id, total, drinks.toList(), payer)
     val errors = validateRound(draft, g)
     val label = round?.label ?: g.nextRoundLabel()
+
+    if (receiptOpen) {
+        ReceiptInputScreen(devBar, label, extractReceipt, onCancel = { receiptOpen = false }, onApply = { input ->
+            amountText = commas(input.total)
+            drinks.clear()
+            drinks.addAll(input.drinks)
+            editingPrice = null
+            tried = false
+            receiptOpen = false
+        }, example = receiptExample)
+        return
+    }
 
     fun addDrink(d: DrinkItem) {
         // 같은 술 칩을 또 누르면 줄을 늘리지 않고 병 수를 올린다
@@ -122,6 +138,7 @@ fun RoundEditScreen(
         // 버튼이 셋이라 바닥에 고정하지 않는다 — 고정하면 작은 폰에서 입력칸을 덮는다(웹에서 겪음)
         bottom = null,
     ) {
+        SubButton("영수증으로 입력") { receiptOpen = true }
         Label("얼마 나왔나요?")
         RetroSurface(Modifier.fillMaxWidth(), shadowOffset = JsShape.shadowOffsetSmall) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
