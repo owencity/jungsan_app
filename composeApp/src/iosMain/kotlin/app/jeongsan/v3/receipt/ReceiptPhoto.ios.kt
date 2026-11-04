@@ -7,6 +7,9 @@ import androidx.compose.ui.graphics.toComposeImageBitmap
 import kotlin.io.encoding.Base64
 import org.jetbrains.skia.Image
 
+@Composable
+actual fun ReceiptBackHandler(onBack: () -> Unit) = Unit
+
 /** Swift의 카메라/시스템 사진 선택기와 연결하며 내부 API 키나 사진을 영구 저장하지 않는다. */
 object IosReceiptPhotoBridge {
     var launcher: ((String) -> Unit)? = null

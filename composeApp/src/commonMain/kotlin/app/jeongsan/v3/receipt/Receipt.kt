@@ -23,6 +23,9 @@ sealed interface ReceiptPhotoResult {
 @Composable
 expect fun rememberReceiptPhotoPicker(): (ReceiptSource, (ReceiptPhotoResult) -> Unit) -> Unit
 
+@Composable
+expect fun ReceiptBackHandler(onBack: () -> Unit)
+
 @Serializable
 data class ReceiptCandidate(
     val schemaVersion: Int,

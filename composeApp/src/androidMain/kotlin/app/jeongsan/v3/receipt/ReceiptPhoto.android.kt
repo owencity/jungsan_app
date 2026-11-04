@@ -6,6 +6,7 @@ import android.graphics.Matrix
 import android.media.ExifInterface
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.BackHandler
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.*
@@ -18,6 +19,9 @@ import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+@Composable
+actual fun ReceiptBackHandler(onBack: () -> Unit) { BackHandler(onBack = onBack) }
 
 /** 썸네일 결과 대신 전용 캐시 파일로 원본을 받고 선택한 사진 한 장만 읽는다. */
 @Composable

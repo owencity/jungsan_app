@@ -88,6 +88,8 @@ fun ReceiptInputScreen(
 
     fun cancel() { job?.cancel(); photo = null; candidate = null; draft = null; onCancel() }
 
+    ReceiptBackHandler { cancel() }
+
     V3Screen(devBar = devBar, top = { BackButton { cancel() }; TopTitle("$label 영수증 입력") }) {
         if (example != null) Text("개발용 예시 · 실제 영수증 인식 결과가 아닙니다", color = JsColor.ink2, fontSize = 13.sp)
         when (step) {
