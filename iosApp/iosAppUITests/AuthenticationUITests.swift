@@ -40,6 +40,22 @@ final class AuthenticationUITests: XCTestCase {
             capture("\(provider)-auth-\(attempt)")
             print("Authentication presentation: provider=\(provider), attempt=\(attempt), appState=\(application.state.rawValue), safariState=\(safari.state.rawValue)")
             XCTAssertNotEqual(safari.state, .runningForeground, "기본 Safari 앱으로 전환되면 안 된다")
+            if provider == "kakao" && attempt == 1 {
+                // 심사 지적은 로그인뿐 아니라 가입 경로도 포함한다. 가입 화면을 열기만 하며
+                // 계정 정보 입력이나 제공자의 약관 동의/계정 생성은 수행하지 않는다.
+                let signup = application.webViews.descendants(matching: .any)
+                    .matching(NSPredicate(format: "label IN %@", ["Sign Up", "회원가입"])).firstMatch
+                XCTAssertTrue(signup.waitForExistence(timeout: 10), "카카오 계정 가입 진입이 보여야 한다")
+                signup.tap()
+                let externalBrowser = XCTNSPredicateExpectation(predicate: NSPredicate { [self] _, _ in
+                    safari.state == .runningForeground
+                }, object: nil)
+                externalBrowser.isInverted = true
+                XCTAssertEqual(XCTWaiter.wait(for: [externalBrowser], timeout: 5), .completed,
+                               "가입 진입에서도 기본 Safari 앱으로 전환되면 안 된다")
+                XCTAssertTrue(application.webViews.firstMatch.exists, "가입 화면도 앱 안 인증창에 남아 있어야 한다")
+                capture("kakao-signup-presentation")
+            }
             let cancel = authenticationCancelButton()
             XCTAssertNotNil(cancel, "앱 안 인증 화면에 닫을 수 있는 취소 버튼이 있어야 한다")
             cancel?.tap()
