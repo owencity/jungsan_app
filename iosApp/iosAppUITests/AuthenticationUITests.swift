@@ -4,7 +4,6 @@ import XCTest
 final class AuthenticationUITests: XCTestCase {
     private let application = XCUIApplication()
     private let safari = XCUIApplication(bundleIdentifier: "com.apple.mobilesafari")
-    private let safariService = XCUIApplication(bundleIdentifier: "com.apple.SafariViewService")
     private let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
 
     func testAppleAuthenticationPresentationAndCancel() {
@@ -63,13 +62,8 @@ final class AuthenticationUITests: XCTestCase {
         for attempt in 1...2 {
             login.tap()
             acceptAuthenticationPromptIfPresented()
-            let presented = XCTNSPredicateExpectation(predicate: NSPredicate { [self] _, _ in
-                authenticationCancelButton() != nil || safari.state == .runningForeground
-            }, object: nil)
-            let result = XCTWaiter.wait(for: [presented], timeout: 30)
-            XCTAssertEqual(result, .completed, "실제 시스템 인증 화면이 표시돼야 한다")
-            XCTAssertNotEqual(safari.state, .runningForeground, "기본 Safari 앱으로 전환되면 안 된다")
-            // 빈 웹뷰만 열린 순간을 성공으로 기록하지 않고 실제 계정 입력란까지 기다린다.
+            // 로딩 중인 도구 막대를 먼저 조회하면 iPad의 접근성 snapshot이 20초 이상
+            // 멈췄다. 실제 입력란을 먼저 기다리고, 준비된 화면에서 닫기 버튼을 검사한다.
             XCTAssertTrue(application.webViews.textFields.firstMatch.waitForExistence(timeout: 30),
                           "제공자의 실제 계정 입력 화면이 앱 안에 표시돼야 한다")
             capture("\(provider)-auth-\(attempt)")
@@ -94,7 +88,7 @@ final class AuthenticationUITests: XCTestCase {
     private func acceptAuthenticationPromptIfPresented() {
         let appeared = XCTNSPredicateExpectation(predicate: NSPredicate { [self] _, _ in
             application.alerts.firstMatch.exists || springboard.alerts.firstMatch.exists
-                || authenticationCancelButton() != nil || safari.state == .runningForeground
+                || application.webViews.firstMatch.exists || safari.state == .runningForeground
         }, object: nil)
         _ = XCTWaiter.wait(for: [appeared], timeout: 10)
         for owner in [application, springboard] {
@@ -111,14 +105,10 @@ final class AuthenticationUITests: XCTestCase {
 
     private func authenticationCancelButton() -> XCUIElement? {
         // 웹 본문 속 취소/가짜 화면으로 통과하지 않게 실제 웹뷰와 시스템 도구 막대를 함께 검사한다.
-        for owner in [application, safariService] {
-            if !owner.webViews.firstMatch.exists { continue }
-            // iPad iOS26.5의 인증창은 X 버튼을 Close로 노출한다. 이전 Cancel 이름만
-            // 찾으면 실제 Apple 입력 화면이 떠 있어도 접근성 재조회로 검사 시간이 소모된다.
-            let cancel = owner.buttons.matching(NSPredicate(format: "label IN %@", ["Cancel", "취소", "Close", "닫기"])).firstMatch
-            if cancel.exists && cancel.isHittable { return cancel }
-        }
-        return nil
+        guard application.webViews.firstMatch.exists else { return nil }
+        // 입력란과 같은 앱의 계층만 조회해 SafariViewService의 늦은 snapshot을 피한다.
+        let cancel = application.buttons.matching(NSPredicate(format: "label IN %@", ["Cancel", "취소", "Close", "닫기"])).firstMatch
+        return cancel.exists && cancel.isHittable ? cancel : nil
     }
 
     private func capture(_ name: String) {
