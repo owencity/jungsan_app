@@ -52,6 +52,7 @@ jobs:
           KID: ${{ secrets.ASC_KEY_ID }}
           ISS: ${{ secrets.ASC_ISSUER_ID }}
           P8: ${{ secrets.ASC_KEY_P8_BASE64 }}
+          KAKAO_NATIVE: ${{ vars.KAKAO_NATIVE_APP_KEY }}
         run: |
           missing=""
           [ -z "$TEAM" ] && missing="$missing APPLE_TEAM_ID"
@@ -59,6 +60,10 @@ jobs:
           [ -z "$ISS" ] && missing="$missing ASC_ISSUER_ID"
           [ -z "$P8" ] && missing="$missing ASC_KEY_P8_BASE64"
           if [ -n "$missing" ]; then echo "::error::Secrets 가 없습니다:$missing"; exit 1; fi
+          if ! printf '%s' "$KAKAO_NATIVE" | grep -Eq '^[a-fA-F0-9]{32}$' || [ "$KAKAO_NATIVE" = '0123456789abcdef0123456789abcdef' ]; then
+            echo '::error::Variables의 실제 KAKAO_NATIVE_APP_KEY가 필요합니다. Client Secret은 앱에 넣지 않습니다.'
+            exit 1
+          fi
 
       - name: write API key
         env:
@@ -83,6 +88,7 @@ jobs:
           ISS: ${{ secrets.ASC_ISSUER_ID }}
           MODE: ${{ github.event.inputs.sign_mode || 'export' }}
           API: ${{ github.event.inputs.api_base_url || vars.JS_API_BASE_URL }}
+          KAKAO_NATIVE: ${{ vars.KAKAO_NATIVE_APP_KEY }}
         run: |
           # iOS 는 평문 http 를 막는다(ATS) — https 가 아니면 깔아도 서버에 못 붙는 빌드라 여기서 멈춘다
           if [ -n "$API" ] && [ "${API#https://}" = "$API" ]; then echo "::error::서버 주소는 https:// 로 시작해야 해요: $API"; exit 1; fi
@@ -97,6 +103,7 @@ jobs:
             DEVELOPMENT_TEAM="$TEAM" CODE_SIGN_STYLE=Automatic \
             CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
             JS_API_BASE_URL="$API" \
+            KAKAO_NATIVE_APP_KEY="$KAKAO_NATIVE" \
             $SIGN_ARGS \
             -allowProvisioningUpdates \
             -authenticationKeyPath "$RUNNER_TEMP/asc/AuthKey_$KID.p8" \

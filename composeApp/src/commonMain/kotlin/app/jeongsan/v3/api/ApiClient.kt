@@ -88,6 +88,12 @@ class ApiClient(
         "$baseUrl/api/v1/auth/${provider.path}/login?client=app&codeChallenge=$codeChallenge" +
             if (authSession) "&appReturn=session" else ""
 
+    /** SDK 토큰을 우리 APP 자격으로 교환한다. 취소 여부 확인 전에는 기기에 저장하지 않는다. */
+    suspend fun exchangeNativeKakao(accessToken: String): TokenResponse =
+        call(HttpMethod.Post, "/api/v1/auth/kakao/native", NativeKakaoBody(accessToken))
+
+    internal fun acceptNativeKakaoToken(response: TokenResponse) = tokens.set(response.token)
+
     /** 이 기기의 토큰만 버린다(서버를 부르지 않음) — 만료된 토큰 정리용 */
     fun logout() = tokens.set(null)
 

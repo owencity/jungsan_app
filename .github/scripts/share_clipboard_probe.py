@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import subprocess
 import sys
+import time
 
 
 EXPECTED = (
@@ -20,19 +21,26 @@ def main():
     parser.add_argument("case")
     args = parser.parse_args()
     command = "pbcopy" if args.mode == "seed" else "pbpaste"
-    try:
-        result = subprocess.run(
-            ["xcrun", "simctl", command, args.device],
-            input=f"before-share:{args.case}" if args.mode == "seed" else None,
-            capture_output=True, text=True, encoding="utf-8", check=True, timeout=20,
-        )
-    except subprocess.CalledProcessError as error:
-        # 원문 클립보드(stdout)는 출력하지 않고, 기기 상태 등 도구 실패 원인만 보존한다.
-        print(f"::error::Simulator clipboard {command} failed: exit={error.returncode}, stderr={error.stderr[:500]}")
-        return 1
-    except subprocess.TimeoutExpired as error:
-        print(f"::error::Simulator clipboard {command} failed: {type(error).__name__}")
-        return 1
+    for attempt in range(2):
+        try:
+            result = subprocess.run(
+                ["xcrun", "simctl", command, args.device],
+                input=f"before-share:{args.case}" if args.mode == "seed" else None,
+                capture_output=True, text=True, encoding="utf-8", check=True, timeout=20,
+            )
+            break
+        except subprocess.CalledProcessError as error:
+            # 앱 동작 전 simctl 서비스의 일시적 ETIMEDOUT만 한 번 재시도한다.
+            # 실제 클립보드 값 불일치와 다른 오류는 재시도/성공으로 바꾸지 않는다.
+            if error.returncode == 60 and attempt == 0:
+                print(f"::warning::Simulator clipboard {command} transport ETIMEDOUT; retry once")
+                time.sleep(1)
+                continue
+            print(f"::error::Simulator clipboard {command} failed: exit={error.returncode}, stderr={error.stderr[:500]}")
+            return 1
+        except subprocess.TimeoutExpired as error:
+            print(f"::error::Simulator clipboard {command} failed: {type(error).__name__}")
+            return 1
     if args.mode == "assert":
         actual = result.stdout.rstrip("\r\n")
         if actual != EXPECTED:

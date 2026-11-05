@@ -4,7 +4,6 @@ import XCTest
 final class AuthenticationUITests: XCTestCase {
     private let application = XCUIApplication()
     private let safari = XCUIApplication(bundleIdentifier: "com.apple.mobilesafari")
-    private let safariService = XCUIApplication(bundleIdentifier: "com.apple.SafariViewService")
     private let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
 
     func testAppleAuthenticationPresentationAndCancel() {
@@ -12,7 +11,42 @@ final class AuthenticationUITests: XCTestCase {
     }
 
     func testKakaoAuthenticationPresentationAndCancel() {
-        verifyAuthentication(buttonSuffix: "카카오로 3초만에 시작하기", provider: "kakao")
+        continueAfterFailure = false
+        executionTimeAllowance = 150
+        application.launch()
+        defer { application.terminate() }
+        let kakao = application.buttons["카카오로 3초만에 시작하기"]
+        XCTAssertTrue(kakao.waitForExistence(timeout: 20))
+        for attempt in 1...2 {
+            kakao.tap()
+            let guide = application.alerts["카카오톡이 필요해요"]
+            XCTAssertTrue(guide.waitForExistence(timeout: 15), "미설치 시 웹 입력 대신 설치 안내가 보여야 한다")
+            XCTAssertTrue(guide.buttons["카카오톡 설치하기"].exists)
+            XCTAssertTrue(guide.buttons["Apple로 계속하기"].exists)
+            XCTAssertNotEqual(safari.state, .runningForeground)
+            XCTAssertFalse(application.webViews.firstMatch.exists)
+            capture("kakao-install-guide-\(attempt)")
+            guide.buttons["취소"].tap()
+            let ready = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in kakao.isEnabled && kakao.isHittable }, object: nil)
+            XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 10), .completed)
+        }
+        // 설치 안내에서 Apple을 고르면 안내가 닫힌 뒤 기존 시스템 인증창으로 연결된다.
+        kakao.tap()
+        let guide = application.alerts["카카오톡이 필요해요"]
+        XCTAssertTrue(guide.waitForExistence(timeout: 10))
+        guide.buttons["Apple로 계속하기"].tap()
+        acceptAuthenticationPromptIfPresented()
+        XCTAssertTrue(application.webViews.textFields.firstMatch.waitForExistence(timeout: 30))
+        XCTAssertNotEqual(safari.state, .runningForeground)
+        capture("kakao-guide-apple-alternative")
+        let close = authenticationCancelButton()
+        XCTAssertNotNil(close, "Apple 대안 인증창도 닫을 수 있어야 한다")
+        close?.tap()
+        let returned = XCTNSPredicateExpectation(predicate: NSPredicate { [self] _, _ in
+            application.state == .runningForeground && kakao.isEnabled && kakao.isHittable
+                && !application.webViews.firstMatch.exists
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [returned], timeout: 15), .completed)
     }
 
     private func verifyAuthentication(buttonSuffix: String, provider: String) {
@@ -28,34 +62,13 @@ final class AuthenticationUITests: XCTestCase {
         for attempt in 1...2 {
             login.tap()
             acceptAuthenticationPromptIfPresented()
-            let presented = XCTNSPredicateExpectation(predicate: NSPredicate { [self] _, _ in
-                authenticationCancelButton() != nil || safari.state == .runningForeground
-            }, object: nil)
-            let result = XCTWaiter.wait(for: [presented], timeout: 30)
-            XCTAssertEqual(result, .completed, "실제 시스템 인증 화면이 표시돼야 한다")
-            XCTAssertNotEqual(safari.state, .runningForeground, "기본 Safari 앱으로 전환되면 안 된다")
-            // 빈 웹뷰만 열린 순간을 성공으로 기록하지 않고 실제 계정 입력란까지 기다린다.
+            // 로딩 중인 도구 막대를 먼저 조회하면 iPad의 접근성 snapshot이 20초 이상
+            // 멈췄다. 실제 입력란을 먼저 기다리고, 준비된 화면에서 닫기 버튼을 검사한다.
             XCTAssertTrue(application.webViews.textFields.firstMatch.waitForExistence(timeout: 30),
                           "제공자의 실제 계정 입력 화면이 앱 안에 표시돼야 한다")
             capture("\(provider)-auth-\(attempt)")
             print("Authentication presentation: provider=\(provider), attempt=\(attempt), appState=\(application.state.rawValue), safariState=\(safari.state.rawValue)")
             XCTAssertNotEqual(safari.state, .runningForeground, "기본 Safari 앱으로 전환되면 안 된다")
-            if provider == "kakao" && attempt == 1 {
-                // 심사 지적은 로그인뿐 아니라 가입 경로도 포함한다. 가입 화면을 열기만 하며
-                // 계정 정보 입력이나 제공자의 약관 동의/계정 생성은 수행하지 않는다.
-                let signup = application.webViews.descendants(matching: .any)
-                    .matching(NSPredicate(format: "label IN %@", ["Sign Up", "회원가입"])).firstMatch
-                XCTAssertTrue(signup.waitForExistence(timeout: 10), "카카오 계정 가입 진입이 보여야 한다")
-                signup.tap()
-                let externalBrowser = XCTNSPredicateExpectation(predicate: NSPredicate { [self] _, _ in
-                    safari.state == .runningForeground
-                }, object: nil)
-                externalBrowser.isInverted = true
-                XCTAssertEqual(XCTWaiter.wait(for: [externalBrowser], timeout: 5), .completed,
-                               "가입 진입에서도 기본 Safari 앱으로 전환되면 안 된다")
-                XCTAssertTrue(application.webViews.firstMatch.exists, "가입 화면도 앱 안 인증창에 남아 있어야 한다")
-                capture("kakao-signup-presentation")
-            }
             let cancel = authenticationCancelButton()
             XCTAssertNotNil(cancel, "앱 안 인증 화면에 닫을 수 있는 취소 버튼이 있어야 한다")
             cancel?.tap()
@@ -75,7 +88,7 @@ final class AuthenticationUITests: XCTestCase {
     private func acceptAuthenticationPromptIfPresented() {
         let appeared = XCTNSPredicateExpectation(predicate: NSPredicate { [self] _, _ in
             application.alerts.firstMatch.exists || springboard.alerts.firstMatch.exists
-                || authenticationCancelButton() != nil || safari.state == .runningForeground
+                || application.webViews.firstMatch.exists || safari.state == .runningForeground
         }, object: nil)
         _ = XCTWaiter.wait(for: [appeared], timeout: 10)
         for owner in [application, springboard] {
@@ -92,12 +105,10 @@ final class AuthenticationUITests: XCTestCase {
 
     private func authenticationCancelButton() -> XCUIElement? {
         // 웹 본문 속 취소/가짜 화면으로 통과하지 않게 실제 웹뷰와 시스템 도구 막대를 함께 검사한다.
-        for owner in [application, safariService] {
-            if !owner.webViews.firstMatch.exists { continue }
-            let cancel = owner.buttons.matching(NSPredicate(format: "label IN %@", ["Cancel", "취소"])).firstMatch
-            if cancel.exists && cancel.isHittable { return cancel }
-        }
-        return nil
+        guard application.webViews.firstMatch.exists else { return nil }
+        // 입력란과 같은 앱의 계층만 조회해 SafariViewService의 늦은 snapshot을 피한다.
+        let cancel = application.buttons.matching(NSPredicate(format: "label IN %@", ["Cancel", "취소", "Close", "닫기"])).firstMatch
+        return cancel.exists && cancel.isHittable ? cancel : nil
     }
 
     private func capture(_ name: String) {
