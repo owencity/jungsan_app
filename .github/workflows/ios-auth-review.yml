@@ -8,6 +8,11 @@ on:
       - 'iosApp/iosAppUITests/AuthenticationUITests.swift'
       - '.github/workflows/ios-auth-review.yml'
   workflow_dispatch:
+    inputs:
+      record_video:
+        description: '화면 전체 녹화도 보존 (기본은 테스트 캡처, 실패 시 XCTest 녹화)'
+        type: boolean
+        default: false
 
 concurrency:
   group: ios-auth-review-${{ github.head_ref || github.ref_name }}
@@ -50,6 +55,8 @@ jobs:
           tail -n 15 auth-build.log
       - name: Inspect Apple and Kakao authentication on iPhone and iPad
         timeout-minutes: 18
+        env:
+          RECORD_AUTH_VIDEO: ${{ github.event_name == 'workflow_dispatch' && inputs.record_video && '1' || '0' }}
         shell: python3 {0}
         run: |
           import glob
@@ -74,8 +81,9 @@ jobs:
                   subprocess.run(["xcrun", "simctl", "boot", udid], check=True, timeout=60)
                   subprocess.run(["xcrun", "simctl", "bootstatus", udid, "-b"], check=True, timeout=180)
                   subprocess.run(["xcrun", "simctl", "install", udid, app], check=True, timeout=60)
-                  video = subprocess.Popen(["xcrun", "simctl", "io", udid, "recordVideo", f"shots/{family}-authentication.mov"],
-                                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                  if os.environ.get("RECORD_AUTH_VIDEO") == "1":
+                      video = subprocess.Popen(["xcrun", "simctl", "io", udid, "recordVideo", f"shots/{family}-authentication.mov"],
+                                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                   with open(f"auth-{family}.log", "w") as log:
                       result = subprocess.run(["xcodebuild", "test-without-building", "-xctestrun", xctestrun,
                           "-destination", f"platform=iOS Simulator,arch=arm64,id={udid}",

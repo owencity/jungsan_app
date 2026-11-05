@@ -39,9 +39,12 @@ final class AuthenticationUITests: XCTestCase {
             let cancel = authenticationCancelButton()
             XCTAssertNotNil(cancel, "앱 안 인증 화면에 닫을 수 있는 취소 버튼이 있어야 한다")
             cancel?.tap()
+            capture("\(provider)-after-close-\(attempt)")
+            // 첫 검사의 영상은 정상 복귀했지만, 닫힌 SafariViewService의 접근성 조회가
+            // 13초씩 지연돼 실패했다. 앱에 보이는 입력 가능 상태와 웹뷰 소멸을 검사한다.
             let returned = XCTNSPredicateExpectation(predicate: NSPredicate { [self] _, _ in
                 application.state == .runningForeground && login.isEnabled && login.isHittable
-                    && authenticationCancelButton() == nil
+                    && !application.webViews.firstMatch.exists
             }, object: nil)
             XCTAssertEqual(XCTWaiter.wait(for: [returned], timeout: 15), .completed,
                            "취소하면 로그인 화면에서 다시 시작할 수 있어야 한다")
