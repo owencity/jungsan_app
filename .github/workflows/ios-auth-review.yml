@@ -1,0 +1,128 @@
+name: iOS authentication review
+
+on:
+  push:
+    branches: [codex/ios-login-review]
+  pull_request:
+    paths:
+      - 'iosApp/iosAppUITests/AuthenticationUITests.swift'
+      - '.github/workflows/ios-auth-review.yml'
+  workflow_dispatch:
+    inputs:
+      record_video:
+        description: '화면 전체 녹화도 보존 (기본은 테스트 캡처, 실패 시 XCTest 녹화)'
+        type: boolean
+        default: false
+
+concurrency:
+  group: ios-auth-review-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  authentication:
+    runs-on: macos-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+      - uses: gradle/actions/wrapper-validation@v4
+      - name: Check production app-auth start without signing in
+        run: |
+          mkdir -p shots
+          python3 .github/scripts/check_auth_start.py > shots/auth-start.json
+          cat shots/auth-start.json
+      - name: Generate project
+        run: |
+          brew install xcodegen
+          cd iosApp && xcodegen generate
+      - name: Build release simulator app and authentication tests
+        run: |
+          mkdir -p shots
+          git rev-parse HEAD > shots/source-commit.txt
+          xcodebuild \
+            -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Release \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build/auth-dd ARCHS=arm64 ONLY_ACTIVE_ARCH=YES \
+            CODE_SIGNING_ALLOWED=NO JS_API_BASE_URL=https://jungsan-api.devkdk.com \
+            build-for-testing > auth-build.log 2>&1 || { tail -n 60 auth-build.log; exit 1; }
+          tail -n 15 auth-build.log
+      - name: Inspect Apple and Kakao authentication on iPhone and iPad
+        timeout-minutes: 18
+        env:
+          RECORD_AUTH_VIDEO: ${{ github.event_name == 'workflow_dispatch' && inputs.record_video && '1' || '0' }}
+        shell: python3 {0}
+        run: |
+          import glob
+          import json
+          import os
+          import signal
+          import subprocess
+
+          devices = json.loads(subprocess.check_output(["xcrun", "simctl", "list", "devices", "available", "-j"]))
+          xctestrun = glob.glob("build/auth-dd/Build/Products/*.xctestrun")[0]
+          app = "build/auth-dd/Build/Products/Release-iphonesimulator/Jeongsan.app"
+          failures = []
+          for family in ["iPhone", "iPad"]:
+              available = [(tuple(map(int, runtime.split("iOS-")[1].split("-"))), device)
+                           for runtime, items in devices["devices"].items() if ".iOS-" in runtime
+                           for device in items if device["name"].startswith(family)]
+              version, device = sorted(available, key=lambda item: item[0])[-1]
+              udid = device["udid"]
+              print(f"Authentication review device: {family}, {device['name']}, {version}", flush=True)
+              video = None
+              try:
+                  subprocess.run(["xcrun", "simctl", "boot", udid], check=True, timeout=60)
+                  subprocess.run(["xcrun", "simctl", "bootstatus", udid, "-b"], check=True, timeout=180)
+                  subprocess.run(["xcrun", "simctl", "install", udid, app], check=True, timeout=60)
+                  if os.environ.get("RECORD_AUTH_VIDEO") == "1":
+                      video = subprocess.Popen(["xcrun", "simctl", "io", udid, "recordVideo", f"shots/{family}-authentication.mov"],
+                                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                  with open(f"auth-{family}.log", "w") as log:
+                      result = subprocess.run(["xcodebuild", "test-without-building", "-xctestrun", xctestrun,
+                          "-destination", f"platform=iOS Simulator,arch=arm64,id={udid}",
+                          "-parallel-testing-enabled", "NO", "-resultBundlePath", f"build/auth-{family}.xcresult",
+                          "-only-testing:iosAppUITests/AuthenticationUITests"], stdout=log, stderr=subprocess.STDOUT, timeout=420)
+                  if result.returncode:
+                      failures.append(family)
+                  with open(f"auth-{family}.log") as log:
+                      print("".join(log.readlines()[-55:]), flush=True)
+              except (subprocess.TimeoutExpired, subprocess.CalledProcessError) as error:
+                  failures.append(family)
+                  print(f"::error::{family} authentication check could not finish: {type(error).__name__}", flush=True)
+              finally:
+                  if video:
+                      video.send_signal(signal.SIGINT)
+                      try:
+                          video.wait(timeout=15)
+                      except subprocess.TimeoutExpired:
+                          video.kill()
+                          video.wait()
+                  try:
+                      subprocess.run(["xcrun", "simctl", "shutdown", udid], check=False, timeout=45)
+                  except subprocess.TimeoutExpired:
+                      print(f"::warning::{family} simulator shutdown timed out", flush=True)
+          if failures:
+              raise SystemExit("Authentication review failed: " + ", ".join(failures))
+      - name: Export authentication screenshots
+        if: always()
+        run: |
+          for RESULT in build/auth-*.xcresult; do
+            [ -d "$RESULT" ] || continue
+            CASE_NAME=$(basename "$RESULT" .xcresult)
+            xcrun xcresulttool export attachments --path "$RESULT" --output-path "shots/$CASE_NAME"
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-authentication-review
+          path: |
+            shots/
+            auth-*.log
+          retention-days: 7
