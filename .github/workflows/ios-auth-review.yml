@@ -68,7 +68,6 @@ jobs:
 
           devices = json.loads(subprocess.check_output(["xcrun", "simctl", "list", "devices", "available", "-j"]))
           xctestrun = glob.glob("build/auth-dd/Build/Products/*.xctestrun")[0]
-          app = "build/auth-dd/Build/Products/Release-iphonesimulator/Jeongsan.app"
           failures = []
           for family in ["iPhone", "iPad"]:
               available = [(tuple(map(int, runtime.split("iOS-")[1].split("-"))), device)
@@ -81,7 +80,9 @@ jobs:
               try:
                   subprocess.run(["xcrun", "simctl", "boot", udid], check=True, timeout=60)
                   subprocess.run(["xcrun", "simctl", "bootstatus", udid, "-b"], check=True, timeout=180)
-                  subprocess.run(["xcrun", "simctl", "install", udid, app], check=True, timeout=60)
+                  # test-without-building이 xctestrun의 UITargetAppPath를 설치한다.
+                  # 별도 install의 60초 제한으로 XCTest 진입 전에 중단되는 중복 단계를 없앤다.
+                  print(f"{family} boot completed; XCTest will install its target", flush=True)
                   if os.environ.get("RECORD_AUTH_VIDEO") == "1":
                       video = subprocess.Popen(["xcrun", "simctl", "io", udid, "recordVideo", f"shots/{family}-authentication.mov"],
                                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -96,7 +97,7 @@ jobs:
                       print("".join(log.readlines()[-55:]), flush=True)
               except (subprocess.TimeoutExpired, subprocess.CalledProcessError) as error:
                   failures.append(family)
-                  print(f"::error::{family} authentication check could not finish: {type(error).__name__}", flush=True)
+                  print(f"::error::{family} authentication check could not finish: {type(error).__name__}, command={error.cmd}", flush=True)
               finally:
                   if video:
                       video.send_signal(signal.SIGINT)
