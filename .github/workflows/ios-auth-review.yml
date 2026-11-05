@@ -51,6 +51,7 @@ jobs:
             -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath build/auth-dd ARCHS=arm64 ONLY_ACTIVE_ARCH=YES \
             CODE_SIGNING_ALLOWED=NO JS_API_BASE_URL=https://jungsan-api.devkdk.com \
+            KAKAO_NATIVE_APP_KEY=0123456789abcdef0123456789abcdef \
             build-for-testing > auth-build.log 2>&1 || { tail -n 60 auth-build.log; exit 1; }
           tail -n 15 auth-build.log
       - name: Inspect Apple and Kakao authentication on iPhone and iPad

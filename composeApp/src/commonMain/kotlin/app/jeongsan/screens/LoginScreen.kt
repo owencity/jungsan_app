@@ -54,6 +54,7 @@ fun LoginScreen(
     error: String? = null,
     busy: Boolean = false,
     onDemo: (() -> Unit)? = null,
+    onCancelLogin: (() -> Unit)? = null,
 ) {
     val textShadow = Shadow(color = Color.Black.copy(alpha = 0.45f), offset = Offset(0f, 2f), blurRadius = 10f)
 
@@ -117,6 +118,10 @@ fun LoginScreen(
                         error, Modifier.padding(top = 12.dp), style = TextStyle(shadow = textShadow),
                         color = Color.White, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
                     )
+                }
+                if (busy && onCancelLogin != null) {
+                    Spacer(Modifier.height(12.dp))
+                    PrimaryButton("로그인 취소", onClick = onCancelLogin)
                 }
             }
         }

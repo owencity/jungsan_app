@@ -9,6 +9,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.key
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.DisposableEffect
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
+import app.jeongsan.v3.api.KakaoTalkResult
+import app.jeongsan.v3.api.NativeKakaoSession
+import app.jeongsan.v3.api.platformKakaoTalkLogin
+import app.jeongsan.v3.api.cancelPlatformKakaoTalkLogin
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -65,6 +74,7 @@ fun App() {
     var demoGeneration by remember { mutableStateOf(0) }
     fun enterDemo() {
         if (platformIsIos) cancelPlatformAuthentication()
+        cancelPlatformKakaoTalkLogin()
         AppAuth.cancel()
         demoGeneration++
         demo = true
@@ -126,6 +136,102 @@ private fun AppSession(realClient: ApiClient?, demo: Boolean, onEnterDemo: () ->
         // 브라우저 로그인에서 jeongsan://auth?ticket=… 으로 돌아오면 토큰으로 바꾸고 내 술자리로(AppAuth)
         var loginError by remember { mutableStateOf<String?>(null) }
         var loginBusy by remember { mutableStateOf(false) }
+        var nativeBusy by remember { mutableStateOf(false) }
+        var nativeJob by remember { mutableStateOf<Job?>(null) }
+        val loginScope = rememberCoroutineScope()
+        val nativeSession = remember(client) { client?.let(::NativeKakaoSession) }
+
+        fun browserLogin(provider: AppAuth.Provider) {
+            if (loginBusy) return
+            val c = client ?: run {
+                navController.navigate(V3Routes.Home) { popUpTo(Routes.Login) { inclusive = true } }
+                return
+            }
+            loginError = null
+            val address = AppAuth.start(c, provider, authSession = platformIsIos)
+            if (platformIsIos) {
+                loginBusy = true
+                platformAuthenticate(address) { result ->
+                    when (result) {
+                        is AuthBrowserResult.Completed -> {
+                            if (AppAuth.ticketOf(result.url) == null) {
+                                AppAuth.cancel(); loginBusy = false
+                                loginError = "로그인 주소가 올바르지 않아요. 다시 시도해주세요"
+                            } else AppAuth.handle(result.url)
+                        }
+                        AuthBrowserResult.Cancelled -> { AppAuth.cancel(); loginBusy = false }
+                        AuthBrowserResult.Failed -> {
+                            AppAuth.cancel(); loginBusy = false
+                            loginError = "로그인 화면을 열지 못했어요. 다시 시도해주세요"
+                        }
+                    }
+                }
+            } else uri.openUri(address)
+        }
+
+        fun startLogin(provider: AppAuth.Provider) {
+            if (!platformIsIos || provider != AppAuth.Provider.KAKAO || client == null) {
+                browserLogin(provider); return
+            }
+            if (loginBusy) return
+            val session = nativeSession ?: return
+            val attempt = session.start()
+            AppAuth.cancel()
+            loginError = null
+            loginBusy = true
+            nativeBusy = true
+            platformKakaoTalkLogin { result ->
+                if (!session.isCurrent(attempt)) return@platformKakaoTalkLogin
+                when (result) {
+                    is KakaoTalkResult.Token -> nativeJob = loginScope.launch {
+                        try {
+                            if (!session.finish(attempt, result.accessToken)) return@launch
+                            val loaded = gateway.loadMe()
+                            if (!session.isCurrent(attempt)) return@launch
+                            if (!loaded) {
+                                client.logout()
+                                loginError = "로그인하지 못했어요. 다시 시도해주세요"
+                            } else if (session.isCurrent(attempt)) {
+                                navController.navigate(V3Routes.Home) { popUpTo(Routes.Login) { inclusive = true } }
+                            }
+                        } catch (cancelled: CancellationException) { throw cancelled }
+                        catch (_: Exception) {
+                            if (session.isCurrent(attempt)) loginError = "카카오톡 로그인을 완료하지 못했어요. 다시 시도해 주세요."
+                        }
+                        finally {
+                            if (session.isCurrent(attempt)) { loginBusy = false; nativeBusy = false }
+                        }
+                    }
+                    KakaoTalkResult.UseApple -> {
+                        session.cancel(); nativeBusy = false; loginBusy = false
+                        browserLogin(AppAuth.Provider.APPLE)
+                    }
+                    else -> {
+                        session.cancel(); nativeBusy = false; loginBusy = false
+                        loginError = when (result) {
+                            KakaoTalkResult.Cancelled -> null
+                            KakaoTalkResult.NotConfigured -> "카카오 로그인을 사용할 수 없어요. Apple 로그인으로 계속해 주세요."
+                            else -> "카카오톡 로그인을 완료하지 못했어요. 다시 시도해 주세요."
+                        }
+                    }
+                }
+            }
+        }
+
+        fun cancelNativeLogin() {
+            nativeSession?.cancel()
+            nativeJob?.cancel()
+            cancelPlatformKakaoTalkLogin()
+            if (nativeBusy) client?.logout()
+            nativeBusy = false; loginBusy = false
+        }
+
+        DisposableEffect(client) {
+            onDispose {
+                nativeSession?.cancel(); nativeJob?.cancel(); cancelPlatformKakaoTalkLogin()
+                if (nativeBusy) client?.logout()
+            }
+        }
         val returned = AppAuth.returned
         LaunchedEffect(returned) {
             val url = returned ?: return@LaunchedEffect
@@ -154,37 +260,8 @@ private fun AppSession(realClient: ApiClient?, demo: Boolean, onEnterDemo: () ->
                     error = loginError,
                     busy = loginBusy,
                     onDemo = if (shot == null) onEnterDemo else null,
-                    onLogin = { provider ->
-                        if (client != null && !loginBusy) {
-                            // API 모드: SDK 없이 서버 OAuth 를 브라우저로 연다(FC-014 1-1) — PKCE 로 시작해 앱 스킴으로 돌아온다
-                            loginError = null
-                            val address = AppAuth.start(client, provider, authSession = platformIsIos)
-                            if (platformIsIos) {
-                                loginBusy = true
-                                platformAuthenticate(address) { result ->
-                                    when (result) {
-                                        is AuthBrowserResult.Completed -> {
-                                            if (AppAuth.ticketOf(result.url) == null) {
-                                                AppAuth.cancel()
-                                                loginBusy = false
-                                                loginError = "로그인 주소가 올바르지 않아요. 다시 시도해주세요"
-                                            } else AppAuth.handle(result.url)
-                                        }
-                                        AuthBrowserResult.Cancelled -> { AppAuth.cancel(); loginBusy = false }
-                                        AuthBrowserResult.Failed -> {
-                                            AppAuth.cancel()
-                                            loginBusy = false
-                                            loginError = "로그인 화면을 열지 못했어요. 다시 시도해주세요"
-                                        }
-                                    }
-                                }
-                            } else uri.openUri(address)
-                        } else if (client == null) {
-                            navController.navigate(V3Routes.Home) {
-                                popUpTo(Routes.Login) { inclusive = true }
-                            }
-                        }
-                    },
+                    onLogin = ::startLogin,
+                    onCancelLogin = if (nativeBusy) ({ cancelNativeLogin() }) else null,
                 )
             }
 

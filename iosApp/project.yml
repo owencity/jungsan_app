@@ -6,6 +6,10 @@
 #
 # 화면은 전부 Kotlin(composeApp)에 있다. 여기 Swift는 MainViewController()를 띄우는 껍데기뿐이다.
 name: iosApp
+packages:
+  KakaoSDK:
+    url: https://github.com/kakao/kakao-ios-sdk
+    exactVersion: 2.30.0
 options:
   bundleIdPrefix: app.jeongsan
   deploymentTarget:
@@ -18,11 +22,20 @@ settings:
     CURRENT_PROJECT_VERSION: "1"
     # 서버 주소 — 비면 목데이터 모드. CI 는 xcodebuild 인자로 덮어쓴다(JS_API_BASE_URL=https://…)
     JS_API_BASE_URL: ""
+  configs:
+    Debug:
+      # 공개 CI 전용 가짜 키. 카카오톡이 없는 시뮬레이터의 설치 안내만 검사한다.
+      KAKAO_NATIVE_APP_KEY: "0123456789abcdef0123456789abcdef"
+    Release:
+      KAKAO_NATIVE_APP_KEY: ""
 
 targets:
   iosApp:
     type: application
     platform: iOS
+    dependencies:
+      - package: KakaoSDK
+        product: KakaoSDKUser
     scheme:
       testTargets:
         - iosAppUITests
@@ -44,6 +57,13 @@ targets:
         # 서명 — 10/6 Apple 개발자 계정이 생기면 CI 가 DEVELOPMENT_TEAM 을 넘긴다. 그 전엔 서명 없이 빌드한다
         CODE_SIGN_STYLE: Automatic
     preBuildScripts:
+      - name: 카카오 네이티브 키 확인
+        basedOnDependencyAnalysis: false
+        script: |
+          if ! printf '%s' "$KAKAO_NATIVE_APP_KEY" | grep -Eq '^[a-fA-F0-9]{32}$'; then
+            echo 'error: iOS 카카오 공개 Native app key 빌드 설정이 필요합니다.'
+            exit 1
+          fi
       - name: Kotlin 프레임워크 빌드
         basedOnDependencyAnalysis: false
         script: |
