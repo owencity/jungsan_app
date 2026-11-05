@@ -40,7 +40,14 @@ final class AuthenticationUITests: XCTestCase {
         XCTAssertTrue(application.webViews.textFields.firstMatch.waitForExistence(timeout: 30))
         XCTAssertNotEqual(safari.state, .runningForeground)
         capture("kakao-guide-apple-alternative")
-        authenticationCancelButton()?.tap()
+        let close = authenticationCancelButton()
+        XCTAssertNotNil(close, "Apple 대안 인증창도 닫을 수 있어야 한다")
+        close?.tap()
+        let returned = XCTNSPredicateExpectation(predicate: NSPredicate { [self] _, _ in
+            application.state == .runningForeground && kakao.isEnabled && kakao.isHittable
+                && !application.webViews.firstMatch.exists
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [returned], timeout: 15), .completed)
     }
 
     private func verifyAuthentication(buttonSuffix: String, provider: String) {
@@ -106,7 +113,9 @@ final class AuthenticationUITests: XCTestCase {
         // 웹 본문 속 취소/가짜 화면으로 통과하지 않게 실제 웹뷰와 시스템 도구 막대를 함께 검사한다.
         for owner in [application, safariService] {
             if !owner.webViews.firstMatch.exists { continue }
-            let cancel = owner.buttons.matching(NSPredicate(format: "label IN %@", ["Cancel", "취소"])).firstMatch
+            // iPad iOS26.5의 인증창은 X 버튼을 Close로 노출한다. 이전 Cancel 이름만
+            // 찾으면 실제 Apple 입력 화면이 떠 있어도 접근성 재조회로 검사 시간이 소모된다.
+            let cancel = owner.buttons.matching(NSPredicate(format: "label IN %@", ["Cancel", "취소", "Close", "닫기"])).firstMatch
             if cancel.exists && cancel.isHittable { return cancel }
         }
         return nil
