@@ -32,9 +32,13 @@ final class AuthenticationUITests: XCTestCase {
                 authenticationCancelButton() != nil || safari.state == .runningForeground
             }, object: nil)
             let result = XCTWaiter.wait(for: [presented], timeout: 30)
+            XCTAssertEqual(result, .completed, "실제 시스템 인증 화면이 표시돼야 한다")
+            XCTAssertNotEqual(safari.state, .runningForeground, "기본 Safari 앱으로 전환되면 안 된다")
+            // 빈 웹뷰만 열린 순간을 성공으로 기록하지 않고 실제 계정 입력란까지 기다린다.
+            XCTAssertTrue(application.webViews.textFields.firstMatch.waitForExistence(timeout: 30),
+                          "제공자의 실제 계정 입력 화면이 앱 안에 표시돼야 한다")
             capture("\(provider)-auth-\(attempt)")
             print("Authentication presentation: provider=\(provider), attempt=\(attempt), appState=\(application.state.rawValue), safariState=\(safari.state.rawValue)")
-            XCTAssertEqual(result, .completed, "실제 시스템 인증 화면이 표시돼야 한다")
             XCTAssertNotEqual(safari.state, .runningForeground, "기본 Safari 앱으로 전환되면 안 된다")
             let cancel = authenticationCancelButton()
             XCTAssertNotNil(cancel, "앱 안 인증 화면에 닫을 수 있는 취소 버튼이 있어야 한다")
