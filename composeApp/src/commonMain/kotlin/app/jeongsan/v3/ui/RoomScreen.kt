@@ -70,6 +70,7 @@ import app.jeongsan.v3.initialOf
 import app.jeongsan.v3.host
 import app.jeongsan.v3.nameOf
 import app.jeongsan.v3.nextAction
+import app.jeongsan.v3.roundAttendeeCount
 import app.jeongsan.v3.showConfirmedImageAction
 import app.jeongsan.v3.participantOfUser
 import kotlinx.datetime.Clock
@@ -164,7 +165,7 @@ fun RoomScreen(
         // 계좌 안내 등 다른 할 일이 먼저 나와도 총무가 명단을 검토하고 확정할 수 있게 한다.
         if (canSettleNow(g, meUserId) && act.action?.kind != ActionKind.SETTLE) {
             Text(
-                "명단 확인 · 정산 확정",
+                "명단·예상 금액 확인",
                 Modifier.fillMaxWidth().clickable { onAction(ActionKind.SETTLE) }.semantics { role = Role.Button }.padding(vertical = 4.dp),
                 color = JsColor.ink3, fontSize = 13.sp, textAlign = TextAlign.End, textDecoration = TextDecoration.Underline,
             )
@@ -206,6 +207,13 @@ fun RoomScreen(
         }
 
         if (g.rounds.isNotEmpty()) {
+            if (canEditRounds) {
+                for (round in g.rounds) {
+                    val expected = round.expectedHeadcount?.let { " / 예상 ${it}명" }.orEmpty()
+                    Text("${round.label} · 참석 응답 ${g.roundAttendeeCount(round.id)}명$expected",
+                        color = JsColor.ink3, fontSize = 13.sp)
+                }
+            }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 for (r in g.rounds) {
                     RoundChip(r.label, r.total, if (canEditRounds) ({ onEditRound(r.id) }) else null)

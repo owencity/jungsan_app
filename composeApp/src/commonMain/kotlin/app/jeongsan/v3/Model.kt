@@ -56,6 +56,7 @@ data class Round(
     val total: Money,
     val payerParticipantId: Id,
     val drinks: List<DrinkItem>,
+    val expectedHeadcount: Int? = null,
 )
 
 data class RoundResponse(val participantId: Id, val roundId: Id, val type: ResponseType, val source: ResponseSource)
@@ -168,6 +169,14 @@ fun Gathering.unrespondedParticipants(): List<Participant> = participants.filter
 
 /** 모든 차수에 응답을 마친 사람 수 — R1 "5명 중 3명 응답" */
 fun Gathering.respondedCount(): Int = countedParticipants().count { hasResponded(it.id) }
+
+fun Gathering.roundAttendeeCount(roundId: Id): Int {
+    val memberIds = participants.map { it.id }.toSet()
+    return responses.count { response ->
+        response.roundId == roundId && response.participantId in memberIds && response.source != ResponseSource.AUTO &&
+            (response.type == ResponseType.SOBER || response.type == ResponseType.DRANK)
+    }
+}
 
 /** FC-029: 전체 명단 응답 현황이며, 확정 조건으로 사용하지 않는다. */
 fun Gathering.allIn(): Boolean = status == GatheringStatus.OPEN && rounds.isNotEmpty() && participants.isNotEmpty() && participants.all { hasResponded(it.id) }

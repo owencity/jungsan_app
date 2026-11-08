@@ -76,8 +76,8 @@ fun RoundEditScreen(
     /** 새 차수면 null */
     round: Round?,
     onBack: () -> Unit,
-    /** (차수, 저장 뒤 다음 차수, 총무 본인의 이 차수 응답 — FC-019, 나 포함 인원 — FC-020) */
-    onSave: (RoundDraft, Boolean, ResponseType, Int) -> Unit,
+    /** 차수, 저장 뒤 다음 차수로 갈지, 총무 본인의 이 차수 응답 */
+    onSave: (RoundDraft, Boolean, ResponseType) -> Unit,
     onDelete: (() -> Unit)?,
 ) {
     val host = g.host()
@@ -94,11 +94,10 @@ fun RoundEditScreen(
     var mine by remember {
         mutableStateOf(round?.let { g.responseOf(host.id, it.id)?.type }?.takeIf { it != ResponseType.EXEMPT } ?: ResponseType.DRANK)
     }
-    // 인원(FC-020) — 예상 인원 안내용. 처음엔 지금 들어온 사람 수(최소 2)에서 시작한다
-    var headcount by remember { mutableStateOf(g.headcount ?: maxOf(HEADCOUNT_MIN, g.participants.size)) }
+    var expectedHeadcount by remember(round?.id) { mutableStateOf(round?.expectedHeadcount) }
 
     val total = parseAmount(amountText)
-    val draft = RoundDraft(round?.id, total, drinks.toList(), payer)
+    val draft = RoundDraft(round?.id, total, drinks.toList(), payer, expectedHeadcount)
     val errors = validateRound(draft, g)
     val label = round?.label ?: g.nextRoundLabel()
 
@@ -110,7 +109,7 @@ fun RoundEditScreen(
 
     fun save(andNext: Boolean) {
         tried = true
-        if (errors.isEmpty()) onSave(draft, andNext, mine, headcount)
+        if (errors.isEmpty()) onSave(draft, andNext, mine)
     }
 
     V3Screen(
@@ -214,16 +213,21 @@ fun RoundEditScreen(
             Text("술 합계 ${won(drinksTotal(drinks))}", Modifier.fillMaxWidth(), color = JsColor.ink2, fontSize = 13.sp, textAlign = TextAlign.End)
         }
 
-        Label("몇 명이서 마셨나요? (나 포함 · 예상 인원)")
+        Label("${label} 예상 참석 인원 (나 포함)")
+        val countLabel = expectedHeadcount?.let { "${it}명" } ?: "미설정"
         Row(
-            Modifier.border(2.dp, JsColor.ink).semantics { contentDescription = "인원 ${headcount}명" },
+            Modifier.border(2.dp, JsColor.ink).semantics { contentDescription = "예상 참석 인원 $countLabel" },
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            StepButton("−", enabled = headcount > HEADCOUNT_MIN) { headcount -= 1 }
-            Text("${headcount}명", Modifier.width(64.dp), color = JsColor.ink, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center)
-            StepButton("+", enabled = headcount < HEADCOUNT_MAX) { headcount += 1 }
+            StepButton("−", enabled = (expectedHeadcount ?: HEADCOUNT_MIN) > HEADCOUNT_MIN) {
+                expectedHeadcount = expectedHeadcount?.minus(1)
+            }
+            Text(countLabel, Modifier.width(64.dp), color = JsColor.ink, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center)
+            StepButton("+", enabled = (expectedHeadcount ?: 0) < HEADCOUNT_MAX) {
+                expectedHeadcount = expectedHeadcount?.plus(1) ?: HEADCOUNT_MIN
+            }
         }
-        if (headcount < g.participants.size) Text("이미 ${g.participants.size}명이 들어와 있어요", color = JsColor.ink3, fontSize = 12.sp)
+        Text("응답 현황을 보는 데 쓰여요. 정산은 직접 확정해 주세요.", color = JsColor.ink3, fontSize = 12.sp)
 
         Label("나는 이 차수에")
         ResponseRow(mine) { mine = it }

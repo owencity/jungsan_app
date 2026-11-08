@@ -361,9 +361,9 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3G
                     g = g,
                     round = round,
                     onBack = back,
-                    onSave = { draft, andNext, mine, headcount ->
+                    onSave = { draft, andNext, mine ->
                         scope.launch {
-                            when (val r = gateway.saveRound(g.id, draft, mine, headcount)) {
+                            when (val r = gateway.saveRound(g.id, draft, mine)) {
                                 is Made.Ok -> if (andNext) nav.toSub(g.id, V3Routes.round(g.id, null)) else nav.toRoom(g.id)
                                 is Made.Err -> V3Toast.show(r.message)
                             }
