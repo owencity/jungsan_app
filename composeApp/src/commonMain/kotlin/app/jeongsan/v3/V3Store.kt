@@ -180,12 +180,15 @@ class V3Store(
             val exists = draft.id != null && g.rounds.any { it.id == draft.id }
             val rounds = if (exists) {
                 g.rounds.map {
-                    if (it.id == draft.id) it.copy(total = draft.total, drinks = draft.drinks, payerParticipantId = draft.payerParticipantId) else it
+                    if (it.id == draft.id) it.copy(total = draft.total, drinks = draft.drinks,
+                        payerParticipantId = draft.payerParticipantId,
+                        expectedHeadcount = draft.expectedHeadcount ?: it.expectedHeadcount) else it
                 }
             } else {
                 val newId = (g.rounds.maxOfOrNull { it.id } ?: 0) + 1
                 created = newId
-                relabel(g.rounds + Round(newId, Int.MAX_VALUE, "", draft.total, draft.payerParticipantId, draft.drinks), g.firstSeq ?: 1)
+                relabel(g.rounds + Round(newId, Int.MAX_VALUE, "", draft.total, draft.payerParticipantId, draft.drinks,
+                    draft.expectedHeadcount), g.firstSeq ?: 1)
             }
             val label = rounds.first { it.id == (if (exists) draft.id else created) }.label
             g.copy(rounds = rounds, inputRevision = g.inputRevision + 1)

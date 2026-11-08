@@ -217,7 +217,8 @@ data class MeResponse(
 @Serializable data class UnitBody(val requestId: String, val participantIds: List<Long>, val headcount: Int? = null)
 @Serializable data class HeadcountBody(val headcount: Int)
 @Serializable data class IdBody(val id: Long)
-@Serializable data class RoundBody(val total: Long, val payerParticipantId: Long, val drinks: List<SDrink>)
+@Serializable data class RoundBody(val total: Long, val payerParticipantId: Long, val drinks: List<SDrink>,
+    val expectedHeadcount: Int? = null)
 @Serializable data class SettleBody(val inputRevision: Int, val inputHash: String)
 
 @Serializable data class DisplayNameRequest(val displayName: String)

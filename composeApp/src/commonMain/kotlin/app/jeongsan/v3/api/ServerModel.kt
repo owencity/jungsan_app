@@ -54,6 +54,7 @@ import kotlinx.serialization.Serializable
 @Serializable data class SRound(
     val id: Long, val settlementUnitId: Long, val seq: Int, val total: Long, val payerParticipantId: Long,
     val drinks: List<SDrink> = emptyList(),
+    val expectedHeadcount: Int? = null,
 )
 @Serializable data class SResponse(val participantId: Long, val roundId: Long, val type: String, val source: String)
 @Serializable data class SBasis(val roundId: Long, val type: String, val amount: Long)
@@ -143,7 +144,8 @@ fun ServerGathering.toRoom(u: SUnit): Gathering {
         participants = u.participantIds.mapNotNull { id -> participants.find { it.id == id } }.map { it.toParticipant() },
         // 차수 이름은 앱이 붙인다(FC-014 D4). seq 는 술자리 전체 번호라 다음 총무의 첫 차수는 "3차"가 된다
         rounds = mine.map { r ->
-            Round(r.id, r.seq, "${r.seq}차", r.total, r.payerParticipantId, r.drinks.map { DrinkItem(it.name, it.unitPrice, it.quantity) })
+            Round(r.id, r.seq, "${r.seq}차", r.total, r.payerParticipantId,
+                r.drinks.map { DrinkItem(it.name, it.unitPrice, it.quantity) }, r.expectedHeadcount)
         },
         responses = responses.filter { it.roundId in roundIds && it.participantId in members }
             .map { RoundResponse(it.participantId, it.roundId, ResponseType.valueOf(it.type), ResponseSource.valueOf(it.source)) },
