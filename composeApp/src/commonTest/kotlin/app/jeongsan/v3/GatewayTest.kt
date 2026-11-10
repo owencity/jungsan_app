@@ -66,7 +66,7 @@ class GatewayTest {
     @Test fun 정산_단위_경로는_술자리_id와_단위_id를_같이_쓰고_바꾼_뒤에는_술자리를_다시_읽는다() = runTest {
         val (gw, _) = gateway(base + ("POST /api/v1/gatherings/1/settlement-units/2/rounds" to (HttpStatusCode.Created to """{"id":9}""")))
         gw.loadMine(); calls.clear()
-        val r = gw.saveRound(2, RoundDraft(null, 50_000, emptyList(), 2), ResponseType.DRANK)
+        val r = gw.saveRound(2, RoundDraft(null, 50_000, emptyList(), 2, expectedHeadcount = 8), ResponseType.DRANK)
         assertEquals(Made.Ok(9), r)
         assertEquals(
             listOf(
@@ -77,6 +77,7 @@ class GatewayTest {
             ),
             calls.map(::line),
         )
+        assertTrue(body(calls[0]).contains(""""expectedHeadcount":8"""))
         assertTrue(body(calls[1]).contains(""""roundId":9""") && body(calls[1]).contains("DRANK"))
     }
 

@@ -77,7 +77,7 @@ class AutoSettleTest {
     @Test fun 인원을_넣었으면_총무는_몇_명_응답했는지와_링크_공유를_본다() {
         s.setHeadcount(open, 5)
         val a = nextAction(g(), 1)
-        assertEquals("2명이 아직 응답 안 했어요 · 명단을 확인해주세요", a.banner)
+        assertEquals("2명이 아직 응답 안 했어요 · 명단을 확인해주세요", a.note)
         assertEquals(ActionKind.SETTLE, a.action?.kind)
         assertTrue(canSettleNow(g(), 1))
         assertFalse(canSettleNow(g(), 2))
@@ -132,15 +132,15 @@ class OverflowTest {
     @Test fun 총무에게_인원_확인과_모두_포함하기가_먼저_뜬다() {
         s.setHeadcount(open, 4)
         val a = nextAction(g(), 1)
-        assertEquals("예상 4명보다 많은 5명이 응답 명단에 있어요", a.banner)
-        assertEquals("명단에서 잘못된 응답자를 제외하고 예상 금액을 확인한 뒤 확정해주세요.", a.note)
+        assertEquals("응답 받는 중 · 3명 응답 · 총 인원 미설정", a.banner)
+        assertEquals("2명이 아직 응답 안 했어요 · 명단을 확인해주세요", a.note)
         assertEquals(ActionKind.SETTLE, a.action?.kind)
-        assertEquals("명단 확인 · 정산 확정", a.action?.label)
+        assertEquals("명단·예상 금액 확인", a.action?.label)
         assertTrue(canSettleNow(g(), 1))
     }
 
     @Test fun 링크로_인원보다_한_명_더_들어오는_순간_총무에게_알림이_한_번_간다() {
-        s.setHeadcount(open, 5)
+        s.setTotalHeadcount(open, 5)
         s.actAs(6)
         s.joinGathering(g().shareToken, emptyMap())
         s.actAs(2)
@@ -205,7 +205,7 @@ class RemovePayerTest {
         assertEquals(GatheringStatus.OPEN, g().status)
         assertNull(g().autoSettlementError)
         val a = nextAction(g(), 1)
-        assertEquals("예상 4명보다 많은 5명이 응답 명단에 있어요", a.banner)
+        assertEquals("1명이 아직 응답 안 했어요 · 명단을 확인해주세요", a.note)
         assertEquals(ActionKind.SETTLE, a.action?.kind)
     }
 
@@ -220,7 +220,7 @@ class RemovePayerTest {
 
     @Test fun 그_밖의_이유로_멈추면_지금_계산하기로_마무리하게_한다() {
         val a = nextAction(g().copy(headcount = 5, autoSettlementError = "NO_ROUNDS"), 1)
-        assertEquals("예상 금액을 계산하지 못했어요 · 입력을 확인해주세요", a.banner)
+        assertEquals("예상 금액을 계산하지 못했어요 · 입력을 확인해주세요", a.note)
         assertEquals(ActionKind.SETTLE, a.action?.kind)
     }
 }

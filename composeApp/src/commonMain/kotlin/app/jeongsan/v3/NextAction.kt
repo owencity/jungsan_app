@@ -66,15 +66,14 @@ fun nextAction(g: Gathering, meUserId: Id, now: Instant = Clock.System.now()): N
                 return NextAction("링크를 보내서 사람들을 불러주세요", Tone.TODO, Action(ActionKind.SHARE, "링크 공유"))
             }
             val waiting = g.unrespondedParticipants().size
-            val banner = when {
+            val note = when {
                 g.autoSettlementError != null -> "예상 금액을 계산하지 못했어요 · 입력을 확인해주세요"
-                g.headcount != null && g.participants.size > g.headcount -> "예상 ${g.headcount}명보다 많은 ${g.participants.size}명이 응답 명단에 있어요"
+                g.totalHeadcount != null && g.respondedCount() > g.totalHeadcount -> g.totalHeadcountNotice()
                 waiting > 0 -> "${waiting}명이 아직 응답 안 했어요 · 명단을 확인해주세요"
-                else -> "모두 응답했어요"
+                else -> g.totalHeadcountNotice()
             }
-            return NextAction(banner, if (waiting > 0) Tone.WAIT else Tone.TODO,
-                Action(ActionKind.SETTLE, "명단 확인 · 정산 확정"),
-                "명단에서 잘못된 응답자를 제외하고 예상 금액을 확인한 뒤 확정해주세요.")
+            return NextAction("응답 받는 중 · ${g.responseProgress()}", Tone.WAIT,
+                Action(ActionKind.SETTLE, "명단·예상 금액 확인"), note)
         }
         val labels = g.rounds.joinToString("·") { it.label }
         return if (g.hasResponded(me.id)) {

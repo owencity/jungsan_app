@@ -36,6 +36,7 @@ data class RoundDraft(
     val total: Money,
     val drinks: List<DrinkItem>,
     val payerParticipantId: Id,
+    val expectedHeadcount: Int? = null,
 )
 
 /** 입력칸 문자열 → 원. 숫자 외 글자는 버린다("184,000원" → 184000). 너무 길면 상한 위 값으로 묶는다. */

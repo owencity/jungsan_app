@@ -46,6 +46,13 @@ jobs:
       - name: assemble + test
         run: ./gradlew :composeApp:assembleDebug :composeApp:allTests --console=plain --stacktrace
 
+      # 단위 테스트는 R8을 거치지 않으므로 배포용 축소·난독화 단계도 따로 검증한다.
+      # CI에는 업로드 키를 전달하지 않는다. 이 번들은 Play 업로드용이 아니다.
+      - name: verify optimized release bundle (unsigned)
+        env:
+          JS_API_BASE_URL: https://jungsan-api.devkdk.com
+        run: ./gradlew :composeApp:bundleRelease --console=plain --stacktrace
+
       - name: upload debug APK
         if: always()
         uses: actions/upload-artifact@v4

@@ -70,6 +70,7 @@ import app.jeongsan.v3.initialOf
 import app.jeongsan.v3.host
 import app.jeongsan.v3.nameOf
 import app.jeongsan.v3.nextAction
+import app.jeongsan.v3.roundAttendeeCount
 import app.jeongsan.v3.showConfirmedImageAction
 import app.jeongsan.v3.participantOfUser
 import kotlinx.datetime.Clock
@@ -112,6 +113,7 @@ fun RoomScreen(
     onTable: (() -> Unit)? = null,
     hostOnly: Boolean = false,
     onRefresh: (() -> Unit)? = null,
+    onTotalHeadcount: suspend (Int) -> String? = { "총 인원 설정을 사용할 수 없어요." },
 ) {
     var managing by remember { mutableStateOf<Id?>(null) }
     var msgMenu by remember { mutableStateOf<Id?>(null) }
@@ -155,6 +157,8 @@ fun RoomScreen(
             }
         }
 
+        if (isHost) TotalHeadcountCard(g, meUserId, onTotalHeadcount)
+
         if (saveImage != null) {
             Banner(if (g.status == GatheringStatus.COMPLETED) "입금 확인까지 완료했어요" else "정산 금액이 확정됐어요",
                 app.jeongsan.v3.Tone.DONE, "보낼 대상과 금액이 담긴 이미지를 저장해 단톡방에 공유하세요.")
@@ -164,7 +168,7 @@ fun RoomScreen(
         // 계좌 안내 등 다른 할 일이 먼저 나와도 총무가 명단을 검토하고 확정할 수 있게 한다.
         if (canSettleNow(g, meUserId) && act.action?.kind != ActionKind.SETTLE) {
             Text(
-                "명단 확인 · 정산 확정",
+                "명단·예상 금액 확인",
                 Modifier.fillMaxWidth().clickable { onAction(ActionKind.SETTLE) }.semantics { role = Role.Button }.padding(vertical = 4.dp),
                 color = JsColor.ink3, fontSize = 13.sp, textAlign = TextAlign.End, textDecoration = TextDecoration.Underline,
             )
@@ -206,6 +210,13 @@ fun RoomScreen(
         }
 
         if (g.rounds.isNotEmpty()) {
+            if (canEditRounds) {
+                for (round in g.rounds) {
+                    val expected = round.expectedHeadcount?.let { " / 예상 ${it}명" }.orEmpty()
+                    Text("${round.label} · 참석 응답 ${g.roundAttendeeCount(round.id)}명$expected",
+                        color = JsColor.ink3, fontSize = 13.sp)
+                }
+            }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 for (r in g.rounds) {
                     RoundChip(r.label, r.total, if (canEditRounds) ({ onEditRound(r.id) }) else null)

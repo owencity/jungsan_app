@@ -14,6 +14,7 @@ import app.jeongsan.v3.V3Store
 import app.jeongsan.v3.mockPreview
 import app.jeongsan.v3.participantOfUser
 import app.jeongsan.v3.validateName
+import app.jeongsan.v3.totalHeadcountError
 import kotlinx.datetime.Clock
 import kotlinx.datetime.toDeprecatedInstant
 import kotlin.uuid.ExperimentalUuidApi
@@ -218,25 +219,21 @@ class V3Gateway(private val store: V3Store, private val client: ApiClient?, val 
      * 차수 저장(R2) + 총무 본인 응답(FC-019 A). 응답은 새 차수거나 값이 바뀌었을 때만 보낸다.
      * 서버 변경 없이 기존 `PUT U/responses/me`를 차수 저장 뒤에 한 번 더 부른다
      */
-    suspend fun saveRound(roomId: Id, draft: RoundDraft, mine: ResponseType, headcount: Int? = null): Made {
+    suspend fun saveRound(roomId: Id, draft: RoundDraft, mine: ResponseType): Made {
         val before = store.state.rooms[roomId]
-        // 인원(FC-020)은 바뀌었을 때만 — 응답을 넣은 뒤에 바꿔야 "모두 모였다" 판정이 새 응답까지 본다
-        val headcountChanged = headcount != null && headcount != before?.headcount
         val c = client ?: run {
             val id = store.saveRoundAsHost(roomId, draft, mine) ?: draft.id ?: 0
-            if (headcountChanged) store.setHeadcount(roomId, headcount!!)
             return Made.Ok(id)
         }
         val meP = before?.participantOfUser(store.state.me.id)
         val prev = draft.id?.let { rid -> before?.responses?.find { it.participantId == meP?.id && it.roundId == rid }?.type }
         val (gid, uid) = ctx(roomId)
-        val body = RoundBody(draft.total, draft.payerParticipantId, draft.drinks.map { SDrink(it.name, it.unitPrice, it.quantity) })
+        val body = RoundBody(draft.total, draft.payerParticipantId, draft.drinks.map { SDrink(it.name, it.unitPrice, it.quantity) },
+            draft.expectedHeadcount)
         return try {
             val r = draft.id?.let { c.putRound(gid, uid, it, body) } ?: c.addRound(gid, uid, body)
             // 차수는 들어갔는데 응답만 실패하면 정산 때 "응답 없음"으로 보일 뿐이라 차수 저장을 실패로 돌리지 않는다
             if (mine != prev) attempt { c.respond(gid, uid, listOf(AnswerBody(r.id, mine.name))) }
-            // 인원은 서버가 아직 모르면(FC-020 배포 전) 실패해도 차수 저장은 성공으로 둔다
-            if (headcountChanged) attempt { c.putHeadcount(gid, uid, headcount!!) }
             refresh(c, gid)
             Made.Ok(r.id)
         } catch (e: ApiError) {
@@ -359,6 +356,17 @@ class V3Gateway(private val store: V3Store, private val client: ApiClient?, val 
         } catch (e: ApiError) {
             messageOf(e)
         }
+    }
+
+    suspend fun setTotalHeadcount(roomId: Id, totalHeadcount: Int): String? {
+        val room = store.state.rooms[roomId] ?: return "없는 술자리예요."
+        room.totalHeadcountError(store.state.me.id, totalHeadcount)?.let { return it }
+        val c = client ?: return store.setTotalHeadcount(roomId, totalHeadcount)
+        val (gid, uid) = ctx(roomId)
+        val error = mutate(c, gid) { c.putTotalHeadcount(gid, uid, totalHeadcount) }
+        if (error != null) return error
+        return if (store.state.rooms[roomId]?.totalHeadcount == totalHeadcount) null
+        else "저장 결과를 확인하지 못했어요. 응답 현황을 새로고침해주세요."
     }
 
     /** 인원(FC-020) — R1 [포함하기]. 서버는 목표 인원을 바꿔도 확정하지 않는다 */

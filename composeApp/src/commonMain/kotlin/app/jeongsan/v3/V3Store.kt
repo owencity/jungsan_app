@@ -180,12 +180,15 @@ class V3Store(
             val exists = draft.id != null && g.rounds.any { it.id == draft.id }
             val rounds = if (exists) {
                 g.rounds.map {
-                    if (it.id == draft.id) it.copy(total = draft.total, drinks = draft.drinks, payerParticipantId = draft.payerParticipantId) else it
+                    if (it.id == draft.id) it.copy(total = draft.total, drinks = draft.drinks,
+                        payerParticipantId = draft.payerParticipantId,
+                        expectedHeadcount = draft.expectedHeadcount ?: it.expectedHeadcount) else it
                 }
             } else {
                 val newId = (g.rounds.maxOfOrNull { it.id } ?: 0) + 1
                 created = newId
-                relabel(g.rounds + Round(newId, Int.MAX_VALUE, "", draft.total, draft.payerParticipantId, draft.drinks), g.firstSeq ?: 1)
+                relabel(g.rounds + Round(newId, Int.MAX_VALUE, "", draft.total, draft.payerParticipantId, draft.drinks,
+                    draft.expectedHeadcount), g.firstSeq ?: 1)
             }
             val label = rounds.first { it.id == (if (exists) draft.id else created) }.label
             g.copy(rounds = rounds, inputRevision = g.inputRevision + 1)
@@ -305,7 +308,14 @@ class V3Store(
         return settled.push(TimelineType.SYSTEM, body).completeIfDone()
     }
 
-    /** 인원(총무 포함, FC-020) — 총무·정산 전. 2~50으로 맞춘다. 예상 인원 안내용이며 확정은 총무가 별도로 한다 */
+    fun setTotalHeadcount(roomId: Id, totalHeadcount: Int): String? {
+        val g = state.rooms[roomId] ?: return "없는 술자리예요."
+        g.totalHeadcountError(me.id, totalHeadcount)?.let { return it }
+        update(roomId) { current, _ -> current.copy(totalHeadcount = totalHeadcount) }
+        return null
+    }
+
+    /** 과거 인원 계약. 새 총 인원 입력은 setTotalHeadcount로 별도 저장한다. */
     fun setHeadcount(roomId: Id, headcount: Int) = update(roomId) { g, _ ->
         if (g.hostUserId != me.id || g.status != GatheringStatus.OPEN) return@update g
         val n = headcount.coerceIn(HEADCOUNT_MIN, HEADCOUNT_MAX)

@@ -35,17 +35,37 @@ class NextActionTest {
 
     @Test fun 미응답자가_있으면_몇_명인지_알려주고_기다리지_않고_정산할_수_있게_정산하기를_준다() {
         val a = nextAction(room(OPEN), 1)
-        assertContains(a.banner, "2명이 아직 응답 안 했어요")
+        assertContains(a.note.orEmpty(), "2명이 아직 응답 안 했어요")
         assertEquals(ActionKind.SETTLE, a.action?.kind)
         assertEquals(Tone.WAIT, a.tone)
     }
 
-    @Test fun 모두_응답하면_모두_응답했어요와_정산하기를_준다() {
+    @Test fun 현재_명단_모두_응답해도_응답을_계속_받는다고_표시한다() {
         val extra = listOf(14L, 15L).flatMap { pid -> listOf(1L, 2L).map { rid -> RoundResponse(pid, rid, ResponseType.DRANK, ResponseSource.SELF) } }
         val g = room(OPEN).let { it.copy(responses = it.responses + extra) }
         val a = nextAction(g, 1)
-        assertEquals("모두 응답했어요", a.banner)
+        assertEquals("응답 받는 중 · 5명 응답 · 총 인원 미설정", a.banner)
+        assertContains(a.note.orEmpty(), "추가 응답을 받을 수 있어요")
         assertEquals(ActionKind.SETTLE, a.action?.kind)
+    }
+
+    @Test fun 차수별_예상_인원과_실제_참석을_구분한다() {
+        val g = room(OPEN)
+        val rounds = listOf(6, 7, 8).mapIndexed { index, count ->
+            g.rounds.first().copy(id = index + 1L, expectedHeadcount = count)
+        }
+        val members = (1L..7L).map { g.host().copy(id = it, userId = it) }
+        val answers = rounds.flatMap { round ->
+            members.map { person ->
+                val type = if (person.id == 7L && round.id == 1L) ResponseType.ABSENT else ResponseType.SOBER
+                RoundResponse(person.id, round.id, type, ResponseSource.SELF)
+            }
+        }
+        val active = g.copy(participants = members, rounds = rounds, responses = answers, headcount = 6)
+        assertEquals(listOf(6, 7, 7), rounds.map { active.roundAttendeeCount(it.id) })
+        val action = nextAction(active, 1)
+        assertEquals("응답 받는 중 · 7명 응답 · 총 인원 미설정", action.banner)
+        assertContains(action.note.orEmpty(), "추가 응답을 받을 수 있어요")
     }
 
     // ── 참여자 — 정산 전 ──

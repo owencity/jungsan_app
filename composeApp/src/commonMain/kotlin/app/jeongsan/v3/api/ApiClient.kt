@@ -137,6 +137,8 @@ class ApiClient(
         call(HttpMethod.Post, "/api/v1/gatherings/$gid/settlement-units", UnitBody(requestId, participantIds, headcount))
     /** 인원(FC-020) — 총무·정산 전. 목표 인원을 바꿔도 확정하지 않는다 */
     suspend fun putHeadcount(gid: Long, uid: Long, headcount: Int) = exec(HttpMethod.Put, "${u(gid, uid)}/headcount", HeadcountBody(headcount))
+    suspend fun putTotalHeadcount(gid: Long, uid: Long, totalHeadcount: Int) =
+        exec(HttpMethod.Put, "${u(gid, uid)}/total-headcount", TotalHeadcountBody(totalHeadcount))
     suspend fun removeMember(gid: Long, uid: Long, pid: Long) = exec(HttpMethod.Delete, "${u(gid, uid)}/participants/$pid")
     suspend fun renameGuest(gid: Long, uid: Long, pid: Long, name: String, expected: String) =
         exec(HttpMethod.Put, "${u(gid, uid)}/participants/$pid/name", GuestNameBody(name, expected))
@@ -216,8 +218,10 @@ data class MeResponse(
 @Serializable data class JoinResult(val gatheringId: Long, val participantId: Long)
 @Serializable data class UnitBody(val requestId: String, val participantIds: List<Long>, val headcount: Int? = null)
 @Serializable data class HeadcountBody(val headcount: Int)
+@Serializable data class TotalHeadcountBody(val totalHeadcount: Int)
 @Serializable data class IdBody(val id: Long)
-@Serializable data class RoundBody(val total: Long, val payerParticipantId: Long, val drinks: List<SDrink>)
+@Serializable data class RoundBody(val total: Long, val payerParticipantId: Long, val drinks: List<SDrink>,
+    val expectedHeadcount: Int? = null)
 @Serializable data class SettleBody(val inputRevision: Int, val inputHash: String)
 
 @Serializable data class DisplayNameRequest(val displayName: String)
