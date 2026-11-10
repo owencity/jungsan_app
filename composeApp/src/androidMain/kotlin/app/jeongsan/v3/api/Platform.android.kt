@@ -17,6 +17,8 @@ actual fun platformTokenStore(): TokenStore = prefsStore(KEY_TOKEN)
 
 actual fun platformVerifierStore(): TokenStore = prefsStore("verifier")
 
+actual fun platformTermsConsent(): TermsConsent = TermsConsent { userId -> prefsStore("terms.$apiBaseUrl.$userId") }
+
 private fun prefsStore(key: String): TokenStore = object : TokenStore {
     private val prefs get() = AndroidAppContext.context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
     override fun get(): String? = prefs.getString(key, null)

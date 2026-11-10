@@ -1,9 +1,10 @@
 import XCTest
 
-/// 공개 로그인 버튼을 그대로 누른다. 계정 입력·가입·동의·토큰 발급은 수행하지 않는다.
+/// 앱 이용약관에 동의하고 공개 로그인 버튼을 누른다. 제공자 계정 입력·가입·인증 완료는 수행하지 않는다.
 final class AuthenticationUITests: XCTestCase {
     private let application = XCUIApplication()
     private let safari = XCUIApplication(bundleIdentifier: "com.apple.mobilesafari")
+    private let appStore = XCUIApplication(bundleIdentifier: "com.apple.AppStore")
     private let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
 
     func testAppleAuthenticationPresentationAndCancel() {
@@ -11,42 +12,8 @@ final class AuthenticationUITests: XCTestCase {
     }
 
     func testKakaoAuthenticationPresentationAndCancel() {
-        continueAfterFailure = false
-        executionTimeAllowance = 150
-        application.launch()
-        defer { application.terminate() }
-        let kakao = application.buttons["카카오로 3초만에 시작하기"]
-        XCTAssertTrue(kakao.waitForExistence(timeout: 20))
-        for attempt in 1...2 {
-            kakao.tap()
-            let guide = application.alerts["카카오톡이 필요해요"]
-            XCTAssertTrue(guide.waitForExistence(timeout: 15), "미설치 시 웹 입력 대신 설치 안내가 보여야 한다")
-            XCTAssertTrue(guide.buttons["카카오톡 설치하기"].exists)
-            XCTAssertTrue(guide.buttons["Apple로 계속하기"].exists)
-            XCTAssertNotEqual(safari.state, .runningForeground)
-            XCTAssertFalse(application.webViews.firstMatch.exists)
-            capture("kakao-install-guide-\(attempt)")
-            guide.buttons["취소"].tap()
-            let ready = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in kakao.isEnabled && kakao.isHittable }, object: nil)
-            XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 10), .completed)
-        }
-        // 설치 안내에서 Apple을 고르면 안내가 닫힌 뒤 기존 시스템 인증창으로 연결된다.
-        kakao.tap()
-        let guide = application.alerts["카카오톡이 필요해요"]
-        XCTAssertTrue(guide.waitForExistence(timeout: 10))
-        guide.buttons["Apple로 계속하기"].tap()
-        acceptAuthenticationPromptIfPresented()
-        XCTAssertTrue(application.webViews.textFields.firstMatch.waitForExistence(timeout: 30))
-        XCTAssertNotEqual(safari.state, .runningForeground)
-        capture("kakao-guide-apple-alternative")
-        let close = authenticationCancelButton()
-        XCTAssertNotNil(close, "Apple 대안 인증창도 닫을 수 있어야 한다")
-        close?.tap()
-        let returned = XCTNSPredicateExpectation(predicate: NSPredicate { [self] _, _ in
-            application.state == .runningForeground && kakao.isEnabled && kakao.isHittable
-                && !application.webViews.firstMatch.exists
-        }, object: nil)
-        XCTAssertEqual(XCTWaiter.wait(for: [returned], timeout: 15), .completed)
+        // 시뮬레이터에는 카카오톡이 없다. 설치 없이 같은 카카오 계정으로 들어갈 수 있어야 한다.
+        verifyAuthentication(buttonSuffix: "카카오로 3초만에 시작하기", provider: "kakao")
     }
 
     private func verifyAuthentication(buttonSuffix: String, provider: String) {
@@ -57,6 +24,13 @@ final class AuthenticationUITests: XCTestCase {
         let login = application.descendants(matching: .any)
             .matching(NSPredicate(format: "label ENDSWITH %@", buttonSuffix)).firstMatch
         XCTAssertTrue(login.waitForExistence(timeout: 20), "공개 로그인 버튼이 보여야 한다")
+        XCTAssertFalse(login.isEnabled, "약관에 명시적으로 동의하기 전에는 로그인을 시작할 수 없어야 한다")
+        let agreement = application.descendants(matching: .any)
+            .matching(NSPredicate(format: "label BEGINSWITH %@", "이용약관에 동의합니다")).firstMatch
+        XCTAssertTrue(agreement.waitForExistence(timeout: 10))
+        agreement.tap()
+        let enabled = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in login.isEnabled }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [enabled], timeout: 10), .completed)
 
         // 두 번째 시도까지 검사해 취소 후 session/PKCE 상태가 남는 회귀도 잡는다.
         for attempt in 1...2 {
@@ -69,6 +43,8 @@ final class AuthenticationUITests: XCTestCase {
             capture("\(provider)-auth-\(attempt)")
             print("Authentication presentation: provider=\(provider), attempt=\(attempt), appState=\(application.state.rawValue), safariState=\(safari.state.rawValue)")
             XCTAssertNotEqual(safari.state, .runningForeground, "기본 Safari 앱으로 전환되면 안 된다")
+            XCTAssertNotEqual(appStore.state, .runningForeground, "추가 앱 설치를 요구하면 안 된다")
+            XCTAssertFalse(application.alerts["카카오톡이 필요해요"].exists)
             let cancel = authenticationCancelButton()
             XCTAssertNotNil(cancel, "앱 안 인증 화면에 닫을 수 있는 취소 버튼이 있어야 한다")
             cancel?.tap()

@@ -1,6 +1,6 @@
 package app.jeongsan.v3.api
 
-/** 실제 카카오톡 실행·미설치 시스템 안내는 Swift의 공식 SDK 어댑터가 담당한다. */
+/** Swift가 카카오톡을 실행하고, 미설치이면 앱 안 계정 로그인으로 이어가도록 알려준다. */
 object IosKakaoTalkBridge {
     var launcher: (() -> Unit)? = null
     var cancel: (() -> Unit)? = null
@@ -18,7 +18,7 @@ object IosKakaoTalkBridge {
         completion = null
         callback(when (status) {
             "TOKEN" -> accessToken?.takeIf { it.isNotBlank() }?.let { KakaoTalkResult.Token(it) } ?: KakaoTalkResult.Failed
-            "APPLE" -> KakaoTalkResult.UseApple
+            "ACCOUNT" -> KakaoTalkResult.UseAccount
             "CANCELLED" -> KakaoTalkResult.Cancelled
             "NOT_CONFIGURED" -> KakaoTalkResult.NotConfigured
             else -> KakaoTalkResult.Failed

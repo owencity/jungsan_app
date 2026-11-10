@@ -6,7 +6,7 @@ sealed interface KakaoTalkResult {
     class Token(val accessToken: String) : KakaoTalkResult {
         override fun toString() = "KakaoTalkResult.Token([redacted])"
     }
-    data object UseApple : KakaoTalkResult
+    data object UseAccount : KakaoTalkResult
     data object Cancelled : KakaoTalkResult
     data object NotConfigured : KakaoTalkResult
     data object Failed : KakaoTalkResult

@@ -178,6 +178,7 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3G
         if (s.me.needsName) {
             NameScreen(
                 devBar = devBar(null), me = s.me, onConfirm = { gateway.confirmName(it) },
+                termsAccepted = gateway.isApiMode,
                 onLogout = { scope.launch { gateway.logout(); onLeave() } },
             )
             return@composable
@@ -238,6 +239,7 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3G
             meUserId = s.me.id,
             // 첫 로그인이면 P1에서 이름 확인(L2)을 같이 받는다 — 확인한 이름으로 참여한다
             askName = s.me.needsName,
+            termsAccepted = gateway.isApiMode,
             participantCount = preview?.getOrNull()?.participantCount?.takeIf { mineHere == null },
             choices = entryRooms.orEmpty().map { it.id to it.entryChoiceLabel() },
             onPick = { picked = it },

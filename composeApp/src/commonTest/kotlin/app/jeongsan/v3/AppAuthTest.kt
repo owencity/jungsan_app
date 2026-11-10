@@ -5,6 +5,7 @@ import app.jeongsan.v3.api.AppAuth
 import app.jeongsan.v3.api.MemoryTokenStore
 import app.jeongsan.v3.api.Pkce
 import app.jeongsan.v3.api.Sha256
+import app.jeongsan.v3.api.V3Gateway
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import io.ktor.client.request.HttpRequestData
@@ -16,6 +17,7 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.BeforeTest
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -38,6 +40,47 @@ class AppAuthTest {
             assertNull(AppAuth.store.get())
             assertNull(AppAuth.returned)
         }
+    }
+
+    @Test fun Apple_신규와_기존_계정은_서버의_표시이름으로_들어가며_이름을_다시_등록하지_않는다() = runTest {
+        // 신규 계정의 Apple 이름과 기존 계정의 저장된 이름 모두 서버 응답을 그대로 사용한다.
+        listOf("김민지", "Jane Appleseed", "기존 총무").forEach { name ->
+            val calls = mutableListOf<HttpRequestData>()
+            val tokens = MemoryTokenStore()
+            val client = ApiClient("https://api.test", tokens, MockEngine { request ->
+                calls += request
+                val body = when (request.url.encodedPath) {
+                    "/api/v1/auth/app/exchange" -> """{"token":"apple-app-token","expiresAt":"2026-12-01T00:00:00Z"}"""
+                    "/api/v1/auth/me" -> """{"id":7,"nickname":"","displayName":"$name","needsName":false}"""
+                    else -> error("Apple 로그인에 이름 재등록 요청이 필요하지 않다: ${request.url.encodedPath}")
+                }
+                respond(body, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+            })
+            val address = AppAuth.start(client, AppAuth.Provider.APPLE, authSession = true)
+            assertTrue(address.contains("/auth/apple/login?client=app&codeChallenge="))
+            val returned = "jeongsan://auth?ticket=apple-ticket"
+            AppAuth.handle(returned)
+            assertNull(AppAuth.finish(client, assertNotNull(AppAuth.returned)))
+            AppAuth.consumed(returned)
+            val state = V3Store(V3State.empty())
+            assertTrue(V3Gateway(state, client).loadMe())
+            assertEquals(name, state.state.me.displayName)
+            assertFalse(state.state.me.needsName)
+            assertEquals(listOf("/api/v1/auth/app/exchange", "/api/v1/auth/me"), calls.map { it.url.encodedPath })
+        }
+    }
+
+    @Test fun 카카오톡_미설치_계정로그인은_카카오_PKCE_세션으로_시작하며_취소한_티켓을_교환하지_않는다() = runTest {
+        val client = ApiClient("https://api.test", MemoryTokenStore(), MockEngine { error("취소한 로그인은 HTTP 교환을 하지 않는다") })
+        val address = AppAuth.start(client, AppAuth.Provider.KAKAO, authSession = true)
+        assertTrue(address.startsWith("https://api.test/api/v1/auth/kakao/login?client=app&codeChallenge="))
+        assertTrue(address.endsWith("&appReturn=session"))
+        val firstVerifier = assertNotNull(AppAuth.store.get())
+        AppAuth.cancel()
+        AppAuth.handle("jeongsan://auth?ticket=cancelled")
+        assertNull(AppAuth.returned)
+        AppAuth.start(client, AppAuth.Provider.KAKAO, authSession = true)
+        assertTrue(firstVerifier != AppAuth.store.get())
     }
 
     @Test fun 완료주소_중복전달과_취소뒤_지연전달은_재교환하지않는다() = runTest {

@@ -17,6 +17,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -30,6 +34,7 @@ import androidx.compose.ui.unit.sp
 import app.jeongsan.ui.JsColor
 import app.jeongsan.ui.PixelSunsetBackground
 import app.jeongsan.ui.PrimaryButton
+import app.jeongsan.v3.ui.TermsAgree
 
 /**
  * 주최자 로그인 겸 소개 화면. 웹의 `LoginPage.tsx` 를 옮긴 것.
@@ -57,6 +62,9 @@ fun LoginScreen(
     onCancelLogin: (() -> Unit)? = null,
 ) {
     val textShadow = Shadow(color = Color.Black.copy(alpha = 0.45f), offset = Offset(0f, 2f), blurRadius = 10f)
+    // Apple이 이름을 제공하면 이름 입력 화면을 거치지 않으므로, 로그인 전에 별도로 동의받는다.
+    var agreed by remember { mutableStateOf(false) }
+    val canLogin = agreed && !busy
 
     Box(Modifier.fillMaxSize()) {
         PixelSunsetBackground(Modifier.fillMaxSize())
@@ -96,13 +104,18 @@ fun LoginScreen(
 
                 Spacer(Modifier.height(28.dp))
 
-                PrimaryButton(if (busy) "로그인 중이에요" else "카카오로 3초만에 시작하기", enabled = !busy,
+                Column(Modifier.fillMaxWidth().background(Color.White.copy(alpha = 0.96f)).padding(12.dp)) {
+                    TermsAgree(agreed) { if (!busy) agreed = it }
+                }
+                Spacer(Modifier.height(14.dp))
+
+                PrimaryButton(if (busy) "로그인 중이에요" else "카카오로 3초만에 시작하기", enabled = canLogin,
                     onClick = { onLogin(AppAuth.Provider.KAKAO) })
                 if (showApple) {
                     Spacer(Modifier.height(10.dp))
                     // Apple 가이드 — 검은 바탕·흰 글자·로고. 다른 로그인 버튼과 같은 크기
                     Box(
-                        Modifier.fillMaxWidth().height(52.dp).background(Color.Black).clickable(enabled = !busy) { onLogin(AppAuth.Provider.APPLE) }
+                        Modifier.fillMaxWidth().height(52.dp).background(Color.Black).clickable(enabled = canLogin) { onLogin(AppAuth.Provider.APPLE) }
                             .semantics { role = Role.Button },
                         contentAlignment = Alignment.Center,
                     ) { Text("\uF8FF  Apple로 계속하기", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold) }

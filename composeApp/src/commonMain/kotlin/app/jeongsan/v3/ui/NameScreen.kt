@@ -73,6 +73,7 @@ fun NameScreen(
     onLogout: () -> Unit,
     /** 실패면 보여줄 문구, 성공이면 null([app.jeongsan.v3.api.V3Gateway.confirmName]) */
     onConfirm: suspend (String) -> String?,
+    termsAccepted: Boolean = false,
 ) {
     var name by remember(me.id) { mutableStateOf("") }
     var tried by remember(me.id) { mutableStateOf(false) }
@@ -80,7 +81,7 @@ fun NameScreen(
     var serverError by remember(me.id) { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     // 이용약관 동의(FC-024) — 체크해야 시작할 수 있다
-    var agreed by remember(me.id) { mutableStateOf(false) }
+    var agreed by remember(me.id, termsAccepted) { mutableStateOf(termsAccepted) }
     val nameFocus = remember(me.id) { FocusRequester() }
     val nameArea = remember(me.id) { BringIntoViewRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
@@ -118,7 +119,7 @@ fun NameScreen(
         devBar = devBar,
         top = null,
         bottom = {
-            TermsAgree(agreed) { agreed = it }
+            if (!termsAccepted) TermsAgree(agreed) { agreed = it }
             CtaButton(if (busy) "저장하는 중…" else "이 이름으로 시작", enabled = !busy && agreed, onClick = submit)
         },
     ) {
