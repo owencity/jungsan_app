@@ -49,6 +49,8 @@ import app.jeongsan.v3.api.V3Gateway
 import app.jeongsan.v3.api.apiBaseUrl
 import app.jeongsan.v3.api.platformTokenStore
 import app.jeongsan.v3.api.platformVerifierStore
+import app.jeongsan.v3.api.platformTermsConsent
+import app.jeongsan.v3.ui.TermsConsentScreen
 import app.jeongsan.v3.ui.V3Routes
 import app.jeongsan.v3.ui.v3Graph
 
@@ -101,6 +103,8 @@ private fun AppSession(realClient: ApiClient?, demo: Boolean, onEnterDemo: () ->
         val gateway = remember { V3Gateway(v3, client, isDemoMode = demo) }
         val navController = rememberNavController()
         val uri = LocalUriHandler.current
+        val terms = remember(client) { if (client != null) platformTermsConsent() else null }
+        var consentRevision by remember { mutableStateOf(0) }
 
         LaunchedEffect(Unit) {
             if (demo) {
@@ -138,8 +142,18 @@ private fun AppSession(realClient: ApiClient?, demo: Boolean, onEnterDemo: () ->
         var loginBusy by remember { mutableStateOf(false) }
         var nativeBusy by remember { mutableStateOf(false) }
         var nativeJob by remember { mutableStateOf<Job?>(null) }
+        var loginTermsAccepted by remember { mutableStateOf(false) }
         val loginScope = rememberCoroutineScope()
         val nativeSession = remember(client) { client?.let(::NativeKakaoSession) }
+
+        fun recordLoginConsent() {
+            // 체크 시점에는 계정을 모른다. 인증 뒤 /auth/me로 확인한 계정에만 동의를 기록한다.
+            if (loginTermsAccepted) {
+                terms?.accept(v3.state.me.id)
+                consentRevision++
+            }
+            loginTermsAccepted = false
+        }
 
         fun browserLogin(provider: AppAuth.Provider) {
             if (loginBusy) return
@@ -155,13 +169,13 @@ private fun AppSession(realClient: ApiClient?, demo: Boolean, onEnterDemo: () ->
                     when (result) {
                         is AuthBrowserResult.Completed -> {
                             if (AppAuth.ticketOf(result.url) == null) {
-                                AppAuth.cancel(); loginBusy = false
+                                AppAuth.cancel(); loginBusy = false; loginTermsAccepted = false
                                 loginError = "로그인 주소가 올바르지 않아요. 다시 시도해주세요"
                             } else AppAuth.handle(result.url)
                         }
-                        AuthBrowserResult.Cancelled -> { AppAuth.cancel(); loginBusy = false }
+                        AuthBrowserResult.Cancelled -> { AppAuth.cancel(); loginBusy = false; loginTermsAccepted = false }
                         AuthBrowserResult.Failed -> {
-                            AppAuth.cancel(); loginBusy = false
+                            AppAuth.cancel(); loginBusy = false; loginTermsAccepted = false
                             loginError = "로그인 화면을 열지 못했어요. 다시 시도해주세요"
                         }
                     }
@@ -170,10 +184,12 @@ private fun AppSession(realClient: ApiClient?, demo: Boolean, onEnterDemo: () ->
         }
 
         fun startLogin(provider: AppAuth.Provider) {
+            if (loginBusy) return
+            // LoginScreen은 이용약관을 체크해야 이 콜백을 호출할 수 있다.
+            loginTermsAccepted = true
             if (!platformIsIos || provider != AppAuth.Provider.KAKAO || client == null) {
                 browserLogin(provider); return
             }
-            if (loginBusy) return
             val session = nativeSession ?: return
             val attempt = session.start()
             AppAuth.cancel()
@@ -192,6 +208,7 @@ private fun AppSession(realClient: ApiClient?, demo: Boolean, onEnterDemo: () ->
                                 client.logout()
                                 loginError = "로그인하지 못했어요. 다시 시도해주세요"
                             } else if (session.isCurrent(attempt)) {
+                                recordLoginConsent()
                                 navController.navigate(V3Routes.Home) { popUpTo(Routes.Login) { inclusive = true } }
                             }
                         } catch (cancelled: CancellationException) { throw cancelled }
@@ -199,15 +216,16 @@ private fun AppSession(realClient: ApiClient?, demo: Boolean, onEnterDemo: () ->
                             if (session.isCurrent(attempt)) loginError = "카카오톡 로그인을 완료하지 못했어요. 다시 시도해 주세요."
                         }
                         finally {
-                            if (session.isCurrent(attempt)) { loginBusy = false; nativeBusy = false }
+                            if (session.isCurrent(attempt)) { loginBusy = false; nativeBusy = false; loginTermsAccepted = false }
                         }
                     }
-                    KakaoTalkResult.UseApple -> {
+                    KakaoTalkResult.UseAccount -> {
                         session.cancel(); nativeBusy = false; loginBusy = false
-                        browserLogin(AppAuth.Provider.APPLE)
+                        browserLogin(AppAuth.Provider.KAKAO)
                     }
                     else -> {
                         session.cancel(); nativeBusy = false; loginBusy = false
+                        loginTermsAccepted = false
                         loginError = when (result) {
                             KakaoTalkResult.Cancelled -> null
                             KakaoTalkResult.NotConfigured -> "카카오 로그인을 사용할 수 없어요. Apple 로그인으로 계속해 주세요."
@@ -223,7 +241,7 @@ private fun AppSession(realClient: ApiClient?, demo: Boolean, onEnterDemo: () ->
             nativeJob?.cancel()
             cancelPlatformKakaoTalkLogin()
             if (nativeBusy) client?.logout()
-            nativeBusy = false; loginBusy = false
+            nativeBusy = false; loginBusy = false; loginTermsAccepted = false
         }
 
         DisposableEffect(client) {
@@ -238,10 +256,28 @@ private fun AppSession(realClient: ApiClient?, demo: Boolean, onEnterDemo: () ->
             val c = client ?: return@LaunchedEffect
             loginError = AppAuth.finish(c, url)
             if (loginError == null && !gateway.loadMe()) loginError = "로그인하지 못했어요. 다시 시도해주세요"
+            if (loginError == null) recordLoginConsent() else loginTermsAccepted = false
             // 다 끝난 뒤에 지운다 — 지우는 순간 이 효과가 다시 시작돼 진행 중인 작업이 취소되기 때문(AppAuth.finish)
             AppAuth.consumed(url)
             loginBusy = false
             if (loginError == null) navController.navigate(V3Routes.Home) { popUpTo(Routes.Login) { inclusive = true } }
+        }
+
+        val currentUserId = v3.state.me.id
+        val needsTerms = remember(terms, currentUserId, consentRevision) {
+            terms != null && currentUserId > 0 && !terms.accepted(currentUserId)
+        }
+        if (needsTerms) {
+            // 모든 실제 화면 앞에서 확인한다. 저장 토큰·인증 딥링크도 이름 화면을 우회해 들어올 수 있다.
+            TermsConsentScreen(currentUserId, onAgree = {
+                terms?.accept(currentUserId)
+                consentRevision++
+                navController.navigate(V3Routes.Home) { popUpTo(Routes.Login) { inclusive = true } }
+            }, onLogout = {
+                gateway.logout()
+                navController.navigate(Routes.Login) { popUpTo(V3Routes.Home) { inclusive = true } }
+            })
+            return@JeongsanTheme
         }
 
         // 데모 바와 본문이 각각 상태바 여백을 쓰면 작은 호환 화면의 입력 공간을 두 번 줄인다.

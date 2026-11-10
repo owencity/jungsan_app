@@ -65,6 +65,7 @@ fun EntryScreen(
     /** 한 술자리에 총무가 둘 이상이면(FC-015) 참여할 차수 묶음을 고른다 — (정산방 id, 이름) */
     choices: List<Pair<Id, String>> = emptyList(),
     onPick: (Id) -> Unit = {},
+    termsAccepted: Boolean = false,
 ) {
     val draft = remember(g?.id, meUserId) { mutableStateMapOf<Id, ResponseType>() }
     var name by remember(g?.id, meUserId) { mutableStateOf("") }
@@ -97,7 +98,7 @@ fun EntryScreen(
     val answered = g.rounds.all { draft[it.id] != null }
     val nameErrors = if (askName) validateName(name) else emptyList()
     // 첫 로그인이면 여기서 이용약관 동의도 받는다(FC-024, L2와 같다)
-    var agreed by remember(g.id) { mutableStateOf(false) }
+    var agreed by remember(g.id, meUserId, termsAccepted) { mutableStateOf(termsAccepted) }
     val filled = answered && nameErrors.isEmpty() && (!askName || agreed)
     val date = g.date.toLocalDateTime(TimeZone.currentSystemDefault())
 
@@ -105,7 +106,7 @@ fun EntryScreen(
         devBar = devBar,
         top = { BackButton(onHome) },
         bottom = {
-            if (askName) TermsAgree(agreed) { agreed = it }
+            if (askName && !termsAccepted) TermsAgree(agreed) { agreed = it }
             if (!answered) Text("모든 차수를 골라야 참여할 수 있어요", Modifier.fillMaxWidth(), color = JsColor.ink3, fontSize = 12.sp, textAlign = TextAlign.Center)
             joinError?.let { Text(it, Modifier.fillMaxWidth(), color = JsColor.warn, fontSize = 13.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center) }
             CtaButton(if (g.rounds.isEmpty()) "참여하기" else "참여하고 응답 완료", enabled = filled && !busy) {

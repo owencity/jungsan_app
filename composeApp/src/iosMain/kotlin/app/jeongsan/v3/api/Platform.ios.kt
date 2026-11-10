@@ -13,6 +13,8 @@ actual fun platformTokenStore(): TokenStore = defaultsStore(KEY_TOKEN)
 
 actual fun platformVerifierStore(): TokenStore = defaultsStore("jeongsan.verifier")
 
+actual fun platformTermsConsent(): TermsConsent = TermsConsent { userId -> defaultsStore("jeongsan.terms.$apiBaseUrl.$userId") }
+
 private fun defaultsStore(key: String): TokenStore = object : TokenStore {
     private val defaults get() = NSUserDefaults.standardUserDefaults
     override fun get(): String? = defaults.stringForKey(key)
