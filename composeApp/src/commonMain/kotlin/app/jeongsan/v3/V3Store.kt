@@ -308,7 +308,14 @@ class V3Store(
         return settled.push(TimelineType.SYSTEM, body).completeIfDone()
     }
 
-    /** 인원(총무 포함, FC-020) — 총무·정산 전. 2~50으로 맞춘다. 예상 인원 안내용이며 확정은 총무가 별도로 한다 */
+    fun setTotalHeadcount(roomId: Id, totalHeadcount: Int): String? {
+        val g = state.rooms[roomId] ?: return "없는 술자리예요."
+        g.totalHeadcountError(me.id, totalHeadcount)?.let { return it }
+        update(roomId) { current, _ -> current.copy(totalHeadcount = totalHeadcount) }
+        return null
+    }
+
+    /** 과거 인원 계약. 새 총 인원 입력은 setTotalHeadcount로 별도 저장한다. */
     fun setHeadcount(roomId: Id, headcount: Int) = update(roomId) { g, _ ->
         if (g.hostUserId != me.id || g.status != GatheringStatus.OPEN) return@update g
         val n = headcount.coerceIn(HEADCOUNT_MIN, HEADCOUNT_MAX)

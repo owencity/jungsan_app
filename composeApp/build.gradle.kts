@@ -125,9 +125,11 @@ android {
 
     buildTypes {
         getByName("release") {
-            // 난독화·축소(R8)는 첫 출시에서 끈다 — Ktor·serialization·Compose 의 keep 규칙을 맞추다
-            // 실행 중에만 터지는 문제를 출시 주간에 만들지 않기 위해서다. 출시 뒤 규칙과 함께 켠다.
-            isMinifyEnabled = false
+            // 출시 파일의 사용하지 않는 코드·리소스를 줄이고 Play의 DEX 최적화 기준을 충족한다.
+            // 라이브러리가 제공하는 consumer 규칙을 사용하며, 패키지 전체를 보존하는 규칙은 두지 않는다.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
             signingConfigs.findByName("upload")?.let { signingConfig = it }
         }
     }

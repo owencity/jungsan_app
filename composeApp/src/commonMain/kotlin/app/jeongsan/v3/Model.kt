@@ -109,10 +109,7 @@ data class Gathering(
     val gatheringId: Id? = null,
     /** 다음에 넣을 차수 번호(API 모드) — 서버는 술자리 전체에서 번호를 매긴다. 없으면 이 정산방 차수로 센다 */
     val nextSeq: Int? = null,
-    /**
-     * 총무가 넣은 인원(총무 포함, FC-020). 이만큼 들어와 모두 응답하면 자동으로 정산된다.
-     * null 이면(옛 술자리·아직 안 넣음) 총무가 [지금 계산하기]로 정산한다
-     */
+    /** 과거 차수 입력에서 저장한 인원. 총 정산인원의 기본값으로 사용하지 않는다. */
     val headcount: Int? = null,
     /**
      * 자동 계산이 멈춘 이유(API v8 AUTO_SETTLEMENT) — 인원은 다 응답했는데 확정하지 못했다. 정상이면 null.
@@ -121,6 +118,8 @@ data class Gathering(
     val autoSettlementError: String? = null,
     /** 이 정산방의 첫 차수 번호(목데이터) — 다음 차 총무의 정산방은 술자리 전체 번호를 이어받는다. 없으면 1 */
     val firstSeq: Int? = null,
+    /** 차수별 참석 인원과 별도로 총무가 정한 전체 인원(총무 포함). 미설정은 null이다. */
+    val totalHeadcount: Int? = null,
 )
 
 /** 앱 안 알림(N1). 실제 서비스에선 서버가 만들고 푸시(FCM)도 같이 보낸다 */
@@ -161,14 +160,16 @@ fun Gathering.nameOf(participantId: Id): String = participants.find { it.id == p
 fun Gathering.responseOf(participantId: Id, roundId: Id): RoundResponse? =
     responses.find { it.participantId == participantId && it.roundId == roundId }
 
-/** 모든 차수에 응답이 있는가 */
+/** 모든 차수에 직접 또는 총무를 통해 응답했는가. 정산 때 채운 AUTO는 응답으로 세지 않는다. */
 fun Gathering.hasResponded(participantId: Id): Boolean =
-    rounds.isNotEmpty() && rounds.all { responseOf(participantId, it.id) != null }
+    rounds.isNotEmpty() && rounds.all { round ->
+        responseOf(participantId, round.id)?.let { it.source != ResponseSource.AUTO } == true
+    }
 
 fun Gathering.unrespondedParticipants(): List<Participant> = participants.filter { !hasResponded(it.id) }
 
 /** 모든 차수에 응답을 마친 사람 수 — R1 "5명 중 3명 응답" */
-fun Gathering.respondedCount(): Int = countedParticipants().count { hasResponded(it.id) }
+fun Gathering.respondedCount(): Int = countedParticipants().distinctBy { it.id }.count { hasResponded(it.id) }
 
 fun Gathering.roundAttendeeCount(roundId: Id): Int {
     val memberIds = participants.map { it.id }.toSet()

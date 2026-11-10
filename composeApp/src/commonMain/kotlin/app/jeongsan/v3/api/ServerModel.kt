@@ -49,6 +49,7 @@ import kotlinx.serialization.Serializable
     val headcount: Int? = null,
     /** 자동 계산이 멈춘 이유(API v8). 정상이면 null */
     val autoSettlementError: String? = null,
+    val totalHeadcount: Int? = null,
 )
 @Serializable data class SDrink(val name: String, val unitPrice: Long, val quantity: Int)
 @Serializable data class SRound(
@@ -138,6 +139,7 @@ fun ServerGathering.toRoom(u: SUnit): Gathering {
         shareToken = shareToken,
         inputRevision = u.inputRevision,
         headcount = u.headcount,
+        totalHeadcount = u.totalHeadcount,
         autoSettlementError = u.autoSettlementError,
         completedAt = u.completedAt?.let(::instant),
         // 명단은 서버가 준 단위 순서 그대로 — 총무 먼저, 그다음 이 단위에 들어온 순서. "인원 안"을 이 순서로 센다(API v8)

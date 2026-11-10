@@ -68,12 +68,11 @@ fun nextAction(g: Gathering, meUserId: Id, now: Instant = Clock.System.now()): N
             val waiting = g.unrespondedParticipants().size
             val note = when {
                 g.autoSettlementError != null -> "예상 금액을 계산하지 못했어요 · 입력을 확인해주세요"
-                g.rounds.none { it.expectedHeadcount != null } && g.headcount != null && g.participants.size > g.headcount ->
-                    "예상 ${g.headcount}명보다 많은 ${g.participants.size}명이 응답 명단에 있어요"
+                g.totalHeadcount != null && g.respondedCount() > g.totalHeadcount -> g.totalHeadcountNotice()
                 waiting > 0 -> "${waiting}명이 아직 응답 안 했어요 · 명단을 확인해주세요"
-                else -> "총무가 정산을 확정할 때까지 추가 응답을 받을 수 있어요."
+                else -> g.totalHeadcountNotice()
             }
-            return NextAction("응답 받는 중 · ${g.respondedCount()}명 제출", Tone.WAIT,
+            return NextAction("응답 받는 중 · ${g.responseProgress()}", Tone.WAIT,
                 Action(ActionKind.SETTLE, "명단·예상 금액 확인"), note)
         }
         val labels = g.rounds.joinToString("·") { it.label }

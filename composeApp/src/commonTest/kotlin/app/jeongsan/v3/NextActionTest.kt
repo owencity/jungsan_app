@@ -44,7 +44,7 @@ class NextActionTest {
         val extra = listOf(14L, 15L).flatMap { pid -> listOf(1L, 2L).map { rid -> RoundResponse(pid, rid, ResponseType.DRANK, ResponseSource.SELF) } }
         val g = room(OPEN).let { it.copy(responses = it.responses + extra) }
         val a = nextAction(g, 1)
-        assertEquals("응답 받는 중 · 5명 제출", a.banner)
+        assertEquals("응답 받는 중 · 5명 응답 · 총 인원 미설정", a.banner)
         assertContains(a.note.orEmpty(), "추가 응답을 받을 수 있어요")
         assertEquals(ActionKind.SETTLE, a.action?.kind)
     }
@@ -64,7 +64,7 @@ class NextActionTest {
         val active = g.copy(participants = members, rounds = rounds, responses = answers, headcount = 6)
         assertEquals(listOf(6, 7, 7), rounds.map { active.roundAttendeeCount(it.id) })
         val action = nextAction(active, 1)
-        assertEquals("응답 받는 중 · 7명 제출", action.banner)
+        assertEquals("응답 받는 중 · 7명 응답 · 총 인원 미설정", action.banner)
         assertContains(action.note.orEmpty(), "추가 응답을 받을 수 있어요")
     }
 

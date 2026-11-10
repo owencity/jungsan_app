@@ -14,6 +14,7 @@ import app.jeongsan.v3.V3Store
 import app.jeongsan.v3.mockPreview
 import app.jeongsan.v3.participantOfUser
 import app.jeongsan.v3.validateName
+import app.jeongsan.v3.totalHeadcountError
 import kotlinx.datetime.Clock
 import kotlinx.datetime.toDeprecatedInstant
 import kotlin.uuid.ExperimentalUuidApi
@@ -355,6 +356,17 @@ class V3Gateway(private val store: V3Store, private val client: ApiClient?, val 
         } catch (e: ApiError) {
             messageOf(e)
         }
+    }
+
+    suspend fun setTotalHeadcount(roomId: Id, totalHeadcount: Int): String? {
+        val room = store.state.rooms[roomId] ?: return "없는 술자리예요."
+        room.totalHeadcountError(store.state.me.id, totalHeadcount)?.let { return it }
+        val c = client ?: return store.setTotalHeadcount(roomId, totalHeadcount)
+        val (gid, uid) = ctx(roomId)
+        val error = mutate(c, gid) { c.putTotalHeadcount(gid, uid, totalHeadcount) }
+        if (error != null) return error
+        return if (store.state.rooms[roomId]?.totalHeadcount == totalHeadcount) null
+        else "저장 결과를 확인하지 못했어요. 응답 현황을 새로고침해주세요."
     }
 
     /** 인원(FC-020) — R1 [포함하기]. 서버는 목표 인원을 바꿔도 확정하지 않는다 */

@@ -1,4 +1,5 @@
-# 버전은 여기서만 올린다. 모듈 build.gradle.kts 에 숫자를 직접 쓰지 않는다.
+# 라이브러리·플러그인 버전은 여기서만 올린다. 모듈 build.gradle.kts 에 숫자를 직접 쓰지 않는다.
+# R8 교체 버전은 플러그인 로딩 전에 필요하므로 settings.gradle.kts에서 지정한다.
 [versions]
 # Kotlin 과 Compose Multiplatform 은 짝이 맞아야 한다 — 따로 올리면 컴파일러 플러그인이 깨진다.
 kotlin = "2.4.20"

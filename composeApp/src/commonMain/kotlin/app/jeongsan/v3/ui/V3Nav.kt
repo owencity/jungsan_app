@@ -328,6 +328,7 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3G
             onExempt = { pid, rid, ex -> store.setExempt(g.id, pid, rid, ex) },
             onRemove = { pid -> scope.fire { gateway.removeParticipant(g.id, pid) } },
             onRename = { pid, name, expected -> gateway.renameGuest(g.id, pid, name, expected) },
+            onTotalHeadcount = { count -> gateway.setTotalHeadcount(g.id, count) },
             onShare = { share(if (gateway.isDemoMode) demoShare else shareMessage(g, shareUrl(SHARE_BASE, g.shareToken))) },
             onStartNext = { ids ->
                 // 같은 술자리 안에 내가 총무인 정산 단위 → 바로 다음 차 금액 입력(FC-015)

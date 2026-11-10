@@ -113,6 +113,7 @@ fun RoomScreen(
     onTable: (() -> Unit)? = null,
     hostOnly: Boolean = false,
     onRefresh: (() -> Unit)? = null,
+    onTotalHeadcount: suspend (Int) -> String? = { "총 인원 설정을 사용할 수 없어요." },
 ) {
     var managing by remember { mutableStateOf<Id?>(null) }
     var msgMenu by remember { mutableStateOf<Id?>(null) }
@@ -155,6 +156,8 @@ fun RoomScreen(
                 }
             }
         }
+
+        if (isHost) TotalHeadcountCard(g, meUserId, onTotalHeadcount)
 
         if (saveImage != null) {
             Banner(if (g.status == GatheringStatus.COMPLETED) "입금 확인까지 완료했어요" else "정산 금액이 확정됐어요",
