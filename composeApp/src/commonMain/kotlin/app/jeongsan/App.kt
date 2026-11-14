@@ -98,7 +98,8 @@ private fun AppSession(realClient: ApiClient?, demo: Boolean, onEnterDemo: () ->
         // 스크린샷 모드는 서버 주소가 있어도 목데이터로 찍는다(LaunchOptions)
         val shot = LaunchOptions.screenshot
         val client = if (demo) null else realClient
-        val v3 = remember { V3Store(if (demo) DemoFixtures.state() else if (client == null) V3State.initial() else V3State.empty(),
+        val v3 = remember { V3Store(if (LaunchOptions.isStoreScreenshot) app.jeongsan.v3.StoreScreenshotFixtures.state()
+            else if (demo) DemoFixtures.state() else if (client == null) V3State.initial() else V3State.empty(),
             awardSpoons = !demo) }
         val gateway = remember { V3Gateway(v3, client, isDemoMode = demo) }
         val navController = rememberNavController()
@@ -112,14 +113,17 @@ private fun AppSession(realClient: ApiClient?, demo: Boolean, onEnterDemo: () ->
                 return@LaunchedEffect
             }
             // 스크린샷 모드: 이름 확인을 끝낸 상태에서 그 화면의 보는 사람으로 바꾸고 바로 띄운다
-            val target = shot?.let { SCREENSHOT_SCREENS[it] }
+            val target = shot?.let { if (LaunchOptions.isStoreScreenshot) app.jeongsan.v3.STORE_SCREENSHOT_SCREENS[it] else SCREENSHOT_SCREENS[it] }
             if (target != null) {
                 val (viewer, roomId) = target
                 if (viewer == 0L) return@LaunchedEffect // 로그인 화면 그대로
-                if (shot != "name") v3.confirmName("김동규") // name: 이름 확인(L2)을 띄우려고 확인 전 상태로 둔다
+                if (shot != "name" && !LaunchOptions.isStoreScreenshot) v3.confirmName("김동규") // name: 이름 확인(L2)을 띄우려고 확인 전 상태로 둔다
                 if (viewer != v3.state.me.id) v3.actAs(viewer)
                 navController.navigate(V3Routes.Home) { popUpTo(Routes.Login) { inclusive = true } }
                 val route = when (shot) {
+                    "store-settle" -> roomId?.let(V3Routes::settle)
+                    "store-table" -> roomId?.let(V3Routes::table)
+                    "store-round" -> roomId?.let { id -> V3Routes.round(id, v3.state.rooms.getValue(id).rounds.first().id) }
                     "respond" -> roomId?.let(V3Routes::respond)
                     "settle" -> roomId?.let(V3Routes::settle)
                     "pay" -> roomId?.let(V3Routes::pay)

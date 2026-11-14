@@ -136,7 +136,7 @@ private fun CoroutineScope.fire(block: suspend () -> String?) = launch { block()
 
 fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3Gateway, onLeave: () -> Unit) {
     // 가상 체험의 역할 전환과 달리 실제 계정은 총무 기능만 사용한다(FC-030).
-    val hostOnly = gateway.isApiMode
+    val hostOnly = gateway.isApiMode || LaunchOptions.isStoreScreenshot
     // 개발용 바 — 지금 보는 술자리(있으면)에서 각 사람의 역할을 같이 보여준다. 릴리스 빌드·API 모드에는 없다
     val devBar: (Id?) -> @Composable () -> Unit = { roomId ->
         // 스크린샷 모드(스토어 사진)에는 개발용 바를 그리지 않는다
@@ -204,7 +204,7 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3G
             onOpenAlerts = { nav.navigate(V3Routes.Notifications) },
             onEditAccount = { nav.navigate(V3Routes.MyAccount) },
             // 계정 메뉴는 계좌 화면 맨 아래에 있다 — 같은 화면으로 간다
-            onOpenAccount = if (gateway.isApiMode || gateway.isDemoMode) ({ nav.navigate(V3Routes.MyAccount) }) else null,
+            onOpenAccount = if (hostOnly || gateway.isDemoMode) ({ nav.navigate(V3Routes.MyAccount) }) else null,
             hostOnly = hostOnly,
             onDemoImage = if (gateway.isDemoMode) ({ nav.navigate(V3Routes.DemoImage) }) else null,
         )
@@ -301,7 +301,7 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3G
                 scope.launch { gateway.blockParticipant(g.id, pid)?.let(V3Toast::show) ?: V3Toast.show("${name}님을 차단했어요. 내 계정에서 풀 수 있어요") }
             },
             onBack = { nav.toHome() },
-            onTable = if (gateway.isApiMode && g.hostUserId == s.me.id) ({ nav.navigate(V3Routes.table(g.id)) }) else null,
+            onTable = if (hostOnly && g.hostUserId == s.me.id) ({ nav.navigate(V3Routes.table(g.id)) }) else null,
             onAction = { kind ->
                 when (kind) {
                     ActionKind.GIVE_SPOON -> gateway.giveSpoon(g.id)?.let(V3Toast::show)
@@ -486,7 +486,7 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3G
         val id = entry.idArg() ?: return@composable Missing(true)
         val loaded = rememberLoaded(gateway, id) { gateway.loadRoom(id) }
         val g = store.state.rooms[id] ?: return@composable Missing(loaded)
-        if (!gateway.isApiMode || g.hostUserId != store.state.me.id) {
+        if (!hostOnly || g.hostUserId != store.state.me.id) {
             Soon(devBar(id), "총무만 정산표를 볼 수 있어요") { nav.toRoom(id) }
         } else {
             SettlementTableScreen(id, gateway, onBack = { nav.popBackStack() })

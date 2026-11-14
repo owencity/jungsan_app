@@ -9,6 +9,7 @@ on:
 jobs:
   shots:
     runs-on: macos-latest
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
 
@@ -38,10 +39,12 @@ jobs:
       # 6.9인치(Pro Max) 시뮬레이터 — App Store 가 요구하는 가장 큰 아이폰 크기(1320×2868)
       - name: boot 6.9" simulator
         run: |
-          UDID=$(xcrun simctl list devices available -j | jq -r '[.devices[][] | select(.name | test("Pro Max"))] | last | .udid')
+          UDID=$(xcrun simctl list devices available -j | jq -r '[.devices | to_entries[] | select(.key | contains(".iOS-")) | .key as $runtime | .value[] | select(.name | test("Pro Max")) | {udid, version: ($runtime | split("iOS-")[1] | split("-") | map(tonumber))}] | sort_by(.version) | last | .udid')
+          [ "$UDID" != "null" ] || { echo "No iPhone Pro Max simulator available"; exit 1; }
           NAME=$(xcrun simctl list devices available -j | jq -r --arg u "$UDID" '.devices[][] | select(.udid == $u) | .name')
           echo "simulator: $NAME ($UDID)"
           echo "UDID=$UDID" >> "$GITHUB_ENV"
+          echo "SIMULATOR_NAME=$NAME" >> "$GITHUB_ENV"
           xcrun simctl boot "$UDID"
           xcrun simctl bootstatus "$UDID" -b
           # 상태 표시줄을 깔끔하게 — 9:41, 배터리 가득, 신호 가득
@@ -54,7 +57,7 @@ jobs:
         run: |
           mkdir -p shots
           n=1
-          for s in room respond settle pay home login; do
+          for s in store-table store-round store-room store-settle store-home; do
             xcrun simctl terminate "$UDID" app.jeongsan 2>/dev/null || true
             xcrun simctl launch "$UDID" app.jeongsan -jsScreen "$s"
             sleep 15
@@ -63,11 +66,12 @@ jobs:
             echo "saved $f"
             n=$((n+1))
           done
-          sips -g pixelWidth -g pixelHeight shots/01-room.png
+          sips -g pixelWidth -g pixelHeight shots/01-store-table.png
+          printf '{"commit":"%s","basis":"0.1.0 build 20 UI","data":"fictional screenshot fixtures","device":"%s"}\n' "$GITHUB_SHA" "$SIMULATOR_NAME" > shots/source.json
 
       - name: upload screenshots
         uses: actions/upload-artifact@v4
         with:
           name: app-store-screenshots-6.9
-          path: shots/*.png
+          path: shots/
           retention-days: 30
