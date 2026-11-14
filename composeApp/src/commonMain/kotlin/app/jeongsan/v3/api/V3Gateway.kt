@@ -46,6 +46,9 @@ class V3Gateway(private val store: V3Store, private val client: ApiClient?, val 
     val isApiMode get() = client != null
 
     suspend fun settlementTable(roomId: Id): ServerSettlementTable {
+        if (app.jeongsan.v3.LaunchOptions.isStoreScreenshot && client == null) {
+            return app.jeongsan.v3.StoreScreenshotFixtures.table(store.state.rooms.getValue(roomId))
+        }
         val c = checkNotNull(client) { "정산표는 서버 연결이 필요합니다." }
         val (gid, uid) = ctx(roomId)
         return c.settlementTable(gid, uid)

@@ -11,7 +11,19 @@ package app.jeongsan.v3
  */
 object LaunchOptions {
     var screenshot: String? = null
+
+    /** 공개 체험과 달리 운영 총무 화면을 캡처한다. 릴리스에서는 이 진입점을 사용하지 않는다. */
+    val isStoreScreenshot: Boolean
+        get() = isDebugBuild && screenshot?.let { it in STORE_SCREENSHOT_SCREENS } == true
 }
+
+val STORE_SCREENSHOT_SCREENS: Map<String, Pair<Long, Long?>> = linkedMapOf(
+    "store-room" to (1L to 101L),
+    "store-round" to (1L to 101L),
+    "store-settle" to (1L to 102L),
+    "store-table" to (1L to 103L),
+    "store-home" to (1L to null),
+)
 
 /** 스크린샷 화면 이름 → (보는 사람 userId, 띄울 술자리 id 또는 null=내 술자리) — 스토어에 올리는 순서 */
 val SCREENSHOT_SCREENS: Map<String, Pair<Long, Long?>> = linkedMapOf(
