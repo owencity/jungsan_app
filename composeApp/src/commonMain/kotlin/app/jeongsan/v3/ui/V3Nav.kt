@@ -65,9 +65,11 @@ import app.jeongsan.v3.shareUrl
  * 바로 갈 때도 정산방을 한 칸 끼워 넣는다.
  */
 object V3Routes {
+    const val QuickSettlement = "v3/quick-settlement"
     const val Home = "v3/home"
     const val Room = "v3/r/{id}"
     const val Round = "v3/r/{id}/round/{rid}"
+    const val Receipts = "v3/r/{id}/receipts"
     const val Settle = "v3/r/{id}/settle"
     const val Respond = "v3/r/{id}/respond"
     const val Pay = "v3/r/{id}/pay"
@@ -86,6 +88,7 @@ object V3Routes {
     fun room(id: Id) = "v3/r/$id"
     /** rid가 null이면 새 차수 */
     fun round(id: Id, rid: Id?) = "v3/r/$id/round/${rid ?: "new"}"
+    fun receipts(id: Id) = "v3/r/$id/receipts"
     fun settle(id: Id) = "v3/r/$id/settle"
     fun respond(id: Id) = "v3/r/$id/respond"
     fun pay(id: Id) = "v3/r/$id/pay"
@@ -206,6 +209,7 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3G
             // 계정 메뉴는 계좌 화면 맨 아래에 있다 — 같은 화면으로 간다
             onOpenAccount = if (gateway.isApiMode || gateway.isDemoMode) ({ nav.navigate(V3Routes.MyAccount) }) else null,
             hostOnly = hostOnly,
+            onQuickSettlement = if (gateway.isApiMode) ({ nav.navigate(V3Routes.QuickSettlement) }) else null,
             onDemoImage = if (gateway.isDemoMode) ({ nav.navigate(V3Routes.DemoImage) }) else null,
         )
     }
@@ -213,6 +217,11 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3G
     // 공개 체험에만 등록한다. 실제 계정의 표 조회와 가상 샘플을 섞지 않는다.
     if (gateway.isDemoMode) {
         composable(V3Routes.DemoImage) { SettlementImagePreview(onBack = { nav.popBackStack() }) }
+    }
+
+    composable(V3Routes.QuickSettlement) {
+        if (gateway.isApiMode || (isDebugBuild && LaunchOptions.screenshot == "quick-receipt")) QuickSettlementScreen(gateway = gateway, onBack = { nav.toHome() })
+        else Soon(devBar(null), "간단 N빵은 로그인 후 사용할 수 있어요") { nav.toHome() }
     }
 
     composable(V3Routes.Join) { entry ->
@@ -319,6 +328,7 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3G
                     ActionKind.CONFIRM_INCOMING -> Unit
                 }
             },
+            onReceipts = { nav.navigate(V3Routes.receipts(g.id)) },
             onEditRound = { rid -> nav.navigate(V3Routes.round(g.id, rid)) },
             onAddRound = { nav.navigate(V3Routes.round(g.id, null)) },
             onSend = { text -> scope.fire { gateway.sendMessage(g.id, text) } },
@@ -363,6 +373,8 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3G
                     devBar = devBar(g.id),
                     g = g,
                     round = round,
+                    extractReceipt = { jpeg -> gateway.extractReceipt(g.id, jpeg) },
+                    receiptExample = if (isDebugBuild && LaunchOptions.screenshot == "receipt-review") app.jeongsan.v3.receipt.receiptScreenExample() else null,
                     onBack = back,
                     onSave = { draft, andNext, mine ->
                         scope.launch {
@@ -376,6 +388,25 @@ fun NavGraphBuilder.v3Graph(nav: NavHostController, store: V3Store, gateway: V3G
                         { scope.launch { gateway.deleteRound(g.id, r.id)?.let(V3Toast::show) ?: nav.toRoom(g.id) } }
                     },
                 )
+            }
+        }
+    }
+
+    composable(V3Routes.Receipts) { entry ->
+        val id = entry.idArg()
+        val loaded = rememberLoaded(gateway, id) { id?.let { gateway.loadRoom(it) } }
+        val g = id?.let { store.state.rooms[it] }
+        val back = { id?.let { nav.toRoom(it) } ?: nav.toHome() }
+        when {
+            g == null -> Missing(loaded)
+            g.hostUserId != store.state.me.id -> Soon(devBar(g.id), "영수증은 총무만 반영할 수 있어요", back)
+            g.status != GatheringStatus.OPEN -> Soon(devBar(g.id), "정산한 뒤에는 차수를 고칠 수 없어요", back)
+            g.rounds.isEmpty() -> Soon(devBar(g.id), "차수를 먼저 추가해 주세요", back)
+            else -> {
+                val targets = remember(g.id) { g.rounds.map { app.jeongsan.v3.receipt.ReceiptTarget(it.id, it.label, app.jeongsan.v3.receipt.ReceiptInput(it.total, it.drinks)) } }
+                ReceiptBatchScreen(devBar(g.id), targets, { gateway.extractReceipt(g.id, it) }, back,
+                    onApply = { rid, input -> gateway.applyReceiptToRound(g.id, rid, targets.first { it.id == rid }.existing, input) },
+                    saveToServer = true)
             }
         }
     }

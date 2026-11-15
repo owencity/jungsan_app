@@ -3,6 +3,81 @@ import XCTest
 final class AppReviewUITests: XCTestCase {
     private let application = XCUIApplication()
 
+    func testQuickReceiptConfirmationAndImage() {
+        continueAfterFailure = false
+        application.launchArguments = ["-jsScreen", "quick-receipt"]
+        application.launch()
+        expect("개발용 예시 · 실제 영수증 인식 결과가 아닙니다")
+        expect("영수증 1 금액 확인·수정")
+        element("영수증 1 금액 확인·수정").tap()
+        expect("영수증 인식 결과")
+        XCTAssertFalse(element("술 항목").exists, "간단 N빵에서는 술 분류를 요구하지 않는다")
+        let confirm = element("결제 총액을 확인했어요")
+        for _ in 0..<5 { if confirm.isHittable { break }; application.swipeUp() }
+        XCTAssertTrue(confirm.isHittable)
+        let checked = element("이 영수증 확인 완료")
+        XCTAssertFalse(checked.isEnabled)
+        confirm.tap()
+        for _ in 0..<4 { if checked.isHittable { break }; application.swipeUp() }
+        checked.tap()
+        let apply = element("총금액에 반영")
+        for _ in 0..<6 { if apply.isHittable { break }; application.swipeUp() }
+        XCTAssertTrue(apply.isEnabled)
+        capture("ios-quick-receipt-confirmed")
+        apply.tap()
+        expect("금액과 인원만 넣으면 끝")
+        expect("개발용 예시 · 실제 서버 계산이 아닙니다")
+        let people = application.textViews.matching(NSPredicate(format: "label == %@", "인원 (결제자 본인 포함)")).firstMatch
+        for _ in 0..<5 { if people.isHittable { break }; application.swipeUp() }
+        XCTAssertTrue(people.isHittable)
+        people.tap()
+        people.typeText("3")
+        element("N빵 계산하기").tap()
+        expect("3,334원")
+        let save = element("N빵 결과 이미지 저장")
+        for _ in 0..<6 { if save.isHittable { break }; application.swipeUp() }
+        XCTAssertTrue(save.isHittable)
+        capture("ios-quick-result")
+        save.tap()
+        let file = application.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "jeongsan-nbbang-10000-3")).firstMatch
+        XCTAssertTrue(file.waitForExistence(timeout: 30), "입력한 총액·인원으로 생성한 PNG 저장 창이 열려야 한다")
+        capture("ios-quick-result-save-sheet")
+        application.terminate()
+    }
+
+    func testReceiptReviewConfirmationAndCancel() {
+        continueAfterFailure = false
+        application.launchArguments = ["-jsScreen", "receipt-review"]
+        application.launch()
+        expect("영수증 인식 결과")
+        expect("개발용 예시 · 실제 영수증 인식 결과가 아닙니다")
+        capture("ios-receipt-review-top")
+        let confirm = element("총액·술 단가·병 수를 확인했어요")
+        for _ in 0..<6 { if confirm.isHittable { break }; application.swipeUp() }
+        XCTAssertTrue(confirm.isHittable)
+        let apply = element("확인한 내용으로 1차에 반영")
+        XCTAssertFalse(apply.isEnabled, "확인 전에는 차수에 반영할 수 없어야 한다")
+        confirm.tap()
+        for _ in 0..<4 { if apply.isHittable { break }; application.swipeUp() }
+        capture("ios-receipt-review-confirm")
+        apply.tap()
+        expect("얼마 나왔나요?")
+        let total = application.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "1차 금액")).firstMatch
+        expectValue("50,000", in: total)
+        // 반영은 입력칸만 바꾼다. 기존 저장 버튼을 별도로 눌러야 한다.
+        application.terminate()
+        application.launch()
+        expect("영수증 인식 결과")
+        let cancel = element("취소하고 기존 입력 유지")
+        for _ in 0..<8 { if cancel.isHittable { break }; application.swipeUp() }
+        XCTAssertTrue(cancel.isHittable)
+        cancel.tap()
+        expect("얼마 나왔나요?")
+        expectValue("184,000", in: total)
+        capture("ios-receipt-cancel-keeps-input")
+        application.terminate()
+    }
+
     func testSettlementImageSaveSheet() {
         continueAfterFailure = false
         executionTimeAllowance = 180

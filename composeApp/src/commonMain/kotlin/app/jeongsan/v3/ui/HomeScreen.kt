@@ -80,6 +80,7 @@ fun HomeScreen(
     onOpenAccount: (() -> Unit)? = null,
     hostOnly: Boolean = false,
     onDemoImage: (() -> Unit)? = null,
+    onQuickSettlement: (() -> Unit)? = null,
 ) {
     val tabs = myRoomTabs(if (hostOnly) hostedRooms(rooms, me.id) else rooms, me.id)
     // 보는 사람이 바뀌면 처음 열 탭도 그 사람 기준으로 다시 고른다
@@ -125,6 +126,7 @@ fun HomeScreen(
             }
         }
 
+        onQuickSettlement?.let { SubButton("간단 N빵 · 금액과 인원만 입력", it) }
         onDemoImage?.let { SubButton("샘플 정산표 보기·저장", it) }
 
         // 운영 앱은 총무의 진행 중/완료만, 가상 체험은 역할 전환 검증을 유지한다.

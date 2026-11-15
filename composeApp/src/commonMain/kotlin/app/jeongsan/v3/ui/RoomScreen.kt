@@ -111,6 +111,7 @@ fun RoomScreen(
     /** 그 메시지를 쓴 사람 차단(FC-024) — 메시지만 숨긴다 */
     onBlock: (Id) -> Unit = {},
     onTable: (() -> Unit)? = null,
+    onReceipts: (() -> Unit)? = null,
     hostOnly: Boolean = false,
     onRefresh: (() -> Unit)? = null,
     onTotalHeadcount: suspend (Int) -> String? = { "총 인원 설정을 사용할 수 없어요." },
@@ -209,6 +210,9 @@ fun RoomScreen(
             }
         }
 
+        if (canEditRounds && onReceipts != null && g.rounds.isNotEmpty()) {
+            SubButton("영수증 여러 장으로 차수 입력") { onReceipts() }
+        }
         if (g.rounds.isNotEmpty()) {
             if (canEditRounds) {
                 for (round in g.rounds) {
