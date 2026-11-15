@@ -27,9 +27,13 @@ final class AppReviewUITests: XCTestCase {
         apply.tap()
         expect("금액과 인원만 넣으면 끝")
         expect("개발용 예시 · 실제 서버 계산이 아닙니다")
-        let people = application.textViews.matching(NSPredicate(format: "label == %@", "인원 (결제자 본인 포함)")).firstMatch
+        // Compose iOS는 빈 입력칸의 placeholder를 접근성 label 뒤에 붙인다.
+        // 기존 이름 입력 테스트와 같은 방식으로 실제 편집 가능한 TextView를 찾는다.
+        let people = application.textViews.matching(NSPredicate(format: "label BEGINSWITH %@", "인원 (결제자 본인 포함)")).firstMatch
+        let foundPeople = people.waitForExistence(timeout: 15)
         for _ in 0..<5 { if people.isHittable { break }; application.swipeUp() }
-        XCTAssertTrue(people.isHittable)
+        if !foundPeople || !people.isHittable { print(application.debugDescription); capture("ios-quick-people-missing") }
+        XCTAssertTrue(foundPeople && people.isHittable, "결제자 포함 인원을 실제 입력칸에서 수정할 수 있어야 한다")
         people.tap()
         people.typeText("3")
         element("N빵 계산하기").tap()
