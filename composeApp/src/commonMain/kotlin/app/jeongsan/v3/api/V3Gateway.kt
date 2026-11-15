@@ -15,6 +15,8 @@ import app.jeongsan.v3.mockPreview
 import app.jeongsan.v3.participantOfUser
 import app.jeongsan.v3.validateName
 import app.jeongsan.v3.totalHeadcountError
+import app.jeongsan.v3.GatheringStatus
+import app.jeongsan.v3.validateRound
 import kotlinx.datetime.Clock
 import kotlinx.datetime.toDeprecatedInstant
 import kotlin.uuid.ExperimentalUuidApi
@@ -44,6 +46,18 @@ sealed interface Settled {
 class V3Gateway(private val store: V3Store, private val client: ApiClient?, val isDemoMode: Boolean = false) {
     init { require(!isDemoMode || client == null) { "체험에는 실제 API 클라이언트를 연결하지 않습니다." } }
     val isApiMode get() = client != null
+
+    suspend fun extractReceipt(roomId: Id, jpeg: ByteArray): app.jeongsan.v3.receipt.ReceiptCandidate {
+        val c = client ?: throw ApiError(503, "OCR_UNAVAILABLE", "영수증 읽기는 서버 연결이 필요해요. 직접 입력해 주세요.")
+        val (gid, uid) = ctx(roomId)
+        return c.extractReceipt(gid, uid, jpeg)
+    }
+
+    suspend fun extractQuickReceipt(jpeg: ByteArray): app.jeongsan.v3.receipt.ReceiptCandidate =
+        (client ?: throw ApiError(503, "OCR_UNAVAILABLE", "영수증 읽기는 로그인 후 사용할 수 있어요.")).extractQuickReceipt(jpeg)
+
+    suspend fun quickSettlement(total: Long, headcount: Int): QuickSettlementResult =
+        (client ?: throw ApiError(503, "QUICK_UNAVAILABLE", "간단 N빵은 로그인 후 사용할 수 있어요.")).quickSettlement(total, headcount)
 
     suspend fun settlementTable(roomId: Id): ServerSettlementTable {
         val c = checkNotNull(client) { "정산표는 서버 연결이 필요합니다." }
@@ -238,6 +252,35 @@ class V3Gateway(private val store: V3Store, private val client: ApiClient?, val 
             Made.Ok(r.id)
         } catch (e: ApiError) {
             Made.Err(messageOf(e))
+        }
+    }
+
+    /** 영수증 합계는 절대값으로 PUT한다. 응답 유실 후 재시도해도 이미 넣은 금액을 다시 더하지 않는다. */
+    suspend fun applyReceiptToRound(roomId: Id, roundId: Id,
+        expected: app.jeongsan.v3.receipt.ReceiptInput, input: app.jeongsan.v3.receipt.ReceiptInput): String? {
+        loadRoom(roomId)?.let { return it }
+        val room = store.state.rooms[roomId] ?: return "술자리를 찾지 못했어요."
+        if (room.hostUserId != store.state.me.id || room.status != GatheringStatus.OPEN) return "총무가 정산 전 차수에만 반영할 수 있어요."
+        val round = room.rounds.find { it.id == roundId } ?: return "차수가 삭제됐어요. 다시 확인해 주세요."
+        val current = app.jeongsan.v3.receipt.ReceiptInput(round.total, round.drinks)
+        if (current == input) return null
+        if (current != expected) return "다른 화면에서 차수 금액이 변경됐어요. 돌아가서 최신 금액을 확인한 뒤 다시 입력해 주세요."
+        val draft = RoundDraft(roundId, input.total, input.drinks, round.payerParticipantId, round.expectedHeadcount)
+        val errors = validateRound(draft, room)
+        if (errors.isNotEmpty()) return errors.joinToString(" ")
+        val c = client ?: run {
+            store.saveRound(roomId, draft)
+            return null
+        }
+        val (gid, sid) = ctx(roomId)
+        return try {
+            c.putRound(gid, sid, roundId, RoundBody(input.total, round.payerParticipantId,
+                input.drinks.map { SDrink(it.name, it.unitPrice, it.quantity) }, round.expectedHeadcount, room.inputRevision))
+            refresh(c, gid)
+            null
+        } catch (e: ApiError) {
+            if (e.code == "SETTLEMENT_INPUT_CHANGED") "다른 화면에서 입력이 바뀌었어요. 최신 차수를 확인한 뒤 다시 반영해 주세요."
+            else messageOf(e)
         }
     }
 

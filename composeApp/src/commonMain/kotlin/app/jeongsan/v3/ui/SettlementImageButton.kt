@@ -61,7 +61,7 @@ fun SettlementImageButton(view: ServerSettlementTable) {
 }
 
 /** 화면 밀도·글자 확대 설정과 별개인 이미지. 글자 높이를 먼저 재서 이름과 금액을 자르지 않는다. */
-private fun renderSettlementImage(plan: SettlementImagePlan, measurer: TextMeasurer): ImageBitmap {
+internal fun renderSettlementImage(plan: SettlementImagePlan, measurer: TextMeasurer): ImageBitmap {
     val measured = plan.rows.map { row ->
         val widths = if (row.fullWidth) listOf(plan.width - 40) else plan.columnWidths
         row.values.mapIndexed { index, value ->

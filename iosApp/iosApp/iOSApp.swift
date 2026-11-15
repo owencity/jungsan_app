@@ -7,6 +7,7 @@ import KakaoSDKAuth
 struct iOSApp: App {
     @StateObject private var authenticationBrowser = AuthenticationBrowser()
     @StateObject private var kakaoTalkLogin = KakaoTalkLogin()
+    @StateObject private var receiptPhotoPicker = ReceiptPhotoPicker()
     var body: some Scene {
         WindowGroup {
             ContentView()
@@ -14,6 +15,9 @@ struct iOSApp: App {
                     let kakao = kakaoTalkLogin
                     IosKakaoTalkBridge.shared.launcher = { [weak kakao] in kakao?.start() }
                     IosKakaoTalkBridge.shared.cancel = { [weak kakao] in kakao?.cancel() }
+                    let photos = receiptPhotoPicker
+                    IosReceiptPhotoBridge.shared.launcher = { [weak photos] source in photos?.start(source) }
+                    IosReceiptPhotoBridge.shared.cancel = { [weak photos] in photos?.cancel() }
                     let browser = authenticationBrowser
                     IosAuthSessionBridge.shared.launcher = { [weak browser] address in
                         browser?.start(address)
