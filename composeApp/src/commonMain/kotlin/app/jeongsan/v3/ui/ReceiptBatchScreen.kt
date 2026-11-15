@@ -105,6 +105,7 @@ fun ReceiptBatchScreen(
         ReceiptInputScreen(devBar, "영수증 ${selected.id}", extract,
             onCancel = { reviewing = null }, onApply = {}, initialPhoto = selected.photo,
             initialCandidate = selected.candidate, initialDraft = selected.review, totalOnly = totalOnly,
+            example = if (examples.isNotEmpty()) selected.candidate else null,
             onReview = { checked -> entries = entries.map { if (it.id == selected.id) it.copy(review = checked) else it }; reviewing = null })
         return
     }
@@ -112,6 +113,7 @@ fun ReceiptBatchScreen(
     V3Screen(devBar, top = { BackButton { close() }; TopTitle("영수증으로 입력") }) {
         if (examples.isNotEmpty()) Text("개발용 예시 · 실제 영수증 인식 결과가 아닙니다", color = JsColor.ink2, fontSize = 13.sp)
         Text(if (totalOnly) "최대 5장을 한 장씩 읽어요. 결제 총액을 확인하면 합쳐서 입력해요." else "최대 5장을 한 장씩 읽어요. 영수증마다 금액을 확인하고 차수를 정해 주세요.", color = JsColor.ink2)
+        Text("사진은 정산어택 서버에서 잠시 처리하며 서버에 보관하지 않아요. 인식 결과는 틀리거나 빠질 수 있으니 반영 전에 확인해 주세요.", color = JsColor.ink2, fontSize = 12.sp)
         if (!busy && entries.size < MAX_RECEIPT_PHOTOS) {
             CtaButton("사진 촬영") { choose(ReceiptSource.CAMERA) }
             SubButton("사진 여러 장 선택") { choose(ReceiptSource.PHOTOS) }
@@ -134,11 +136,13 @@ fun ReceiptBatchScreen(
                             Text(if (entry.review?.checkedInput() != null) "금액 확인 완료 · ${won(entry.review.checkedInput()!!.total)}" else "금액 확인이 필요해요", color = JsColor.ink2)
                             SubButton("영수증 ${entry.id} 금액 확인·수정") { reviewing = entry.id }
                         } else SubButton(if (entry.error != null) "영수증 ${entry.id} 다시 읽기" else "영수증 ${entry.id} 읽기") { read(setOf(entry.id)) }
-                        Text(if (totalOnly) "반영할 곳" else "반영할 차수", color = JsColor.ink2, fontSize = 13.sp)
+                        if (!totalOnly) {
+                        Text("반영할 차수", color = JsColor.ink2, fontSize = 13.sp)
                         for (target in originalTargets) {
                             SubButton((if (entry.targetId == target.id) "✓ " else "") + target.label) {
                                 entries = entries.map { if (it.id == entry.id) it.copy(targetId = target.id) else it }
                             }
+                        }
                         }
                         SubButton("이 사진 제외") { entries = entries.filterNot { it.id == entry.id } }
                     }
@@ -158,13 +162,13 @@ fun ReceiptBatchScreen(
             val hasExisting = target.existing.total > 0 || target.existing.drinks.isNotEmpty()
             val mode = if (hasExisting) modes[target.id] else ReceiptApplyMode.REPLACE
             if (hasExisting && !busy) {
-                SubButton((if (mode == ReceiptApplyMode.REPLACE) "✓ " else "") + "기존 금액·술 항목을 교체") { modes[target.id] = ReceiptApplyMode.REPLACE }
-                SubButton((if (mode == ReceiptApplyMode.ADD) "✓ " else "") + "기존 금액·술 항목에 추가") { modes[target.id] = ReceiptApplyMode.ADD }
+                SubButton((if (mode == ReceiptApplyMode.REPLACE) "✓ " else "") + if (totalOnly) "기존 금액을 교체" else "기존 금액·술 항목을 교체") { modes[target.id] = ReceiptApplyMode.REPLACE }
+                SubButton((if (mode == ReceiptApplyMode.ADD) "✓ " else "") + if (totalOnly) "기존 금액에 추가" else "기존 금액·술 항목에 추가") { modes[target.id] = ReceiptApplyMode.ADD }
             }
             val combined = mode?.let { combineReceiptInputs(target.existing, inputs, it) }
-            if (!allChecked) Text("이 차수의 모든 영수증 금액을 먼저 확인해 주세요.", color = JsColor.warn)
+            if (!allChecked) Text(if (totalOnly) "모든 영수증의 결제 총액을 먼저 확인해 주세요." else "이 차수의 모든 영수증 금액을 먼저 확인해 주세요.", color = JsColor.warn)
             else if (mode == null) Text("기존 값을 교체할지 추가할지 선택해 주세요.", color = JsColor.warn)
-            else if (combined == null) Text("합산 금액이나 술 항목이 입력 한도를 넘었어요. 영수증 내용을 확인해 주세요.", color = JsColor.warn)
+            else if (combined == null) Text("차수 합계는 1,000만원, 술 항목은 100개까지예요. 영수증 내용을 확인해 주세요.", color = JsColor.warn)
             combined?.let { Text("반영 후 결제 금액 ${won(it.total)}", color = JsColor.ink, fontWeight = FontWeight.Bold) }
             CtaButton(if (saving == target.id) "저장 중이에요" else "${target.label}에 ${if (saveToServer) "저장" else "반영"}",
                 enabled = !busy && allChecked && combined != null && entries.none { it.applied && it.targetId == target.id }) {
@@ -184,7 +188,7 @@ fun ReceiptBatchScreen(
                 }
             }
         }
-        Text(if (saveToServer) "차수별로 저장해요. 완료된 차수는 다시 반영하지 않아요." else "반영 후 차수 화면의 저장 버튼을 눌러 주세요.", color = JsColor.ink2, fontSize = 12.sp)
+        Text(if (saveToServer) "차수별로 저장해요. 완료된 차수는 다시 반영하지 않아요." else if (totalOnly) "총금액에 반영한 뒤 인원을 넣고 N빵 계산하기를 눌러 주세요." else "반영 후 차수 화면의 저장 버튼을 눌러 주세요.", color = JsColor.ink2, fontSize = 12.sp)
         SubButton(if (entries.any { it.applied }) "차수로 돌아가기" else "취소하고 기존 입력 유지") { close() }
     }
 }

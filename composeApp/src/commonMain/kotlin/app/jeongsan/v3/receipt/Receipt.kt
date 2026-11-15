@@ -7,6 +7,7 @@ import app.jeongsan.v3.MAX_ROUND_TOTAL
 import kotlinx.serialization.Serializable
 
 const val MAX_RECEIPT_PHOTOS = 5
+const val MAX_RECEIPT_DRINKS = 100
 
 const val MAX_RECEIPT_BYTES = 8 * 1024 * 1024
 
@@ -69,6 +70,7 @@ data class ReceiptReviewDraft(
     fun problems(): List<String> = buildList {
         val amount = receiptInteger(total)
         if (amount == null || amount !in 1..MAX_ROUND_TOTAL) add("결제 금액을 1원~1,000만원 사이로 입력해 주세요.")
+        if (items.size > MAX_RECEIPT_DRINKS) add("술 항목은 차수마다 최대 100개까지 입력할 수 있어요.")
         if (items.any { it.name.isBlank() || it.name.trim().length > 20 }) add("술 이름을 1~20자로 입력해 주세요.")
         if (items.any { receiptInteger(it.price)?.let { n -> n in 1..9_999_999 } != true }) add("술 단가를 1원~9,999,999원 사이로 입력해 주세요.")
         if (items.any { receiptInteger(it.quantity)?.let { n -> n in 1..1000 } != true }) add("각 술의 병 수를 1~1,000 사이로 확인해 주세요.")

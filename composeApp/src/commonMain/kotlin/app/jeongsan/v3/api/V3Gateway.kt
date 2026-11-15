@@ -17,8 +17,6 @@ import app.jeongsan.v3.validateName
 import app.jeongsan.v3.totalHeadcountError
 import app.jeongsan.v3.GatheringStatus
 import app.jeongsan.v3.validateRound
-import app.jeongsan.v3.responseOf
-import app.jeongsan.v3.host
 import kotlinx.datetime.Clock
 import kotlinx.datetime.toDeprecatedInstant
 import kotlin.uuid.ExperimentalUuidApi
@@ -271,17 +269,19 @@ class V3Gateway(private val store: V3Store, private val client: ApiClient?, val 
         val errors = validateRound(draft, room)
         if (errors.isNotEmpty()) return errors.joinToString(" ")
         val c = client ?: run {
-            val mine = room.responseOf(room.host().id, roundId)?.type ?: ResponseType.DRANK
-            store.saveRoundAsHost(roomId, draft, mine)
+            store.saveRound(roomId, draft)
             return null
         }
         val (gid, sid) = ctx(roomId)
         return try {
             c.putRound(gid, sid, roundId, RoundBody(input.total, round.payerParticipantId,
-                input.drinks.map { SDrink(it.name, it.unitPrice, it.quantity) }, round.expectedHeadcount))
+                input.drinks.map { SDrink(it.name, it.unitPrice, it.quantity) }, round.expectedHeadcount, room.inputRevision))
             refresh(c, gid)
             null
-        } catch (e: ApiError) { messageOf(e) }
+        } catch (e: ApiError) {
+            if (e.code == "SETTLEMENT_INPUT_CHANGED") "다른 화면에서 입력이 바뀌었어요. 최신 차수를 확인한 뒤 다시 반영해 주세요."
+            else messageOf(e)
+        }
     }
 
     suspend fun deleteRound(roomId: Id, roundId: Id): String? {

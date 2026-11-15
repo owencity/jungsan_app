@@ -14,6 +14,7 @@ fun combineReceiptInputs(existing: ReceiptInput, receipts: List<ReceiptInput>, m
     if (all.any { it.total < 0 || it.total > MAX_ROUND_TOTAL }) return null
     val total = all.sumOf { it.total }
     val drinks = all.flatMap { it.drinks }
+    if (drinks.size > MAX_RECEIPT_DRINKS) return null
     if (total !in 1..MAX_ROUND_TOTAL || drinks.any { it.unitPrice !in 1..9_999_999 || it.quantity !in 1..1000 || it.name.isBlank() }) return null
     if (drinks.sumOf { it.unitPrice * it.quantity } > total) return null
     return ReceiptInput(total, drinks)

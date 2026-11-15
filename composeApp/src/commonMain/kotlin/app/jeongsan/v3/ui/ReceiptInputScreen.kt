@@ -95,7 +95,7 @@ fun ReceiptInputScreen(
 
     ReceiptBackHandler { cancel() }
 
-    V3Screen(devBar = devBar, top = { BackButton { cancel() }; TopTitle("$label 영수증 입력") }) {
+    V3Screen(devBar = devBar, top = { BackButton { cancel() }; TopTitle(if (onReview != null) "$label 확인" else "$label 영수증 입력") }) {
         if (example != null) Text("개발용 예시 · 실제 영수증 인식 결과가 아닙니다", color = JsColor.ink2, fontSize = 13.sp)
         when (step) {
             ReceiptStep.SOURCE -> {
@@ -130,7 +130,7 @@ fun ReceiptInputScreen(
             ReceiptStep.REVIEW -> {
                 val current = draft ?: return@V3Screen
                 Label("영수증 인식 결과")
-                Text("잘못 읽은 값과 빠진 술이 있는지 확인해 주세요. 확인 전에는 차수에 반영되지 않아요.", color = JsColor.ink2)
+                Text(if (totalOnly) "영수증의 최종 결제 총액과 같은지 확인해 주세요. 확인 전에는 입력에 반영되지 않아요." else "잘못 읽은 값과 빠진 술이 있는지 확인해 주세요. 확인 전에는 차수에 반영되지 않아요.", color = JsColor.ink2)
                 candidate?.warnings.orEmpty().map(::receiptWarning).distinct().forEach { ReceiptNotice(it) }
                 ReceiptField("최종 결제 금액", current.total, number = true) { draft = current.copy(total = it, confirmed = false) }
                 if (!totalOnly) {
@@ -175,7 +175,7 @@ fun ReceiptInputScreen(
                     Text(if (totalOnly) "결제 총액을 확인했어요" else "총액·술 단가·병 수를 확인했어요", color = JsColor.ink, fontSize = 13.sp)
                 }
                 CtaButton(if (onReview != null) "이 영수증 확인 완료" else "확인한 내용으로 ${label}에 반영", enabled = current.checkedInput() != null) { current.checkedInput()?.let { if (onReview != null) onReview(current) else onApply(it) } }
-                Text(if (onReview == null) "반영 후 기존 차수 화면에서 저장해 주세요." else "차수와 반영 방법은 영수증 목록에서 정해 주세요.", color = JsColor.ink2, fontSize = 12.sp)
+                Text(if (onReview == null) "반영 후 기존 차수 화면에서 저장해 주세요." else if (totalOnly) "확인한 총액은 영수증 목록에서 합쳐서 반영해 주세요." else "차수와 반영 방법은 영수증 목록에서 정해 주세요.", color = JsColor.ink2, fontSize = 12.sp)
                 if (onReview == null) SubButton("다시 촬영·선택") { photo = null; candidate = null; draft = null; error = null; step = ReceiptStep.SOURCE }
                 SubButton("취소하고 기존 입력 유지") { cancel() }
             }
